@@ -88,6 +88,8 @@ function renderEditor(panel, draft) {
     <div id="preview-area" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px"></div>
     <div class="btn-row">
       <button class="btn btn-primary" id="save-btn">저장</button>
+      <button class="btn btn-secondary" id="png-btn">PNG 저장</button>
+      <button class="btn btn-secondary" id="print-btn">인쇄</button>
       <button class="btn btn-link" id="to-live-btn">라이브 모드에 추가 →</button>
       <button class="btn btn-secondary" id="back-btn">← 목록</button>
     </div>
@@ -127,6 +129,34 @@ function renderEditor(panel, draft) {
     if (!setlists.find(s => s.id === draft.id)) setlists.push({ id: draft.id, title: draft.title || '(제목 없음)', type: 'chart' });
     localStorage.setItem('gta_setlists', JSON.stringify(setlists));
     alert('라이브 모드 셋리스트에 추가됐습니다.');
+  });
+
+  ed.querySelector('#png-btn').addEventListener('click', async () => {
+    syncDraft();
+    const preview = ed.querySelector('#preview-area');
+    try {
+      const { default: html2canvas } = await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js');
+      const canvas = await html2canvas(preview, { backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#1a1a1a', scale: 2 });
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `${draft.title || 'chord-chart'}.png`;
+      a.click();
+    } catch (e) {
+      alert('PNG 저장 실패: ' + e.message);
+    }
+  });
+
+  ed.querySelector('#print-btn').addEventListener('click', () => {
+    syncDraft();
+    const preview = ed.querySelector('#preview-area');
+    const win = window.open('', '_blank');
+    win.document.write(`<html><head><title>${draft.title || 'Chord Chart'}</title>
+      <style>body{font-family:sans-serif;padding:20px;color:#000}
+      .section-header{font-weight:700;color:#333;margin-bottom:4px}
+      .bar{display:inline-block;min-width:60px;padding:4px 8px;border:1px solid #ccc;border-radius:4px;margin:2px;font-weight:600}
+      </style></head><body>${preview.innerHTML}</body></html>`);
+    win.document.close();
+    win.print();
   });
 
   ed.querySelector('#back-btn').addEventListener('click', () => {
