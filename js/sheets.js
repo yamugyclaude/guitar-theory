@@ -1,5 +1,5 @@
 import { goTo } from './app.js';
-import { saveSheet, getAllSheets, deleteSheet, getSheet } from './db.js';
+import { saveSheet, getAllSheets, deleteSheet, getSheet, updateSheet } from './db.js';
 
 function uuid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36); }
 
@@ -145,6 +145,10 @@ async function uploadSheet(panel) {
   const folder = panel.querySelector('#meta-folder').value;
   const type = file.type === 'application/pdf' ? 'pdf' : 'image';
 
+  const btn = panel.querySelector('#upload-btn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
   let thumbnail = null;
   if (type === 'image') {
     thumbnail = await fileToDataURL(file);
@@ -154,15 +158,49 @@ async function uploadSheet(panel) {
 
   await saveSheet({ id, file, type, thumbnail, createdAt: Date.now() });
 
+  // PDF: 전 페이지를 이미지로 변환 저장 (라이브 모드에서 고품질 렌더링에 사용)
+  if (type === 'pdf') {
+    btn.textContent = 'PDF 변환 중...';
+    const pages = await prerenderPdfPages(file);
+    if (pages && pages.length > 0) {
+      await updateSheet(id, { pages });
+    }
+  }
+
   const meta = getMeta();
   meta.unshift({ id, title, artist, key, bpm, tags, folder, type, createdAt: Date.now() });
   setMeta(meta);
 
+  btn.disabled = false;
+  btn.textContent = '저장';
   panel.querySelector('#file-input').value = '';
   ['meta-title','meta-artist','meta-key','meta-bpm','meta-tags'].forEach(k => { panel.querySelector(`#${k}`).value = ''; });
   panel.querySelector('#meta-folder').value = '';
 
   loadList(panel);
+}
+
+// PDF 전 페이지를 JPEG 블롭 배열로 변환
+async function prerenderPdfPages(file) {
+  const pdfjsLib = window.pdfjsLib;
+  if (!pdfjsLib) return null;
+  const url = URL.createObjectURL(file);
+  try {
+    const pdf = await pdfjsLib.getDocument(url).promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.8 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.88));
+      pages.push(blob);
+    }
+    return pages;
+  } catch { return null; }
+  finally { URL.revokeObjectURL(url); }
 }
 
 function fileToDataURL(file) {

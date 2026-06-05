@@ -80,15 +80,37 @@ async function openItem(panel, idx) {
   viewer.scrollIntoView({ behavior: 'smooth' });
 }
 
-// PDF.js로 캔버스 렌더링 (iframe 대체)
+// 콘텐츠 렌더링: 이미지 블롭 우선 → PDF.js 폴백
 async function renderContent(container, record, startPage, ppv) {
   if (record.type === 'image') {
     const url = URL.createObjectURL(record.file);
-    container.innerHTML = `<img src="${url}" style="width:100%;border-radius:var(--radius)">`;
+    const imgStyle = ppv === 2 ? 'width:calc(50% - 4px);display:block;border-radius:4px' : 'width:100%;display:block;border-radius:4px';
+    container.innerHTML = `<div style="display:flex;gap:8px;justify-content:center"><img src="${url}" style="${imgStyle}" onload="URL.revokeObjectURL(this.src)"></div>`;
     return { totalPages: 1 };
   }
 
-  // PDF → canvas 렌더링
+  // PDF: 업로드 시 변환된 이미지 블롭 사용 (가장 안정적)
+  if (record.pages && record.pages.length > 0) {
+    const totalPages = record.pages.length;
+    container.innerHTML = `<div id="pdf-pages" style="display:flex;gap:8px;justify-content:center"></div>`;
+    const pagesEl = container.querySelector('#pdf-pages');
+
+    for (let p = startPage; p <= Math.min(startPage + ppv - 1, totalPages); p++) {
+      const blob = record.pages[p - 1];
+      if (!blob) continue;
+      const url = URL.createObjectURL(blob);
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.cssText = ppv === 2
+        ? 'width:calc(50% - 4px);display:block;border-radius:4px'
+        : 'width:100%;display:block;border-radius:4px';
+      img.onload = () => URL.revokeObjectURL(url);
+      pagesEl.appendChild(img);
+    }
+    return { totalPages };
+  }
+
+  // 폴백: PDF.js 런타임 렌더링 (이전 업로드 파일 또는 변환 실패 시)
   container.innerHTML = `<div style="text-align:center;color:var(--text2);padding:20px">PDF 로딩 중...</div>`;
   try {
     const pdfjsLib = window.pdfjsLib;
@@ -102,12 +124,14 @@ async function renderContent(container, record, startPage, ppv) {
 
     for (let p = startPage; p <= Math.min(startPage + ppv - 1, totalPages); p++) {
       const page = await pdf.getPage(p);
-      const scale = ppv === 2 ? 1.2 : 1.8;
+      const scale = ppv === 2 ? 1.0 : 1.6;
       const viewport = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.cssText = `width:${ppv === 2 ? 'calc(50% - 4px)' : '100%'};border-radius:4px;display:block`;
+      canvas.style.cssText = ppv === 2
+        ? 'width:calc(50% - 4px);border-radius:4px;display:block'
+        : 'width:100%;border-radius:4px;display:block';
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
       pagesEl.appendChild(canvas);
     }

@@ -44,6 +44,23 @@ export async function getAllSheets() {
   });
 }
 
+export async function updateSheet(id, updates) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    const req = store.get(id);
+    req.onsuccess = e => {
+      const record = e.target.result;
+      if (!record) { reject(new Error('not found')); return; }
+      Object.assign(record, updates);
+      store.put(record);
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
 export async function deleteSheet(id) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
