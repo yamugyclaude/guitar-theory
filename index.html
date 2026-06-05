@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark-pro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Guitar Theory App</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 사이드 탭바 (PC) / 하단 탭바 (모바일) -->
+  <nav id="tab-nav">
+    <div class="nav-header">🎸 GTA</div>
+    <button class="tab-btn active" data-tab="1">🎸<span>이론 분석</span></button>
+    <button class="tab-btn" data-tab="2">🎼<span>코드 보이싱</span></button>
+    <button class="tab-btn" data-tab="3">🎯<span>솔로 메이킹</span></button>
+    <button class="tab-btn" data-tab="4">🔍<span>솔로 분석</span></button>
+    <button class="tab-btn" data-tab="5">🌟<span>스타일</span></button>
+    <button class="tab-btn" data-tab="6">📂<span>악보</span></button>
+    <button class="tab-btn" data-tab="7">📝<span>코드차트</span></button>
+    <button class="tab-btn" data-tab="8">🎬<span>라이브</span></button>
+    <button class="tab-btn" data-tab="9">⚙️<span>설정</span></button>
+  </nav>
+
+  <!-- 메인 콘텐츠 -->
+  <main id="main-content">
+    <div id="tab-1" class="tab-panel active"></div>
+    <div id="tab-2" class="tab-panel"></div>
+    <div id="tab-3" class="tab-panel"></div>
+    <div id="tab-4" class="tab-panel"></div>
+    <div id="tab-5" class="tab-panel"></div>
+    <div id="tab-6" class="tab-panel"></div>
+    <div id="tab-7" class="tab-panel"></div>
+    <div id="tab-8" class="tab-panel"></div>
+    <div id="tab-9" class="tab-panel"></div>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
