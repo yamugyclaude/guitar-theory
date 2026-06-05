@@ -91,9 +91,9 @@ async function renderContent(container, record, startPage, ppv) {
   // PDF → canvas 렌더링
   container.innerHTML = `<div style="text-align:center;color:var(--text2);padding:20px">PDF 로딩 중...</div>`;
   try {
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.mjs');
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.mjs';
     }
     const url = URL.createObjectURL(record.file);
     const pdf = await pdfjsLib.getDocument(url).promise;

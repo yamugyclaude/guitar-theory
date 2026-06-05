@@ -175,7 +175,7 @@ function fileToDataURL(file) {
 
 async function pdfThumbnail(file) {
   try {
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.mjs');
     const url = URL.createObjectURL(file);
     const pdf = await pdfjsLib.getDocument(url).promise;
     const page = await pdf.getPage(1);
@@ -321,9 +321,9 @@ async function openSheet(panel, id) {
 const CHORD_RE = /\b([A-G][#b]?(?:maj7|maj9|maj|m7b5|m7|m9|m|7|9|11|13|sus[24]|dim7|dim|aug|add9|\+|°)?)\b/g;
 
 async function extractChordsFromPdf(record) {
-  const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+  const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.mjs');
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.mjs';
   }
   const url = URL.createObjectURL(record.file);
   const pdf = await pdfjsLib.getDocument(url).promise;
