@@ -255,6 +255,7 @@ async function openSheet(panel, id) {
           ${meta.folder ? `<div style="font-size:0.8rem;color:var(--accent);margin-top:2px">📁 ${meta.folder}</div>` : ''}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-link" id="extract-btn">🎵 코드 추출 → 라이브차트</button>
           <button class="btn btn-link" id="to-chart-btn">코드차트 만들기 →</button>
           <button class="btn btn-link" id="to-live-btn">라이브 모드에 추가 →</button>
           <button class="btn btn-secondary" id="delete-btn" style="color:var(--danger)">삭제</button>
@@ -310,5 +311,174 @@ async function openSheet(panel, id) {
     }
   });
 
+  viewer.querySelector('#extract-btn').addEventListener('click', () =>
+    extractAndCreateLiveChart(meta, record, viewer));
+
   viewer.scrollIntoView({ behavior: 'smooth' });
 }
+
+// ===== 코드 추출 → 라이브 차트 생성 =====
+const CHORD_RE = /\b([A-G][#b]?(?:maj7|maj9|maj|m7b5|m7|m9|m|7|9|11|13|sus[24]|dim7|dim|aug|add9|\+|°)?)\b/g;
+
+async function extractChordsFromPdf(record) {
+  const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const url = URL.createObjectURL(record.file);
+  const pdf = await pdfjsLib.getDocument(url).promise;
+  const chordsByPage = [];
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    const text = tc.items.map(i => i.str).join(' ');
+    const matches = [...text.matchAll(CHORD_RE)].map(m => m[1]);
+    // 중복 제거하되 순서 유지
+    const unique = [...new Set(matches)];
+    if (unique.length) chordsByPage.push({ page: p, chords: unique });
+  }
+  URL.revokeObjectURL(url);
+  return chordsByPage;
+}
+
+async function extractAndCreateLiveChart(meta, record, viewer) {
+  // 추출 결과 표시 영역
+  let extractArea = viewer.querySelector('#extract-area');
+  if (!extractArea) {
+    extractArea = document.createElement('div');
+    extractArea.id = 'extract-area';
+    viewer.querySelector('.card').appendChild(extractArea);
+  }
+  extractArea.innerHTML = `<hr class="divider"><div style="color:var(--text2);font-size:0.85rem">분석 중...</div>`;
+
+  let sections = [];
+
+  if (record.type === 'pdf') {
+    try {
+      const byPage = await extractChordsFromPdf(record);
+      if (byPage.length === 0) {
+        // 텍스트 추출 실패 → 수동 입력 fallback
+        showManualInput(meta, extractArea);
+        return;
+      }
+      // 페이지별 → 섹션으로 변환
+      sections = byPage.map((pg, i) => ({
+        type: i === 0 ? 'Intro' : `Page ${pg.page}`,
+        bars: pg.chords.map(c => ({ chords: c })),
+        memo: ''
+      }));
+    } catch {
+      showManualInput(meta, extractArea);
+      return;
+    }
+  } else {
+    // 이미지 → 수동 입력
+    showManualInput(meta, extractArea);
+    return;
+  }
+
+  renderExtractResult(meta, sections, extractArea);
+}
+
+function showManualInput(meta, container) {
+  container.innerHTML = `
+    <hr class="divider">
+    <div class="section-label">코드 직접 입력 (이미지/스캔 악보)</div>
+    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:8px">PDF 텍스트 추출이 불가능합니다. 악보를 보면서 코드를 직접 입력해주세요.</p>
+    <div id="manual-sections"></div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="add-manual-sec">+ 섹션 추가</button>
+      <button class="btn btn-primary" id="save-manual">라이브 차트 생성</button>
+    </div>
+  `;
+
+  const secTypes = ['Intro','Verse','Chorus','Bridge','Solo','Outro'];
+  let manualSections = [{ type: 'Verse', chords: '' }];
+
+  function renderManual() {
+    container.querySelector('#manual-sections').innerHTML = manualSections.map((s, i) => `
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <select class="sec-type" data-i="${i}" style="width:auto;flex-shrink:0">
+          ${secTypes.map(t => `<option ${t===s.type?'selected':''}>${t}</option>`).join('')}
+        </select>
+        <input type="text" class="sec-chords" data-i="${i}" value="${s.chords}" placeholder="Am7, D7, Gmaj7, Cmaj7" style="flex:1">
+        <button class="del-sec btn btn-secondary" data-i="${i}" style="padding:6px 8px;color:var(--danger)">×</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('.sec-type').forEach(el => el.addEventListener('change', e => { manualSections[e.target.dataset.i].type = e.target.value; }));
+    container.querySelectorAll('.sec-chords').forEach(el => el.addEventListener('input', e => { manualSections[e.target.dataset.i].chords = e.target.value; }));
+    container.querySelectorAll('.del-sec').forEach(el => el.addEventListener('click', e => { manualSections.splice(Number(e.target.dataset.i), 1); renderManual(); }));
+  }
+  renderManual();
+
+  container.querySelector('#add-manual-sec').addEventListener('click', () => {
+    manualSections.push({ type: 'Verse', chords: '' });
+    renderManual();
+  });
+  container.querySelector('#save-manual').addEventListener('click', () => {
+    const sections = manualSections.map(s => ({
+      type: s.type,
+      bars: s.chords.split(',').map(c => ({ chords: c.trim() })).filter(b => b.chords),
+      memo: ''
+    }));
+    renderExtractResult(meta, sections, container);
+  });
+}
+
+function renderExtractResult(meta, sections, container) {
+  const preview = sections.map(s =>
+    `<div style="margin-bottom:10px">
+      <div style="font-weight:700;color:var(--accent);font-size:0.85rem;margin-bottom:4px">${s.type}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${s.bars.map(b => `<span style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:0.85rem;font-weight:600">${b.chords}</span>`).join('')}
+      </div>
+    </div>`
+  ).join('');
+
+  container.innerHTML = `
+    <hr class="divider">
+    <div class="section-label">추출된 코드 진행 미리보기</div>
+    <div style="background:var(--bg3);border-radius:var(--radius);padding:12px;margin-bottom:12px">${preview}</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="create-live-chart">라이브 차트로 저장 + 셋리스트 추가</button>
+      <button class="btn btn-secondary" id="edit-before-save">수정 후 저장 →</button>
+    </div>
+  `;
+
+  container.querySelector('#create-live-chart').addEventListener('click', () => {
+    saveLiveChart(meta, sections);
+    container.innerHTML = `<hr class="divider"><div style="color:var(--accent);font-size:0.85rem;padding:8px 0">✅ 라이브 셋리스트에 추가됐습니다.</div>`;
+  });
+
+  container.querySelector('#edit-before-save').addEventListener('click', () => {
+    const { goTo } = saveLiveChartAndGetId(meta, sections);
+  });
+}
+
+function buildDraft(meta, sections) {
+  const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36));
+  return {
+    id,
+    title: meta.title + ' (라이브)',
+    artist: meta.artist || '',
+    key: meta.key || '',
+    bpm: meta.bpm || '',
+    time: '4/4',
+    sections
+  };
+}
+
+function saveLiveChart(meta, sections) {
+  const draft = buildDraft(meta, sections);
+  const drafts = JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]');
+  drafts.unshift(draft);
+  localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+
+  const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+  if (!setlists.find(s => s.id === draft.id)) {
+    setlists.push({ id: draft.id, title: draft.title, type: 'chart' });
+    localStorage.setItem('gta_setlists', JSON.stringify(setlists));
+  }
+}
+
