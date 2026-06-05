@@ -175,7 +175,8 @@ function fileToDataURL(file) {
 
 async function pdfThumbnail(file) {
   try {
-    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.mjs');
+    const pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) return null;
     const url = URL.createObjectURL(file);
     const pdf = await pdfjsLib.getDocument(url).promise;
     const page = await pdf.getPage(1);
@@ -321,10 +322,8 @@ async function openSheet(panel, id) {
 const CHORD_RE = /\b([A-G][#b]?(?:maj7|maj9|maj|m7b5|m7|m9|m|7|9|11|13|sus[24]|dim7|dim|aug|add9|\+|°)?)\b/g;
 
 async function extractChordsFromPdf(record) {
-  const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.mjs');
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.mjs';
-  }
+  const pdfjsLib = window.pdfjsLib;
+  if (!pdfjsLib) throw new Error('PDF.js 없음');
   const url = URL.createObjectURL(record.file);
   const pdf = await pdfjsLib.getDocument(url).promise;
   const chordsByPage = [];

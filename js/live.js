@@ -91,10 +91,8 @@ async function renderContent(container, record, startPage, ppv) {
   // PDF → canvas 렌더링
   container.innerHTML = `<div style="text-align:center;color:var(--text2);padding:20px">PDF 로딩 중...</div>`;
   try {
-    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.mjs');
-    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.mjs';
-    }
+    const pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) throw new Error('PDF.js 라이브러리를 불러올 수 없습니다.');
     const url = URL.createObjectURL(record.file);
     const pdf = await pdfjsLib.getDocument(url).promise;
     const totalPages = pdf.numPages;
