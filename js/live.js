@@ -76,10 +76,11 @@ async function openItem(panel, idx) {
           : `<iframe src="${url}" style="width:100%;height:70vh;border:none"></iframe>`
         }
         <div class="btn-row">
-          <button class="btn btn-primary" onclick="startFullscreen(panel, ${idx})">🎬 풀스크린</button>
+          <button class="btn btn-primary" id="fullscreen-item-btn">🎬 풀스크린</button>
         </div>
       </div>
     `;
+    viewer.querySelector('#fullscreen-item-btn').addEventListener('click', () => startFullscreen(panel, idx));
   }
   viewer.scrollIntoView({ behavior: 'smooth' });
 }

@@ -129,7 +129,7 @@ function showDetail(panel, solo) {
           <div style="font-size:1.2rem;font-weight:700">${solo.title}</div>
           <div style="color:var(--text2);font-size:0.85rem">${solo.artist} · ${solo.key}</div>
         </div>
-        <button class="btn btn-link" onclick="import('./app.js').then(m=>m.goTo(5,{artist:'${solo.style}'}))">스타일 라이브러리 보기 →</button>
+        <button class="btn btn-link" id="to-library-btn">스타일 라이브러리 보기 →</button>
       </div>
       <hr class="divider">
       <div class="section-label">섹션 분석</div>
@@ -138,5 +138,6 @@ function showDetail(panel, solo) {
       ${licks}
     </div>
   `;
+  panel.querySelector('#to-library-btn').addEventListener('click', () => goTo(5, { artist: solo.style }));
   panel.querySelector('#solo-detail').scrollIntoView({ behavior: 'smooth' });
 }

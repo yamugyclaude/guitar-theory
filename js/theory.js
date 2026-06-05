@@ -87,8 +87,12 @@ function detectKey(chords) {
           score++;
         }
       }
-      if (score > bestScore) {
-        bestScore = score;
+      // 동점 시: major 우선, 마지막 코드가 I인 키 우선
+      const lastChord = chords[chords.length - 1];
+      const lastIsI = diatonic[0].root === lastChord?.root;
+      const tiebreaker = (!isMinor ? 0.1 : 0) + (lastIsI ? 0.05 : 0);
+      if (score + tiebreaker > bestScore) {
+        bestScore = score + tiebreaker;
         best = { keyIdx: ki, isMinor, score };
       }
     }

@@ -143,7 +143,7 @@ function run(panel) {
         <div style="font-size:0.78rem;color:var(--text2);margin-top:2px">
           ${s.intervals.map(i => NOTES[(rootIdx + i) % 12]).join(' · ')}
         </div>
-        <button class="btn btn-secondary" style="margin-top:8px;font-size:0.78rem;padding:5px 10px" onclick="this.closest('.scale-row').querySelector('.scale-diagram').style.display=this.closest('.scale-row').querySelector('.scale-diagram').style.display==='none'?'block':'none'">다이어그램 보기/숨기기</button>
+        <button class="btn btn-secondary toggle-diagram" style="margin-top:8px;font-size:0.78rem;padding:5px 10px">다이어그램 보기/숨기기</button>
         <div class="scale-diagram" style="display:none;overflow-x:auto;margin-top:8px">
           ${drawScaleDiagram(rootIdx, s.intervals)}
         </div>
@@ -151,7 +151,7 @@ function run(panel) {
     `;
   }).join('');
 
-  const styleLink = style ? `<div class="btn-row"><button class="btn btn-link" onclick="import('./app.js').then(m=>m.goTo(5,{artist:'${style}'}))">스타일 라이브러리 보기 →</button></div>` : '';
+  const styleLink = style ? `<div class="btn-row"><button class="btn btn-link" id="to-library-btn">스타일 라이브러리 보기 →</button></div>` : '';
 
   result.innerHTML = `
     <div class="card">
@@ -163,4 +163,16 @@ function run(panel) {
       .scale-row{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
     </style>
   `;
+
+  // 이벤트 위임으로 인라인 onclick 제거
+  result.querySelectorAll('.toggle-diagram').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const diag = btn.closest('.scale-row').querySelector('.scale-diagram');
+      diag.style.display = diag.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  if (style) {
+    result.querySelector('#to-library-btn')?.addEventListener('click', () => goTo(5, { artist: style }));
+  }
 }
