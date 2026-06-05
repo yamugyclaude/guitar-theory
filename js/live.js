@@ -6,6 +6,7 @@ function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts'
 
 let wakeLock = null;
 let pagesPerView = 1; // 1 또는 2
+let liveZoom = 1.0;   // 줌 배율 (0.4 ~ 2.5)
 
 export function render(panel) {
   panel.innerHTML = `
@@ -80,38 +81,48 @@ async function openItem(panel, idx) {
   viewer.scrollIntoView({ behavior: 'smooth' });
 }
 
+// 이미지 요소 생성 헬퍼 (자동 맞춤 + 줌 지원)
+function makeImg(url, ppv, isBlob = false) {
+  const img = document.createElement('img');
+  img.src = url;
+  img.className = 'live-img';
+  // 높이 기준으로 맞춤 (화면 높이 - 헤더/네비 영역)
+  img.style.cssText = `
+    height:calc(100dvh - 140px);
+    width:auto;
+    max-width:${ppv === 2 ? 'calc(50vw - 12px)' : '100%'};
+    object-fit:contain;
+    display:block;
+    border-radius:4px;
+    flex-shrink:0;
+  `;
+  if (isBlob) img.onload = () => URL.revokeObjectURL(url);
+  return img;
+}
+
 // 콘텐츠 렌더링: 이미지 블롭 우선 → PDF.js 폴백
 async function renderContent(container, record, startPage, ppv) {
+  container.innerHTML = '';
+
   if (record.type === 'image') {
     const url = URL.createObjectURL(record.file);
-    const imgStyle = ppv === 2 ? 'width:calc(50% - 4px);display:block;border-radius:4px' : 'width:100%;display:block;border-radius:4px';
-    container.innerHTML = `<div style="display:flex;gap:8px;justify-content:center"><img src="${url}" style="${imgStyle}" onload="URL.revokeObjectURL(this.src)"></div>`;
+    container.appendChild(makeImg(url, ppv, true));
     return { totalPages: 1 };
   }
 
   // PDF: 업로드 시 변환된 이미지 블롭 사용 (가장 안정적)
   if (record.pages && record.pages.length > 0) {
     const totalPages = record.pages.length;
-    container.innerHTML = `<div id="pdf-pages" style="display:flex;gap:8px;justify-content:center"></div>`;
-    const pagesEl = container.querySelector('#pdf-pages');
-
     for (let p = startPage; p <= Math.min(startPage + ppv - 1, totalPages); p++) {
       const blob = record.pages[p - 1];
       if (!blob) continue;
-      const url = URL.createObjectURL(blob);
-      const img = document.createElement('img');
-      img.src = url;
-      img.style.cssText = ppv === 2
-        ? 'width:calc(50% - 4px);display:block;border-radius:4px'
-        : 'width:100%;display:block;border-radius:4px';
-      img.onload = () => URL.revokeObjectURL(url);
-      pagesEl.appendChild(img);
+      container.appendChild(makeImg(URL.createObjectURL(blob), ppv, true));
     }
     return { totalPages };
   }
 
-  // 폴백: PDF.js 런타임 렌더링 (이전 업로드 파일 또는 변환 실패 시)
-  container.innerHTML = `<div style="text-align:center;color:var(--text2);padding:20px">PDF 로딩 중...</div>`;
+  // 폴백: PDF.js 런타임 렌더링
+  container.innerHTML = `<div style="color:var(--text2);padding:20px;text-align:center">PDF 로딩 중...</div>`;
   try {
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) throw new Error('PDF.js 라이브러리를 불러올 수 없습니다.');
@@ -119,21 +130,26 @@ async function renderContent(container, record, startPage, ppv) {
     const pdf = await pdfjsLib.getDocument(url).promise;
     const totalPages = pdf.numPages;
 
-    container.innerHTML = `<div id="pdf-pages" style="display:flex;gap:8px;justify-content:center"></div>`;
-    const pagesEl = container.querySelector('#pdf-pages');
-
+    container.innerHTML = '';
     for (let p = startPage; p <= Math.min(startPage + ppv - 1, totalPages); p++) {
       const page = await pdf.getPage(p);
-      const scale = ppv === 2 ? 1.0 : 1.6;
+      // 화면 높이에 맞는 scale 계산
+      const targetH = window.innerHeight - 140;
+      const baseVP = page.getViewport({ scale: 1 });
+      const scale = targetH / baseVP.height;
       const viewport = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.cssText = ppv === 2
-        ? 'width:calc(50% - 4px);border-radius:4px;display:block'
-        : 'width:100%;border-radius:4px;display:block';
+      canvas.className = 'live-img';
+      canvas.style.cssText = `
+        height:calc(100dvh - 140px);
+        width:auto;
+        max-width:${ppv === 2 ? 'calc(50vw - 12px)' : '100%'};
+        display:block;border-radius:4px;flex-shrink:0;
+      `;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-      pagesEl.appendChild(canvas);
+      container.appendChild(canvas);
     }
     URL.revokeObjectURL(url);
     return { totalPages };
@@ -200,19 +216,25 @@ async function startFullscreen(startIdx) {
 
   // 콘텐츠 영역
   const content = document.createElement('div');
-  content.style.cssText = 'flex:1;overflow-y:auto;overflow-x:hidden;padding:12px';
+  content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px';
 
   // 하단 네비게이션
   const nav = document.createElement('div');
   nav.style.cssText = `
-    flex-shrink:0;display:grid;grid-template-columns:1fr auto auto 1fr;
-    align-items:center;gap:6px;padding:10px 12px;background:var(--bg2);border-top:1px solid var(--border);
+    flex-shrink:0;display:grid;grid-template-columns:1fr auto auto auto auto 1fr;
+    align-items:center;gap:4px;padding:8px 10px;background:var(--bg2);border-top:1px solid var(--border);
   `;
   nav.innerHTML = `
-    <button id="live-prev" class="btn btn-primary" style="padding:12px 8px;font-size:0.85rem">← 이전 곡</button>
-    <button id="page-prev" class="btn btn-secondary" style="padding:12px 8px;font-size:0.85rem">◀ 페이지</button>
-    <button id="page-next" class="btn btn-secondary" style="padding:12px 8px;font-size:0.85rem">페이지 ▶</button>
-    <button id="live-next" class="btn btn-primary" style="padding:12px 8px;font-size:0.85rem">다음 곡 →</button>
+    <button id="live-prev" class="btn btn-primary" style="padding:10px 8px;font-size:0.82rem">← 이전</button>
+    <button id="page-prev" class="btn btn-secondary" style="padding:10px 8px;font-size:0.82rem">◀</button>
+    <button id="page-next" class="btn btn-secondary" style="padding:10px 8px;font-size:0.82rem">▶</button>
+    <div style="display:flex;align-items:center;gap:2px">
+      <button id="zoom-out" class="btn btn-secondary" style="padding:8px 10px;font-size:1rem;line-height:1">−</button>
+      <span id="zoom-label" style="font-size:0.72rem;color:var(--text2);min-width:36px;text-align:center">맞춤</span>
+      <button id="zoom-in" class="btn btn-secondary" style="padding:8px 10px;font-size:1rem;line-height:1">+</button>
+    </div>
+    <button id="live-next" class="btn btn-primary" style="padding:10px 8px;font-size:0.82rem">다음 →</button>
+    <span></span>
   `;
 
   // 카운터 (헤더에 추가)
@@ -230,6 +252,29 @@ async function startFullscreen(startIdx) {
     header.querySelector('#view-toggle').textContent = pagesPerView === 1 ? '1장 보기' : '2장 보기';
     currentPage = 1;
     loadCurrent();
+  });
+
+  // 줌 컨트롤
+  liveZoom = 1.0;
+  const ZOOM_STEPS = [0.4, 0.5, 0.6, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5];
+  function zoomLabel() {
+    return liveZoom === 1.0 ? '맞춤' : Math.round(liveZoom * 100) + '%';
+  }
+  function applyZoom() {
+    nav.querySelector('#zoom-label').textContent = zoomLabel();
+    content.querySelectorAll('.live-img').forEach(img => {
+      img.style.height = liveZoom === 1.0
+        ? 'calc(100dvh - 140px)'
+        : `calc((100dvh - 140px) * ${liveZoom})`;
+    });
+  }
+  nav.querySelector('#zoom-out').addEventListener('click', () => {
+    const smaller = ZOOM_STEPS.filter(z => z < liveZoom);
+    if (smaller.length) { liveZoom = smaller[smaller.length - 1]; applyZoom(); }
+  });
+  nav.querySelector('#zoom-in').addEventListener('click', () => {
+    const larger = ZOOM_STEPS.filter(z => z > liveZoom);
+    if (larger.length) { liveZoom = larger[0]; applyZoom(); }
   });
 
   // 헤더 자동 숨김
@@ -271,29 +316,21 @@ async function startFullscreen(startIdx) {
     currentPage = 1;
 
     if (item.type === 'chart') {
+      // 차트: 스크롤 가능 블록 레이아웃
+      content.style.cssText = 'flex:1;overflow-y:auto;display:block;padding:12px';
       const draft = getDrafts().find(d => d.id === item.id);
       totalPages = 1;
       if (draft) renderChartInContainer(content, draft);
       else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
     } else {
+      // 악보/이미지: flex 센터 정렬 (자동 맞춤)
+      content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px';
       const record = await getSheet(item.id);
       if (!record) { content.innerHTML = '<div class="empty-state">악보를 찾을 수 없습니다.</div>'; return; }
 
-      if (record.type === 'image') {
-        totalPages = 1;
-        const url = URL.createObjectURL(record.file);
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = `display:flex;gap:8px;justify-content:center`;
-        const img = document.createElement('img');
-        img.src = url;
-        img.style.cssText = pagesPerView === 1 ? 'width:100%' : 'width:calc(50% - 4px)';
-        wrapper.appendChild(img);
-        content.innerHTML = '';
-        content.appendChild(wrapper);
-      } else {
-        const result = await renderContent(content, record, currentPage, pagesPerView);
-        totalPages = result?.totalPages || 1;
-      }
+      const result = await renderContent(content, record, currentPage, pagesPerView);
+      totalPages = result?.totalPages || 1;
+      applyZoom();
     }
     updatePageBtns();
     content.scrollTop = 0;
@@ -308,9 +345,10 @@ async function startFullscreen(startIdx) {
     const item = setlist[currentIdx];
     if (item.type !== 'chart') {
       const record = await getSheet(item.id);
-      if (record && record.type !== 'image') {
+      if (record) {
         const result = await renderContent(content, record, currentPage, pagesPerView);
         totalPages = result?.totalPages || totalPages;
+        applyZoom();
       }
     }
     updatePageBtns();
