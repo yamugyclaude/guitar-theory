@@ -528,7 +528,7 @@ function voltaHtml(volta) {
 }
 
 // 마디 셀: 순수하게 4박 슬롯 + 반복 테두리만
-function barCellHtml(sec, si, bi) {
+function barCellHtml(sec, si, bi, barNum) {
   const b = sec.bars[bi];
   const isPickup = sec.pickup && bi === 0;
   const chord = (b.chords || '').trim();
@@ -557,6 +557,7 @@ function barCellHtml(sec, si, bi) {
     style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
     ${leftMarkHtml(lm)}
     ${rightMarkHtml(rm)}
+    ${barNum != null ? `<span style="position:absolute;top:2px;left:3px;font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
     <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
     ${barMemo ? `<div class="bar-memo-display" style="font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none">${escHtml(barMemo)}</div>` : ''}
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
@@ -659,9 +660,7 @@ function sectionRowsHtml(sec, si, barOffset) {
           const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
           inner += `<div style="position:absolute;top:50%;left:2px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
         }
-        // 마디 번호: 우측 하단 (기호와 반대편)
-        const numColor = isPickup ? '#888' : 'var(--text2)';
-        inner += `<span style="position:absolute;bottom:1px;right:3px;font-size:0.5rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
+        // 번호는 셀 안으로 이동 — topRow에서는 표시 안 함
         return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
       }).join('')}
       ${spacers}
@@ -669,7 +668,7 @@ function sectionRowsHtml(sec, si, barOffset) {
 
     // ─── 마디 셀 행 ───
     const cellRow = `<div style="display:flex;gap:3px">
-      ${idxs.map(bi => barCellHtml(sec, si, bi)).join('')}
+      ${idxs.map(bi => barCellHtml(sec, si, bi, barOffset + bi + 1)).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.6em"></div>`).join('') : ''}
     </div>`;
 
@@ -1072,7 +1071,7 @@ export function buildChartHtml(draft, opts = {}) {
             const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
             inner += `<div style="position:absolute;top:50%;left:2px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
           }
-          if (showNums) inner += `<span style="position:absolute;bottom:1px;right:3px;font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
+          // 번호는 셀 안으로 이동
           return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
@@ -1100,6 +1099,7 @@ export function buildChartHtml(draft, opts = {}) {
           const bMemo = b.memo || '';
           return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
             ${leftMarkHtml(lm)}${rightMarkHtml(rm)}
+            ${showNums ? `<span style="position:absolute;top:2px;left:3px;font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
             <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch">${slotsHtml}</div>
             ${bMemo ? `<div style="font-size:0.62rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3">${escHtml(bMemo)}</div>` : ''}
           </div>`;
