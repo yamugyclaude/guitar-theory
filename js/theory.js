@@ -162,11 +162,72 @@ function parseProgression(input) {
 }
 
 // ===== UI 렌더 =====
+function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); }
+
+function extractChordsFromDraft(draft) {
+  const chords = [];
+  (draft.sections || []).forEach(sec => {
+    (sec.bars || []).forEach(bar => {
+      const slots = Array.isArray(bar.chords) ? bar.chords : (bar.chords||'').split(/\s+/).filter(Boolean);
+      slots.forEach(c => { if (c && c.trim()) chords.push(c.trim()); });
+    });
+  });
+  // 중복 제거하되 순서 유지
+  return [...new Set(chords)];
+}
+
+function showChartPicker(panel) {
+  const drafts = getDrafts();
+  if (!drafts.length) { alert('저장된 코드차트가 없습니다.'); return; }
+
+  // 기존 모달 제거
+  document.querySelector('#chart-picker-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'chart-picker-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;min-width:280px;max-width:420px;width:100%;max-height:80vh;display:flex;flex-direction:column;gap:10px">
+      <div style="font-weight:700;font-size:1rem">코드차트 선택</div>
+      <div style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px">
+        ${drafts.map((d, i) => `
+          <button class="chart-pick-btn" data-idx="${i}"
+            style="text-align:left;padding:10px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:0.88rem;color:var(--text)">
+            <div style="font-weight:600">${d.title || '(제목 없음)'}</div>
+            <div style="font-size:0.72rem;color:var(--text2);margin-top:2px">${(d.sections||[]).length}섹션 · ${(d.sections||[]).reduce((s,sec)=>s+(sec.bars||[]).length,0)}마디</div>
+          </button>
+        `).join('')}
+      </div>
+      <button id="chart-pick-cancel" class="btn btn-secondary">취소</button>
+    </div>
+  `;
+
+  modal.querySelector('#chart-pick-cancel').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  modal.querySelectorAll('.chart-pick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const draft = drafts[+btn.dataset.idx];
+      const chords = extractChordsFromDraft(draft);
+      panel.querySelector('#prog-input').value = chords.join(' - ');
+      panel.querySelector('#prog-title').textContent = `📄 ${draft.title || '코드차트'}`;
+      modal.remove();
+      runAnalysis(panel);
+    });
+  });
+
+  document.body.appendChild(modal);
+}
+
 export function render(panel) {
   panel.innerHTML = `
     <h1 class="page-title">🎸 이론 분석</h1>
     <div class="card">
-      <div class="label">코드 진행 입력</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div class="label" style="margin:0">코드 진행 입력</div>
+        <button class="btn btn-secondary" id="load-chart-btn" style="font-size:0.75rem;padding:5px 10px">📄 악보에서 불러오기</button>
+      </div>
+      <div id="prog-title" style="font-size:0.75rem;color:var(--accent);margin-bottom:4px;min-height:1em"></div>
       <input type="text" id="prog-input" placeholder="예: Am7 - D7 - Gmaj7 - Cmaj7" value="${AppState.currentAnalysis.progression.join(' - ')}">
       <div class="btn-row">
         <button class="btn btn-primary" id="analyze-btn">분석</button>
@@ -176,9 +237,11 @@ export function render(panel) {
     <div id="analysis-result"></div>
   `;
 
+  panel.querySelector('#load-chart-btn').addEventListener('click', () => showChartPicker(panel));
   panel.querySelector('#analyze-btn').addEventListener('click', () => runAnalysis(panel));
   panel.querySelector('#clear-btn').addEventListener('click', () => {
     panel.querySelector('#prog-input').value = '';
+    panel.querySelector('#prog-title').textContent = '';
     panel.querySelector('#analysis-result').innerHTML = '';
   });
   panel.querySelector('#prog-input').addEventListener('keydown', e => {
