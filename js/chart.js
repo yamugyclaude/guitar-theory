@@ -625,7 +625,7 @@ function barMarkToolbarHtml(si, bi, bar) {
 
   const mkToggle = (field, val, label, active, color) =>
     `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="${field}" data-val="${val}"
-      style="display:inline-flex;align-items:center;gap:2px;font-size:0.68rem;padding:2px 6px;border-radius:3px;
+      style="display:inline-flex;align-items:center;gap:3px;font-size:0.72rem;padding:4px 8px;border-radius:4px;
              border:1px solid ${active?(color||'var(--accent)'):'var(--border)'};
              background:${active?(color||'var(--accent)')+'22':'var(--bg3)'};
              color:${active?(color||'var(--accent)'):'var(--text2)'};
@@ -653,7 +653,7 @@ function barMarkToolbarHtml(si, bi, bar) {
   ).join('');
 
   return `<div class="bar-mark-toolbar" data-si="${si}" data-bi="${bi}"
-    style="position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);min-width:260px">
+    style="position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,0.45);min-width:320px;width:max-content;max-width:420px">
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">← 왼쪽 (복수 선택 가능)</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${rsBtn}${lmBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">→ 오른쪽 반복</div>
@@ -667,7 +667,7 @@ function barMarkToolbarHtml(si, bi, bar) {
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">마디 메모</div>
     <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
       placeholder="가사, 운지법, 지시어..."
-      style="width:100%;font-size:0.72rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:4px 6px;resize:vertical;min-height:36px;font-family:inherit;line-height:1.4;box-sizing:border-box">${escHtml(bm)}</textarea>
+      style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box">${escHtml(bm)}</textarea>
   </div>`;
 }
 
@@ -983,8 +983,12 @@ function renderSections(ed, draft) {
       draft.sections[si].bars[bi].chords = inp.value;
     });
 
-    inp.addEventListener('blur', () => {
+    inp.addEventListener('blur', e => {
       draft.sections[si].bars[bi].chords = inp.value;
+      // 포커스가 툴바 내부로 이동하는 경우 renderSections 하지 않음
+      const relatedTarget = e.relatedTarget;
+      const cell = inp.closest('.bar-cell');
+      if (relatedTarget && cell && cell.contains(relatedTarget)) return;
       renderSections(ed, draft);
     });
 
