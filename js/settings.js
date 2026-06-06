@@ -69,13 +69,13 @@ export function render(panel) {
       <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 12px">
         악보 이미지를 업로드하면 곡명·키·BPM·코드진행을 자동으로 분석합니다.<br>
         <strong>완전 무료 · 카드 불필요</strong> —
-        <a href="https://openrouter.ai" target="_blank" style="color:var(--link)">openrouter.ai</a>
-        회원가입 → Keys → Create Key → 복사<br>
-        키는 이 기기에만 저장됩니다.
+        🔵 <strong>Gemini (권장)</strong>: <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--link)">aistudio.google.com/apikey</a> → Create API key in new project<br>
+        🟠 <strong>OpenRouter</strong>: <a href="https://openrouter.ai" target="_blank" style="color:var(--link)">openrouter.ai</a> → Keys → Create Key<br>
+        두 키 모두 지원됩니다. 키는 이 기기에만 저장됩니다.
       </p>
-      <div class="label">OpenRouter API Key</div>
+      <div class="label">AI API Key (Gemini: AIza… / OpenRouter: sk-or-…)</div>
       <div style="display:flex;gap:8px">
-        <input type="password" id="gemini-key-input" placeholder="AIza..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
+        <input type="password" id="gemini-key-input" placeholder="AIza... 또는 sk-or-..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
         <button class="btn btn-secondary" id="gemini-toggle-btn" style="flex-shrink:0;font-size:0.75rem;padding:6px 10px">보기</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
@@ -183,30 +183,13 @@ create policy "allow_all" on gta_sheets
     const key = geminiInput.value.trim();
     if (!key) { geminiStatus.textContent = '⚠️ 키를 입력해주세요.'; return; }
     localStorage.setItem('gta_gemini_key', key);
-    geminiStatus.textContent = '🔄 테스트 중...';
-    const models = ['gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-2.0-flash'];
-    let lastErr = '';
-    let ok = false;
-    for (const model of models) {
-      try {
-        geminiStatus.textContent = `🔄 ${model} 테스트 중...`;
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }], generationConfig: { maxOutputTokens: 5 } })
-          }
-        );
-        const data = await res.json();
-        if (res.ok) {
-          geminiStatus.textContent = `✅ 연결 성공! (${model}) Gemini AI 분석을 사용할 수 있습니다.`;
-          ok = true; break;
-        }
-        lastErr = `[${model}] ${data?.error?.message || res.status}`;
-      } catch (e) { lastErr = `[${model}] ${e.message}`; }
+    try {
+      const { testConnection } = await import('./gemini-analysis.js');
+      const msg = await testConnection(s => { geminiStatus.textContent = s; });
+      geminiStatus.textContent = msg;
+    } catch (e) {
+      geminiStatus.textContent = `❌ ${e.message}`;
     }
-    if (!ok) geminiStatus.innerHTML = `❌ 실패: <pre style="font-size:0.7rem;white-space:pre-wrap;overflow:auto;max-height:120px">${lastErr}</pre>`;
   });
   panel.querySelector('#gemini-clear-btn').addEventListener('click', () => {
     if (!confirm('Gemini API 키를 삭제하시겠습니까?')) return;

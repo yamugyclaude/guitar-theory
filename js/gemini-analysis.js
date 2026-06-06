@@ -1,10 +1,18 @@
-// AI 악보 분석 모듈 (Google Gemini API 직접 연동)
+// AI 악보 분석 모듈
+// AIza... → Gemini API 직접 / sk-or-... → OpenRouter 자동 분기
 // 키는 localStorage('gta_gemini_key')에만 저장 — 코드에 하드코딩 금지
 
 export function getApiKey() { return localStorage.getItem('gta_gemini_key') || ''; }
 export function saveApiKey(key) { localStorage.setItem('gta_gemini_key', key.trim()); }
 export function isConfigured() { return !!getApiKey(); }
+export function keyType(key) {
+  const k = (key || getApiKey()).trim();
+  if (k.startsWith('AIza')) return 'gemini';
+  if (k.startsWith('sk-or-') || k.startsWith('sk-')) return 'openrouter';
+  return 'unknown';
+}
 
+// ===== 공통 유틸 =====
 async function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -14,6 +22,7 @@ async function blobToBase64(blob) {
   });
 }
 
+// ===== 프롬프트 =====
 const ANALYSIS_PROMPT = `이 악보 이미지를 분석해서 아래 JSON 형식으로만 응답해주세요. 설명이나 마크다운 없이 JSON만 반환하세요.
 
 {
@@ -50,12 +59,12 @@ const ANALYSIS_PROMPT = `이 악보 이미지를 분석해서 아래 JSON 형식
 - 세뇨(𝄋) → startMark: "𝄋 Segno", 코다(𝄌) → startMark: "𝄌 Coda"
 - D.S./D.C./Fine 등 → endMark에 기록`;
 
-// Gemini 모델 (순서대로 fallback)
+// ===== Gemini API 직접 =====
 const GEMINI_MODELS = [
   'gemini-2.0-flash-lite',
   'gemini-1.5-flash',
-  'gemini-2.0-flash',
   'gemini-1.5-flash-8b',
+  'gemini-2.0-flash',
 ];
 
 async function callGemini(apiKey, imageParts, promptText) {
@@ -73,22 +82,15 @@ async function callGemini(apiKey, imageParts, promptText) {
       });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data?.error?.message || `HTTP ${res.status}`;
-        errors.push(`[${model}] ${msg}`);
+        errors.push(`[${model}] ${data?.error?.message || res.status}`);
         continue;
       }
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (!text) { errors.push(`[${model}] 빈 응답`); continue; }
-      return text;
+      return { text, model };
     } catch (e) { errors.push(`[${model}] ${e.message}`); }
   }
-  throw new Error('모든 모델 실패:\n' + errors.join('\n'));
-}
-
-function parseJson(text) {
-  const jsonStr = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
-  try { return JSON.parse(jsonStr); }
-  catch { throw new Error('응답 파싱 실패. 다시 시도해주세요.\n\n원본: ' + text.slice(0, 300)); }
+  throw new Error('Gemini 모든 모델 실패:\n' + errors.join('\n'));
 }
 
 async function blobToGeminiPart(blob) {
@@ -97,27 +99,145 @@ async function blobToGeminiPart(blob) {
   return { inlineData: { mimeType: mime, data: base64 } };
 }
 
-// raw 호출 (프롬프트 직접 지정)
+// ===== OpenRouter =====
+const OPENROUTER_MODELS = [
+  'google/gemini-2.0-flash-exp:free',
+  'meta-llama/llama-4-maverick:free',
+  'meta-llama/llama-4-scout:free',
+  'google/gemma-3-27b-it:free',
+  'mistralai/mistral-small-3.2-24b-instruct:free',
+];
+
+async function callOpenRouter(apiKey, imageParts, promptText) {
+  const errors = [];
+  for (const model of OPENROUTER_MODELS) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
+          'X-Title': 'Guitar Theory App'
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: [{ type: 'text', text: promptText }, ...imageParts] }],
+          temperature: 0.1,
+          max_tokens: 4096
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errors.push(`[${model}] ${data?.error?.message || res.status}`);
+        continue;
+      }
+      const text = data.choices?.[0]?.message?.content || '';
+      if (!text) { errors.push(`[${model}] 빈 응답`); continue; }
+      return { text, model };
+    } catch (e) { errors.push(`[${model}] ${e.message}`); }
+  }
+  throw new Error('OpenRouter 모든 모델 실패:\n' + errors.join('\n'));
+}
+
+async function blobToOpenRouterPart(blob) {
+  const mime = blob.type || 'image/jpeg';
+  const base64 = await blobToBase64(blob);
+  return { type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } };
+}
+
+// ===== 통합 호출 =====
+async function callAi(apiKey, blobs, promptText) {
+  const type = keyType(apiKey);
+  if (type === 'gemini') {
+    const parts = await Promise.all(blobs.map(blobToGeminiPart));
+    return callGemini(apiKey, parts, promptText);
+  } else {
+    const parts = await Promise.all(blobs.map(blobToOpenRouterPart));
+    return callOpenRouter(apiKey, parts, promptText);
+  }
+}
+
+function parseJson(text) {
+  const jsonStr = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+  try { return JSON.parse(jsonStr); }
+  catch { throw new Error('응답 파싱 실패. 다시 시도해주세요.\n\n원본: ' + text.slice(0, 300)); }
+}
+
+// ===== 공개 API =====
 export async function callAiRaw(imageBlob, promptText) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-  const imageParts = [await blobToGeminiPart(imageBlob)];
-  return callGemini(apiKey, imageParts, promptText);
+  const { text } = await callAi(apiKey, [imageBlob], promptText);
+  return text;
 }
 
-// 단일 이미지 분석
 export async function analyzeSheet(imageBlob) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-  const imageParts = [await blobToGeminiPart(imageBlob)];
-  return parseJson(await callGemini(apiKey, imageParts, ANALYSIS_PROMPT));
+  const { text } = await callAi(apiKey, [imageBlob], ANALYSIS_PROMPT);
+  return parseJson(text);
 }
 
-// 복수 이미지 일괄 분석 (같은 곡의 여러 페이지)
 export async function analyzeSheets(imageBlobs) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-  const imageParts = await Promise.all(imageBlobs.map(blobToGeminiPart));
   const prompt = ANALYSIS_PROMPT + `\n\n이 악보는 같은 곡의 ${imageBlobs.length}페이지입니다. 전체를 하나의 곡으로 분석해주세요.`;
-  return parseJson(await callGemini(apiKey, imageParts, prompt));
+  const { text } = await callAi(apiKey, imageBlobs, prompt);
+  return parseJson(text);
+}
+
+// ===== 연결 테스트 (설정 탭용) =====
+export async function testConnection(onStatus) {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('API 키를 입력해주세요.');
+  const type = keyType(apiKey);
+
+  if (type === 'gemini') {
+    for (const model of GEMINI_MODELS) {
+      onStatus(`🔄 Gemini ${model} 테스트 중...`);
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }], generationConfig: { maxOutputTokens: 5 } })
+        });
+        const data = await res.json();
+        if (res.ok) return `✅ 연결 성공! (Gemini · ${model})`;
+        if (res.status === 429) continue; // rate limit → 다음 모델
+        throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      } catch (e) {
+        if (e.message.includes('quota') || e.message.includes('rate')) continue;
+        throw e;
+      }
+    }
+    throw new Error('모든 Gemini 모델이 한도 초과입니다. 잠시 후 다시 시도하거나 OpenRouter 키를 사용해주세요.');
+  } else if (type === 'openrouter') {
+    for (const model of OPENROUTER_MODELS) {
+      onStatus(`🔄 OpenRouter ${model.split('/')[1]} 테스트 중...`);
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
+            'X-Title': 'Guitar Theory App'
+          },
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 5 })
+        });
+        const data = await res.json();
+        if (res.ok) return `✅ 연결 성공! (OpenRouter · ${model.split('/')[1]})`;
+        if (res.status === 429) continue;
+        throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      } catch (e) {
+        if (e.message.includes('rate') || e.message.includes('429')) continue;
+        throw e;
+      }
+    }
+    throw new Error('모든 OpenRouter 모델이 한도 초과입니다. 잠시 후 다시 시도해주세요.');
+  } else {
+    throw new Error('알 수 없는 키 형식입니다.\nGemini 키(AIza...)또는 OpenRouter 키(sk-or-...)를 입력해주세요.');
+  }
 }
