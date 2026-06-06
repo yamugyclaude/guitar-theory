@@ -917,6 +917,15 @@ function renderSections(ed, draft) {
     cell.style.position = 'relative';
     cell.appendChild(toolbarEl);
 
+    // 뷰포트 오른쪽 잘림 방지
+    requestAnimationFrame(() => {
+      const rect = toolbarEl.getBoundingClientRect();
+      if (rect.right > window.innerWidth - 8) {
+        toolbarEl.style.left = 'auto';
+        toolbarEl.style.right = '0';
+      }
+    });
+
     // 닫기 버튼
     const closeBtn = toolbarEl.querySelector('.bar-toolbar-close');
     if (closeBtn) {
