@@ -185,11 +185,27 @@ create policy "allow_all" on gta_sheets
     localStorage.setItem('gta_gemini_key', key);
     geminiStatus.textContent = '🔄 테스트 중...';
     try {
-      const { analyzeSheet } = await import('./gemini-analysis.js?v=8');
-      // 1×1 흰색 픽셀로 연결 테스트
-      const testBlob = await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==').then(r=>r.blob());
-      await analyzeSheet(testBlob);
-      geminiStatus.textContent = '✅ 연결 성공! AI 분석 기능을 사용할 수 있습니다.';
+      // 직접 API 호출해서 정확한 에러 확인
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,
+          'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
+          'X-Title': 'Guitar Theory App'
+        },
+        body: JSON.stringify({
+          model: 'moonshotai/kimi-k2.6:free',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 5
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        geminiStatus.innerHTML = `❌ 실패 (${res.status}): <pre style="font-size:0.7rem;white-space:pre-wrap">${JSON.stringify(data,null,2)}</pre>`;
+      } else {
+        geminiStatus.textContent = '✅ 연결 성공! AI 분석 기능을 사용할 수 있습니다.';
+      }
     } catch (e) {
       geminiStatus.textContent = `❌ 실패: ${e.message}`;
     }
