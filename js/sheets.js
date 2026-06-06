@@ -88,8 +88,9 @@ export async function render(panel) {
     </div>
 
     <!-- 검색 + 목록 -->
-    <div style="margin-bottom:8px">
-      <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)">
+    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+      <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)" style="flex:1">
+      <button class="btn btn-secondary" id="select-mode-btn" style="font-size:0.75rem;padding:6px 10px;white-space:nowrap">☑ 선택</button>
     </div>
     <div id="sheet-list"></div>
     <div id="sheet-viewer"></div>
@@ -101,6 +102,11 @@ export async function render(panel) {
 
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
+  panel.querySelector('#select-mode-btn').addEventListener('click', () => {
+    // 목록의 선택 모드 진입 함수 호출 (filterList가 렌더 후 등록)
+    const evt = new CustomEvent('enter-batch-mode');
+    panel.querySelector('#sheet-list').dispatchEvent(evt);
+  });
   panel.querySelector('#new-folder-btn').addEventListener('click', () => {
     const name = prompt('새 폴더 이름:');
     if (!name?.trim()) return;
@@ -371,7 +377,7 @@ function filterList(panel, query) {
         </div>
       `).join('')}
     </div>
-    <div style="margin-top:10px;font-size:0.78rem;color:var(--text2)">💡 카드를 <strong>길게 눌러</strong> 여러 장 선택 → 일괄 AI 분석</div>
+    <div style="margin-top:10px;font-size:0.78rem;color:var(--text2)">💡 <strong>☑ 선택</strong> 버튼 또는 카드 길게 누르기로 선택 모드 진입</div>
   `;
 
   let batchMode = false;
@@ -421,6 +427,9 @@ function filterList(panel, query) {
     chk.addEventListener('click', e => e.stopPropagation());
     chk.addEventListener('change', updateBatchCount);
   });
+
+  // 외부(선택 버튼)에서 선택 모드 진입 가능하도록
+  list.addEventListener('enter-batch-mode', enterBatchMode);
 
   list.querySelector('#batch-cancel-btn').addEventListener('click', exitBatchMode);
   list.querySelector('#batch-ai-btn').addEventListener('click', async () => {
