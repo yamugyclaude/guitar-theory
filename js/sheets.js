@@ -756,7 +756,7 @@ async function syncFromCloud(panel) {
 
 // ===== AI 자동 분석 (Gemini Vision) =====
 async function runAiAnalysis(meta, record, viewer, panel) {
-  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js?v=8');
+  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js?v=9');
   if (!isConfigured()) {
     alert('⚙️ 설정 탭에서 Gemini API 키를 먼저 입력해주세요.\n(Google AI Studio에서 무료 발급)');
     return;
@@ -931,123 +931,37 @@ function renderAnalysisReview(result, meta, container, panel) {
 
 // ===== 일괄 AI 분석 (여러 페이지 → 한 곡) =====
 async function runBatchAiAnalysis(ids, panel) {
-  const { isConfigured } = await import('./gemini-analysis.js?v=8');
-  if (!isConfigured()) {
-    alert('⚙️ 설정 탭에서 API 키를 먼저 입력해주세요.');
-    return;
-  }
+  const { isConfigured, analyzeSheets } = await import('./gemini-analysis.js?v=9');
+  if (!isConfigured()) { alert('⚙️ 설정 탭에서 API 키를 먼저 입력해주세요.'); return; }
 
-  // 결과 표시 영역
   const viewer = panel.querySelector('#sheet-viewer');
   viewer.innerHTML = `
     <div class="card" style="margin-top:16px">
       <div style="font-weight:700;margin-bottom:8px">🤖 일괄 AI 분석</div>
-      <div id="batch-status" style="color:var(--text2);font-size:0.85rem">이미지 준비 중... (0/${ids.length})</div>
+      <div id="batch-status" style="color:var(--text2);font-size:0.85rem">이미지 준비 중...</div>
     </div>
   `;
   viewer.scrollIntoView({ behavior: 'smooth' });
   const statusEl = viewer.querySelector('#batch-status');
 
-  // 각 악보에서 이미지 블롭 수집
+  // 이미지 수집
   const images = [];
   for (let i = 0; i < ids.length; i++) {
     statusEl.textContent = `이미지 준비 중... (${i+1}/${ids.length})`;
     const record = await getSheet(ids[i]);
     if (!record) continue;
-    if (record.type === 'image' && record.file) {
-      images.push(record.file);
-    } else if (record.pages?.length) {
-      // PDF: 모든 페이지 수집
-      for (const blob of record.pages) {
-        if (blob) images.push(blob);
-      }
-    }
+    if (record.type === 'image' && record.file) images.push(record.file);
+    else if (record.pages?.length) record.pages.forEach(b => b && images.push(b));
   }
 
   if (!images.length) { statusEl.textContent = '❌ 분석할 이미지를 찾을 수 없습니다.'; return; }
 
-  statusEl.textContent = `🤖 AI 분석 중... (${images.length}장, 10~30초 소요)`;
+  statusEl.textContent = `🤖 AI 분석 중... (${images.length}장 · 모델 자동 선택 · 10~30초 소요)`;
 
   try {
-    const apiKey = localStorage.getItem('gta_gemini_key');
-    if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-
-    // base64 변환
-    async function blobToBase64(blob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({ base64: reader.result.split(',')[1], mime: blob.type || 'image/jpeg' });
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    }
-    const imgData = await Promise.all(images.map(blobToBase64));
-
-    const PROMPT = `이 악보는 같은 곡의 ${images.length}페이지입니다. 전체를 하나의 곡으로 분석해서 아래 JSON 형식으로만 응답해주세요. 설명이나 마크다운 없이 JSON만 반환하세요.
-
-{
-  "title": "곡명",
-  "artist": "아티스트명",
-  "key": "조성 예: Am",
-  "bpm": "템포 숫자",
-  "time": "박자 예: 4/4",
-  "tags": ["장르"],
-  "sections": [
-    {
-      "type": "섹션명 (Intro/Verse/Chorus 등)",
-      "chords": ["코드1", "코드2"],
-      "repeatStart": false,
-      "repeatEnd": false,
-      "startMark": "",
-      "endMark": "",
-      "memo": ""
-    }
-  ],
-  "notes": "분석 메모"
-}
-
-규칙:
-- 전체 페이지를 순서대로 분석해 섹션 구분
-- 도돌이표(||: :||), 코다(𝄌), 달세뇨(D.S.), 다카포(D.C.) 등 반드시 반영
-- repeatStart/repeatEnd는 true/false, startMark는 "𝄋 Segno"/"𝄌 Coda"/"", endMark는 "D.S."/"D.C."/"D.S. al Coda"/"D.C. al Coda"/"Fine"/"" 중 하나
-- 코드는 표준 표기 (Am7, Gmaj7 등)`;
-
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
-        'X-Title': 'Guitar Theory App'
-      },
-      body: JSON.stringify({
-        model: 'moonshotai/kimi-k2.6:free',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: PROMPT },
-            ...imgData.map(d => ({ type: 'image_url', image_url: { url: `data:${d.mime};base64,${d.base64}` } }))
-          ]
-        }],
-        temperature: 0.1,
-        max_tokens: 4096
-      })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.error?.message || `API 오류 (${res.status})`);
-    }
-
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    const jsonStr = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-    const result = JSON.parse(jsonStr);
-
-    // 첫 번째 악보 메타를 기준으로 결과 표시
+    const result = await analyzeSheets(images);
     const firstMeta = getMeta().find(m => m.id === ids[0]) || { id: ids[0], title: '' };
     renderAnalysisReview(result, firstMeta, viewer.querySelector('.card'), panel);
-
   } catch (e) {
     statusEl.textContent = `❌ 분석 실패: ${e.message}`;
   }
