@@ -488,69 +488,38 @@ function voltaHtml(volta) {
   </div>`;
 }
 
-function barCellHtml(sec, si, bi, barNum) {
+// 마디 셀: 순수하게 4박 슬롯 + 반복 테두리만
+function barCellHtml(sec, si, bi) {
   const b = sec.bars[bi];
   const isPickup = sec.pickup && bi === 0;
   const chord = (b.chords || '').trim();
-  const leftMark = b.leftMark || '';
-  const rightMark = b.rightMark || '';
-  const volta = b.volta || '';
-  const expr = b.expr || '';
+  const lm = b.leftMark || '';
+  const rm = b.rightMark || '';
 
   const rawChords = chord.split(/\s+/).filter(Boolean);
   const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
   const slots = ['','','',''];
   rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
 
-  // 왼쪽 기호에 맞게 패딩 조정
-  const leftPad = leftMark === '||:' ? 'padding-left:10px;' : '';
-  const rightPad = (rightMark === ':||' || rightMark === ':||:') ? 'padding-right:10px;' : '';
-
   const slotsHtml = slots.map((c, idx) => `
-    <div style="flex:1;${idx>0?'border-left:1px solid var(--border);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px 1px">
-      ${c ? `<span style="font-size:0.75rem;font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
+    <div style="flex:1;${idx>0?'border-left:1px solid var(--border);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px">
+      ${c ? `<span style="font-size:0.78rem;font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
     </div>`
   ).join('');
 
-  // 왼쪽 테두리 강조 (||: 일 때)
-  const borderLeft = leftMark === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
-  const borderRight = (rightMark === ':||' || rightMark === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
-
-  const numLeft = leftMark === '||:' ? '12px' : '4px';
-
-  // ── 셀 레이아웃 ──────────────────────────────────────────────────
-  // 상단 밴드(16px): 볼타 괄호 + 마디 번호
-  // 중간 영역:       4비트 코드 슬롯
-  // 하단 밴드(14px): Fine / D.C. / expr 등 끝 기호
-
-  // 하단에 표시할 기호
-  const bottomMark = (rightMark && rightMark !== ':||' && rightMark !== ':||:') ? rightMark : '';
-  const bottomExpr = expr || '';
+  const borderLeft  = lm === '||:'               ? 'border-left:3px solid var(--accent);'  : 'border-left:1px solid var(--border);';
+  const borderRight = (rm===':||'||rm===':||:')  ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+  const pleft  = lm === '||:'              ? 'padding-left:8px;'  : '';
+  const pright = (rm===':||'||rm===':||:') ? 'padding-right:8px;' : '';
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
-    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${leftPad}${rightPad}display:flex;flex-direction:column;${isPickup?'max-width:52px;opacity:0.75;':''}">
-    ${leftMarkHtml(leftMark)}
-    ${rightMarkHtml(rightMark)}
-
-    <!-- 상단 밴드: 볼타 + 마디 번호 -->
-    <div style="height:16px;position:relative;flex-shrink:0;pointer-events:none">
-      ${volta ? `<div style="position:absolute;inset:0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0"></div>
-        <span style="position:absolute;top:2px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>` : ''}
-      <span style="position:absolute;bottom:2px;left:${numLeft};font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>
-    </div>
-
-    <!-- 중간: 코드 슬롯 -->
-    <div class="bar-display" style="display:flex;flex:1;min-height:2em;pointer-events:none">${slotsHtml}</div>
-
-    <!-- 하단 밴드: Fine, D.C., expr 등 -->
-    <div style="height:14px;position:relative;flex-shrink:0;pointer-events:none">
-      ${bottomMark ? `<span style="position:absolute;bottom:2px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${RIGHT_MARK_OPTIONS.find(o=>o.value===bottomMark)?.color||'var(--accent)'};line-height:1">${bottomMark}</span>` : ''}
-      ${bottomExpr ? `<span style="position:absolute;bottom:2px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${bottomExpr}</span>` : ''}
-    </div>
-
+    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}">
+    ${leftMarkHtml(lm)}
+    ${rightMarkHtml(rm)}
+    <div class="bar-display" style="display:flex;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
-      style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.82rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
+      style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.85rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
   </div>`;
 }
 
@@ -607,13 +576,58 @@ function sectionRowsHtml(sec, si, barOffset) {
   for (let i = start; i < bars.length; i += bpr) {
     rowGroups.push(Array.from({ length: Math.min(bpr, bars.length - i) }, (_, k) => i + k));
   }
+
   return rowGroups.map(idxs => {
-    const cells = idxs.map(bi => barCellHtml(sec, si, bi, barOffset + bi + 1)).join('');
     const missing = bpr - idxs.length;
-    const spacers = missing > 0
-      ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border-radius:4px;min-height:2.2em"></div>`).join('')
-      : '';
-    return `<div style="display:flex;gap:3px;margin-bottom:10px">${cells}${spacers}</div>`;
+    const spacerUnit = `<div style="flex:1;min-width:0"></div>`;
+    const spacers = missing > 0 ? Array(missing).fill(spacerUnit).join('') : '';
+
+    // ─── 위 기호 행 (마디 번호 + 볼타 괄호 + 왼쪽 기호) ───
+    const topRow = `<div style="display:flex;gap:3px;height:18px;align-items:flex-end">
+      ${idxs.map(bi => {
+        const b = bars[bi];
+        const isPickup = sec.pickup && bi === 0;
+        const barNum = barOffset + bi + 1;
+        const volta = b.volta || '';
+        const lm = b.leftMark || '';
+        let inner = '';
+        if (volta) {
+          inner += `<div style="position:absolute;inset:0 0 0 0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0;pointer-events:none"></div>
+            <span style="position:absolute;top:1px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>`;
+        }
+        if (lm === '𝄋' || lm === '𝄌') {
+          inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.85rem;line-height:1">${lm}</span>`;
+        }
+        const numColor = isPickup ? '#aaa' : 'var(--text2)';
+        inner += `<span style="position:absolute;bottom:1px;left:4px;font-size:0.5rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
+        return `<div style="flex:1;min-width:0;position:relative;height:18px">${inner}</div>`;
+      }).join('')}
+      ${spacers}
+    </div>`;
+
+    // ─── 마디 셀 행 (코드 슬롯만, 항상 동일 크기) ───
+    const cellRow = `<div style="display:flex;gap:3px">
+      ${idxs.map(bi => barCellHtml(sec, si, bi)).join('')}
+      ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.6em"></div>`).join('') : ''}
+    </div>`;
+
+    // ─── 아래 기호 행 (Fine / D.C. / expr 등) ───
+    const botRow = `<div style="display:flex;gap:3px;height:16px;align-items:flex-start">
+      ${idxs.map(bi => {
+        const b = bars[bi];
+        const rm = b.rightMark || '';
+        const expr = b.expr || '';
+        const bottomMark = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
+        const color = RIGHT_MARK_OPTIONS.find(o => o.value === bottomMark)?.color || 'var(--accent)';
+        let inner = '';
+        if (bottomMark) inner += `<span style="position:absolute;top:1px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${color};line-height:1">${bottomMark}</span>`;
+        if (expr)       inner += `<span style="position:absolute;top:1px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${expr}</span>`;
+        return `<div style="flex:1;min-width:0;position:relative;height:16px">${inner}</div>`;
+      }).join('')}
+      ${spacers}
+    </div>`;
+
+    return `<div style="margin-bottom:12px">${topRow}${cellRow}${botRow}</div>`;
   }).join('');
 }
 
@@ -747,8 +761,10 @@ function renderSections(ed, draft) {
           b2.style.color = isActive ? color : 'var(--text2)';
           b2.style.fontWeight = isActive ? '700' : '400';
         });
-        // 셀 시각 업데이트 (전체 재렌더 없이)
-        updateBarCellDisplay(cell, si, bi, draft);
+        // 섹션 재렌더 후 같은 셀 다시 열기
+        renderSections(ed, draft);
+        const updatedCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${bi}"]`);
+        if (updatedCell) openBarCell(updatedCell);
       });
     });
   }
@@ -864,72 +880,79 @@ export function buildChartHtml(draft, opts = {}) {
     const pickupStyle = 'flex:0 0 auto;min-width:36px;max-width:54px;';
     const normalStyle = 'flex:1;min-width:0;';
 
-    // 마디 셀 렌더 — 4비트 슬롯
-    const barCells = allBars.map((b, bi) => {
-      const barNum = startNum + bi;
-      const isPickup = sec.pickup && bi === 0;
-      const flexStyle = isPickup ? pickupStyle : normalStyle;
-      // 공백 구분으로 최대 4개 코드 파싱
-      const rawChords = (b.chords || '').trim().split(/\s+/).filter(Boolean);
-      // 4 슬롯 배치: 1코드→1번, 2코드→1,3번, 3코드→1,3,4번, 4코드→전부
-      const slotMap = SLOT_MAP;
-      const slots = ['','','',''];
-      const positions = slotMap[Math.min(rawChords.length, 4)] || [0];
-      rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
-
-      const slotsHtml = slots.map((c, si2) => {
-        const isFirst = si2 === 0;
-        const divider = si2 > 0 ? `<span style="color:var(--border);font-size:0.75em;margin:0 1px">|</span>` : '';
-        return divider + (c
-          ? `<span style="font-size:${fs};font-weight:700;color:var(--text);white-space:nowrap">${c}</span>`
-          : `<span style="display:inline-block;min-width:0.5em">&nbsp;</span>`
-        );
-      }).join('');
-
-      const lm = b.leftMark || '';
-      const rm = b.rightMark || '';
-      const vt = b.volta || '';
-      const ex = b.expr || '';
-      const borderL = lm === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
-      const borderR = (rm === ':||' || rm === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
-      const pleft = lm === '||:' ? 'padding-left:10px;' : '';
-      const pright = (rm===':||'||rm===':||:') ? 'padding-right:10px;' : '';
-      const numLeft = lm === '||:' ? '12px' : '4px';
-      const bottomMark = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
-
-      return `<div style="${flexStyle}display:flex;flex-direction:column;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;${pleft}${pright}${isPickup?'opacity:0.8;':''}">
-        ${leftMarkHtml(lm)}
-        ${rightMarkHtml(rm)}
-        <!-- 상단 밴드 -->
-        <div style="height:16px;position:relative;flex-shrink:0">
-          ${vt ? `<div style="position:absolute;inset:0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0"></div><span style="position:absolute;top:2px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${vt}</span>` : ''}
-          ${showNums ? `<span style="position:absolute;bottom:2px;left:${numLeft};font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>` : ''}
-        </div>
-        <!-- 코드 슬롯 -->
-        <div style="display:flex;flex:1;min-height:1.8em">${slotsHtml}</div>
-        <!-- 하단 밴드 -->
-        <div style="height:14px;position:relative;flex-shrink:0">
-          ${bottomMark ? `<span style="position:absolute;bottom:2px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${RIGHT_MARK_OPTIONS.find(o=>o.value===bottomMark)?.color||'var(--accent)'};line-height:1">${bottomMark}</span>` : ''}
-          ${ex ? `<span style="position:absolute;bottom:2px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${ex}</span>` : ''}
-        </div>
-      </div>`;
-    });
-
     // 행 분할
-    const rows = [];
-    const start = sec.pickup && allBars.length > 0 ? 1 : 0;
-    if (sec.pickup && allBars.length > 0) rows.push([0]); // 못갖춘마디 단독 행
-    for (let i = start; i < barCells.length; i += bpr) {
-      rows.push(Array.from({ length: Math.min(bpr, barCells.length - i) }, (_, k) => i + k));
+    const rowGroups = [];
+    const rstart = sec.pickup && allBars.length > 0 ? 1 : 0;
+    if (sec.pickup && allBars.length > 0) rowGroups.push([0]);
+    for (let i = rstart; i < allBars.length; i += bpr) {
+      rowGroups.push(Array.from({ length: Math.min(bpr, allBars.length - i) }, (_, k) => i + k));
     }
 
-    const rowsHtml = rows.map(rowIdxs => {
-      const isPickupRow = sec.pickup && rowIdxs[0] === 0 && rowIdxs.length === 1;
-      const missing = isPickupRow ? 0 : bpr - rowIdxs.length;
-      const spacers = missing > 0
-        ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border-radius:4px;min-height:2em"></div>`).join('')
-        : '';
-      return `<div style="display:flex;gap:3px;margin-bottom:3px">${rowIdxs.map(i => barCells[i]).join('')}${spacers}</div>`;
+    const rowsHtml = rowGroups.map(rowIdxs => {
+      const missing = bpr - rowIdxs.length;
+      const spacerU = `<div style="flex:1;min-width:0"></div>`;
+      const spacers = missing > 0 ? Array(missing).fill(spacerU).join('') : '';
+
+      // 위 기호 행
+      const topRow = `<div style="display:flex;gap:3px;height:18px;align-items:flex-end">
+        ${rowIdxs.map(bi => {
+          const b = allBars[bi];
+          const barNum = startNum + bi;
+          const isPickup = sec.pickup && bi === 0;
+          const vt = b.volta || '';
+          const lm = b.leftMark || '';
+          let inner = '';
+          if (vt) inner += `<div style="position:absolute;inset:0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0"></div><span style="position:absolute;top:1px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${vt}</span>`;
+          if (lm === '𝄋' || lm === '𝄌') inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.85rem;line-height:1">${lm}</span>`;
+          if (showNums) inner += `<span style="position:absolute;bottom:1px;left:4px;font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
+          return `<div style="flex:1;min-width:0;position:relative;height:18px">${inner}</div>`;
+        }).join('')}${spacers}
+      </div>`;
+
+      // 마디 셀 행
+      const cellRow = `<div style="display:flex;gap:3px">
+        ${rowIdxs.map(bi => {
+          const b = allBars[bi];
+          const isPickup = sec.pickup && bi === 0;
+          const rawChords = (b.chords || '').trim().split(/\s+/).filter(Boolean);
+          const slots = ['','','',''];
+          const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
+          rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
+          const slotsHtml = slots.map((c, si2) =>
+            `<div style="flex:1;${si2>0?'border-left:1px solid var(--border);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px 1px">
+              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
+            </div>`
+          ).join('');
+          const lm = b.leftMark || '';
+          const rm = b.rightMark || '';
+          const borderL = lm === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
+          const borderR = (rm===':||'||rm===':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+          const pleft = lm === '||:' ? 'padding-left:8px;' : '';
+          const pright = (rm===':||'||rm===':||:') ? 'padding-right:8px;' : '';
+          return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;min-height:2.2em;align-items:stretch;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
+            ${leftMarkHtml(lm)}${rightMarkHtml(rm)}
+            ${slotsHtml}
+          </div>`;
+        }).join('')}
+        ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.2em"></div>`).join('') : ''}
+      </div>`;
+
+      // 아래 기호 행
+      const botRow = `<div style="display:flex;gap:3px;height:16px;align-items:flex-start">
+        ${rowIdxs.map(bi => {
+          const b = allBars[bi];
+          const rm = b.rightMark || '';
+          const ex = b.expr || '';
+          const bm = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
+          const color = RIGHT_MARK_OPTIONS.find(o => o.value === bm)?.color || 'var(--accent)';
+          let inner = '';
+          if (bm) inner += `<span style="position:absolute;top:1px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${color};line-height:1">${bm}</span>`;
+          if (ex) inner += `<span style="position:absolute;top:1px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${ex}</span>`;
+          return `<div style="flex:1;min-width:0;position:relative;height:16px">${inner}</div>`;
+        }).join('')}${spacers}
+      </div>`;
+
+      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}</div>`;
     }).join('');
 
     // 앞 기호
