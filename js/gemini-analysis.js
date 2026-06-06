@@ -99,17 +99,36 @@ async function blobToGeminiPart(blob) {
 }
 
 // ===== OpenRouter =====
-const OPENROUTER_MODELS = [
-  'meta-llama/llama-4-maverick:free',
-  'meta-llama/llama-4-scout:free',
+// 고정 fallback (동적 조회 실패 시)
+const OPENROUTER_MODELS_FALLBACK = [
   'qwen/qwen2.5-vl-72b-instruct:free',
-  'google/gemma-3-27b-it:free',
   'qwen/qwen2-vl-7b-instruct:free',
+  'google/gemma-3-27b-it:free',
+  'microsoft/phi-4-multimodal-instruct:free',
 ];
 
+async function getOpenRouterVisionModels(apiKey) {
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    });
+    if (!res.ok) return OPENROUTER_MODELS_FALLBACK;
+    const data = await res.json();
+    // 무료이고 이미지 입력 지원하는 모델만 필터
+    const free = (data.data || []).filter(m =>
+      m.id.endsWith(':free') &&
+      m.architecture?.input_modalities?.includes('image')
+    ).map(m => m.id);
+    return free.length ? free.slice(0, 6) : OPENROUTER_MODELS_FALLBACK;
+  } catch {
+    return OPENROUTER_MODELS_FALLBACK;
+  }
+}
+
 async function callOpenRouter(apiKey, imageParts, promptText) {
+  const models = await getOpenRouterVisionModels(apiKey);
   const errors = [];
-  for (const model of OPENROUTER_MODELS) {
+  for (const model of models) {
     try {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -213,7 +232,9 @@ export async function testConnection(onStatus) {
     }
     throw new Error('모든 Gemini 모델이 한도 초과입니다. 잠시 후 다시 시도하거나 OpenRouter 키를 사용해주세요.');
   } else if (type === 'openrouter') {
-    for (const model of OPENROUTER_MODELS) {
+    onStatus('🔄 사용 가능한 모델 조회 중...');
+    const models = await getOpenRouterVisionModels(apiKey);
+    for (const model of models) {
       onStatus(`🔄 OpenRouter ${model.split('/')[1]} 테스트 중...`);
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
