@@ -5,8 +5,30 @@ function uuid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().to
 
 function getMeta() { return JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]'); }
 function setMeta(data) { localStorage.setItem('gta_sheet_meta', JSON.stringify(data)); }
-function getFolders() { return JSON.parse(localStorage.getItem('gta_folders') || '[]'); }
+// ===== 폴더 관리 (하위폴더 지원) =====
+// 형식: [{id, name, parentId}]  parentId=null → 루트 폴더
+// 하위폴더 id: 'ParentName/ChildName' 형태
+function getFolders() {
+  const raw = JSON.parse(localStorage.getItem('gta_folders') || '[]');
+  // 구버전(string[]) 마이그레이션
+  if (raw.length && typeof raw[0] === 'string') {
+    const migrated = raw.map(name => ({ id: name, name, parentId: null }));
+    setFolders(migrated);
+    return migrated;
+  }
+  return raw;
+}
 function setFolders(data) { localStorage.setItem('gta_folders', JSON.stringify(data)); }
+function rootFolders() { return getFolders().filter(f => !f.parentId); }
+function subFolders(pid) { return getFolders().filter(f => f.parentId === pid); }
+function folderById(id) { return getFolders().find(f => f.id === id); }
+function folderLabel(id) {
+  const f = folderById(id);
+  if (!f) return id || '';
+  if (!f.parentId) return f.name;
+  const p = folderById(f.parentId);
+  return p ? `${p.name} › ${f.name}` : f.name;
+}
 
 // 현재 선택된 폴더 (모듈 내 상태)
 let activeFolder = null; // null = 전체
@@ -32,8 +54,8 @@ export async function render(panel) {
 
     <!-- 업로드 폼 -->
     <div class="card">
-      <div class="label">악보 업로드 (PDF · PNG · JPG)</div>
-      <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" style="margin-bottom:10px">
+      <div class="label">악보 업로드 (PDF · PNG · JPG · 복수 선택 가능)</div>
+      <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="margin-bottom:10px">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <div style="flex:2;min-width:120px"><div class="label">곡명</div><input type="text" id="meta-title" placeholder="곡명"></div>
         <div style="flex:1;min-width:100px"><div class="label">아티스트</div><input type="text" id="meta-artist" placeholder="아티스트"></div>
@@ -54,11 +76,15 @@ export async function render(panel) {
 
     <!-- 폴더 관리 -->
     <div class="card" style="padding:12px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
         <span class="section-label" style="margin-bottom:0">폴더</span>
-        <button class="btn btn-secondary" id="new-folder-btn" style="font-size:0.75rem;padding:4px 10px">+ 새 폴더</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary" id="new-folder-btn" style="font-size:0.75rem;padding:4px 10px">+ 새 폴더</button>
+          <button class="btn btn-secondary" id="sync-btn" style="font-size:0.75rem;padding:4px 10px">☁️ 동기화</button>
+        </div>
       </div>
       <div id="folder-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      <div id="subfolder-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:12px;border-left:2px solid var(--border)"></div>
     </div>
 
     <!-- 검색 + 목록 -->
@@ -76,100 +102,161 @@ export async function render(panel) {
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
   panel.querySelector('#new-folder-btn').addEventListener('click', () => {
-    const name = prompt('폴더 이름을 입력하세요:');
+    const name = prompt('새 폴더 이름:');
     if (!name?.trim()) return;
     const folders = getFolders();
-    if (folders.includes(name.trim())) { alert('이미 있는 폴더입니다.'); return; }
-    folders.push(name.trim());
+    if (folders.find(f => f.id === name.trim())) { alert('이미 있는 폴더입니다.'); return; }
+    folders.push({ id: name.trim(), name: name.trim(), parentId: null });
     setFolders(folders);
     renderFolderList(panel);
   });
+  panel.querySelector('#sync-btn').addEventListener('click', () => syncFromCloud(panel));
 }
 
 function renderFolderList(panel) {
-  const folders = getFolders();
+  const roots = rootFolders();
 
-  // 업로드 폼 폴더 select 업데이트
+  // 업로드 폼 폴더 select 업데이트 (계층 표시)
   const sel = panel.querySelector('#meta-folder');
   if (sel) {
     sel.innerHTML = `<option value="">폴더 없음</option>` +
-      folders.map(f => `<option value="${f}">${f}</option>`).join('');
+      roots.map(f => {
+        const subs = subFolders(f.id);
+        return `<option value="${f.id}">📁 ${f.name}</option>` +
+          subs.map(s => `<option value="${s.id}">　└ ${s.name}</option>`).join('');
+      }).join('');
+    sel.value = sel.querySelector(`option[value="${activeFolder}"]`) ? activeFolder : '';
   }
 
-  // 폴더 탭 버튼
+  // 루트 폴더 탭
   const list = panel.querySelector('#folder-list');
+  // 현재 activeFolder의 루트를 파악
+  const activeFolderObj = activeFolder ? folderById(activeFolder) : null;
+  const activeRoot = activeFolderObj
+    ? (activeFolderObj.parentId ? activeFolderObj.parentId : activeFolderObj.id)
+    : null;
+
   list.innerHTML = `
     <button class="btn ${activeFolder === null ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="" style="font-size:0.78rem;padding:5px 12px">전체</button>
-    ${folders.map(f => `
-      <div style="display:flex;align-items:center;gap:2px">
-        <button class="btn ${activeFolder === f ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${f}" style="font-size:0.78rem;padding:5px 12px">${f}</button>
-        <button class="btn btn-secondary del-folder" data-folder="${f}" style="font-size:0.7rem;padding:4px 6px;color:var(--danger)">×</button>
+    ${roots.map(f => `
+      <div style="display:inline-flex;align-items:center;gap:2px">
+        <button class="btn ${activeRoot === f.id ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${f.id}" style="font-size:0.78rem;padding:5px 12px">📁 ${f.name}</button>
+        <button class="btn btn-secondary del-folder" data-folder="${f.id}" style="font-size:0.7rem;padding:4px 6px;color:var(--danger)">×</button>
       </div>
     `).join('')}
   `;
 
-  list.querySelectorAll('.folder-tab').forEach(btn => {
+  // 하위폴더 탭 (루트 선택 시)
+  const subList = panel.querySelector('#subfolder-list');
+  const subs = activeRoot ? subFolders(activeRoot) : [];
+  if (subs.length || activeRoot) {
+    subList.style.display = '';
+    subList.innerHTML = `
+      <button class="btn ${activeFolder === activeRoot ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${activeRoot || ''}" style="font-size:0.72rem;padding:4px 10px">전체</button>
+      ${subs.map(s => `
+        <div style="display:inline-flex;align-items:center;gap:2px">
+          <button class="btn ${activeFolder === s.id ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${s.id}" style="font-size:0.72rem;padding:4px 10px">${s.name}</button>
+          <button class="btn btn-secondary del-folder" data-folder="${s.id}" style="font-size:0.65rem;padding:3px 5px;color:var(--danger)">×</button>
+        </div>
+      `).join('')}
+      <button class="btn btn-secondary" id="new-subfolder-btn" style="font-size:0.72rem;padding:4px 10px">+ 하위폴더</button>
+    `;
+    subList.querySelector('#new-subfolder-btn')?.addEventListener('click', () => {
+      const name = prompt(`"${folderById(activeRoot)?.name}" 안에 새 하위폴더 이름:`);
+      if (!name?.trim()) return;
+      const folders = getFolders();
+      const newId = `${activeRoot}/${name.trim()}`;
+      if (folders.find(f => f.id === newId)) { alert('이미 있는 폴더입니다.'); return; }
+      folders.push({ id: newId, name: name.trim(), parentId: activeRoot });
+      setFolders(folders);
+      renderFolderList(panel);
+    });
+  } else {
+    subList.style.display = 'none';
+    subList.innerHTML = '';
+  }
+
+  panel.querySelectorAll('.folder-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       activeFolder = btn.dataset.folder || null;
       renderFolderList(panel);
-      filterList(panel, panel.querySelector('#search-input').value);
+      filterList(panel, panel.querySelector('#search-input')?.value || '');
     });
   });
 
-  list.querySelectorAll('.del-folder').forEach(btn => {
+  panel.querySelectorAll('.del-folder').forEach(btn => {
     btn.addEventListener('click', () => {
-      const f = btn.dataset.folder;
-      if (!confirm(`"${f}" 폴더를 삭제하시겠습니까? (악보는 유지됩니다)`)) return;
-      // 해당 폴더 악보들의 folder 필드 초기화
-      const meta = getMeta().map(m => m.folder === f ? { ...m, folder: '' } : m);
+      const fid = btn.dataset.folder;
+      const f = folderById(fid);
+      if (!confirm(`"${f?.name || fid}" 폴더를 삭제하시겠습니까? (악보는 유지됩니다)`)) return;
+      // 해당 폴더+하위폴더 id 수집
+      const toRemove = new Set([fid, ...getFolders().filter(x => x.parentId === fid).map(x => x.id)]);
+      const meta = getMeta().map(m => toRemove.has(m.folder) ? { ...m, folder: '' } : m);
       setMeta(meta);
-      const folders = getFolders().filter(x => x !== f);
-      setFolders(folders);
-      if (activeFolder === f) activeFolder = null;
+      setFolders(getFolders().filter(x => !toRemove.has(x.id)));
+      if (activeFolder && toRemove.has(activeFolder)) activeFolder = null;
       renderFolderList(panel);
-      filterList(panel, panel.querySelector('#search-input').value);
+      filterList(panel, panel.querySelector('#search-input')?.value || '');
     });
   });
 }
 
 async function uploadSheet(panel) {
-  const file = panel.querySelector('#file-input').files[0];
-  if (!file) { alert('파일을 선택해주세요.'); return; }
-
-  const id = uuid();
-  const title = panel.querySelector('#meta-title').value || file.name;
-  const artist = panel.querySelector('#meta-artist').value;
-  const key = panel.querySelector('#meta-key').value;
-  const bpm = panel.querySelector('#meta-bpm').value;
-  const tags = panel.querySelector('#meta-tags').value.split(',').map(t => t.trim()).filter(Boolean);
-  const folder = panel.querySelector('#meta-folder').value;
-  const type = file.type === 'application/pdf' ? 'pdf' : 'image';
+  const files = Array.from(panel.querySelector('#file-input').files);
+  if (!files.length) { alert('파일을 선택해주세요.'); return; }
 
   const btn = panel.querySelector('#upload-btn');
   btn.disabled = true;
-  btn.textContent = '저장 중...';
 
-  let thumbnail = null;
-  if (type === 'image') {
-    thumbnail = await fileToDataURL(file);
-  } else if (type === 'pdf') {
-    thumbnail = await pdfThumbnail(file);
+  const commonArtist = panel.querySelector('#meta-artist').value;
+  const commonKey    = panel.querySelector('#meta-key').value;
+  const commonBpm    = panel.querySelector('#meta-bpm').value;
+  const commonTags   = panel.querySelector('#meta-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const commonFolder = panel.querySelector('#meta-folder').value;
+
+  const { isReady, connect, pushSheet: fbPush } = await import('./firebase-sync.js');
+  let fbReady = isReady();
+  if (!fbReady && localStorage.getItem('gta_firebase_cfg')) {
+    const res = await connect();
+    fbReady = res.ok;
   }
 
-  await saveSheet({ id, file, type, thumbnail, createdAt: Date.now() });
+  for (let fi = 0; fi < files.length; fi++) {
+    const file = files[fi];
+    const id = uuid();
+    const title = files.length === 1
+      ? (panel.querySelector('#meta-title').value || file.name.replace(/\.[^.]+$/, ''))
+      : file.name.replace(/\.[^.]+$/, '');
+    const type = file.type === 'application/pdf' ? 'pdf' : 'image';
 
-  // PDF: 전 페이지를 이미지로 변환 저장 (라이브 모드에서 고품질 렌더링에 사용)
-  if (type === 'pdf') {
-    btn.textContent = 'PDF 변환 중...';
-    const pages = await prerenderPdfPages(file);
-    if (pages && pages.length > 0) {
-      await updateSheet(id, { pages });
+    btn.textContent = `저장 중... (${fi + 1}/${files.length})`;
+
+    let thumbnail = null;
+    if (type === 'image') thumbnail = await fileToDataURL(file);
+    else if (type === 'pdf') thumbnail = await pdfThumbnail(file);
+
+    await saveSheet({ id, file, type, thumbnail, createdAt: Date.now() });
+
+    let pages = null;
+    if (type === 'pdf') {
+      btn.textContent = `PDF 변환 중... (${fi + 1}/${files.length})`;
+      pages = await prerenderPdfPages(file);
+      if (pages?.length) await updateSheet(id, { pages });
+    }
+
+    const meta = getMeta();
+    const metaItem = { id, title, artist: commonArtist, key: commonKey, bpm: commonBpm, tags: commonTags, folder: commonFolder, type, createdAt: Date.now() };
+    meta.unshift(metaItem);
+    setMeta(meta);
+
+    // Firebase 동기화
+    if (fbReady) {
+      try {
+        btn.textContent = `☁️ 업로드 중... (${fi + 1}/${files.length})`;
+        await fbPush(id, file, pages || [], metaItem);
+      } catch (e) { console.warn('Firebase push failed:', e); }
     }
   }
-
-  const meta = getMeta();
-  meta.unshift({ id, title, artist, key, bpm, tags, folder, type, createdAt: Date.now() });
-  setMeta(meta);
 
   btn.disabled = false;
   btn.textContent = '저장';
@@ -236,8 +323,17 @@ function filterList(panel, query) {
   let meta = getMeta();
   const q = query.toLowerCase();
 
-  // 폴더 필터
-  if (activeFolder) meta = meta.filter(m => m.folder === activeFolder);
+  // 폴더 필터 (하위폴더 포함)
+  if (activeFolder) {
+    const activeFolderObj = folderById(activeFolder);
+    if (activeFolderObj && !activeFolderObj.parentId) {
+      // 루트 폴더 선택 → 루트 + 모든 하위폴더 포함
+      const childIds = new Set([activeFolder, ...subFolders(activeFolder).map(s => s.id)]);
+      meta = meta.filter(m => childIds.has(m.folder));
+    } else {
+      meta = meta.filter(m => m.folder === activeFolder);
+    }
+  }
 
   // 검색 필터
   if (q) meta = meta.filter(m =>
@@ -262,7 +358,7 @@ function filterList(panel, query) {
           }
           <div style="font-size:0.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.title}</div>
           <div style="font-size:0.72rem;color:var(--text2)">${m.artist || ''}</div>
-          ${m.folder ? `<div style="font-size:0.68rem;color:var(--accent);margin-top:2px">📁 ${m.folder}</div>` : ''}
+          ${m.folder ? `<div style="font-size:0.68rem;color:var(--accent);margin-top:2px">📁 ${folderLabel(m.folder)}</div>` : ''}
           <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px">${(m.tags||[]).map(t=>`<span class="badge" style="font-size:0.65rem">${t}</span>`).join('')}</div>
         </div>
       `).join('')}
@@ -301,12 +397,16 @@ async function openSheet(panel, id) {
         </div>
       </div>
       <!-- 폴더 이동 -->
-      ${folders.length ? `
+      ${getFolders().length ? `
         <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:0.8rem;color:var(--text2)">폴더 이동:</span>
           <select id="move-folder-sel" style="width:auto">
             <option value="">폴더 없음</option>
-            ${folders.map(f => `<option value="${f}" ${meta.folder===f?'selected':''}>${f}</option>`).join('')}
+            ${rootFolders().map(f => {
+              const subs = subFolders(f.id);
+              return `<option value="${f.id}" ${meta.folder===f.id?'selected':''}>📁 ${f.name}</option>` +
+                subs.map(s => `<option value="${s.id}" ${meta.folder===s.id?'selected':''}>　└ ${s.name}</option>`).join('');
+            }).join('')}
           </select>
           <button class="btn btn-secondary" id="move-folder-btn" style="font-size:0.78rem;padding:5px 10px">이동</button>
         </div>
@@ -335,6 +435,9 @@ async function openSheet(panel, id) {
     setMeta(getMeta().filter(m => m.id !== id));
     viewer.innerHTML = '';
     loadList(panel);
+    // Firebase에서도 삭제
+    const { isReady, removeSheet: fbRemove } = await import('./firebase-sync.js');
+    if (isReady()) fbRemove(id).catch(() => {});
   });
 
   viewer.querySelector('#move-folder-btn')?.addEventListener('click', () => {
@@ -516,6 +619,60 @@ function saveLiveChart(meta, sections) {
   if (!setlists.find(s => s.id === draft.id)) {
     setlists.push({ id: draft.id, title: draft.title, type: 'chart' });
     localStorage.setItem('gta_setlists', JSON.stringify(setlists));
+  }
+}
+
+// ===== 클라우드 동기화 =====
+async function syncFromCloud(panel) {
+  const syncBtn = panel.querySelector('#sync-btn');
+  const orig = syncBtn.textContent;
+  syncBtn.disabled = true;
+  syncBtn.textContent = '☁️ 연결 중...';
+
+  try {
+    const { isReady, connect, pullAll, fetchBlob } = await import('./firebase-sync.js');
+    let ready = isReady();
+    if (!ready) {
+      const res = await connect();
+      if (!res.ok) { alert('Firebase 연결 실패: ' + res.error + '\n\n설정 탭에서 Firebase를 연결해주세요.'); return; }
+      ready = true;
+    }
+
+    syncBtn.textContent = '☁️ 목록 받는 중...';
+    const remoteList = await pullAll();
+    if (!remoteList) { alert('동기화 실패: 원격 데이터를 가져올 수 없습니다.'); return; }
+
+    const localMeta = getMeta();
+    const localIds = new Set(localMeta.map(m => m.id));
+    const toDownload = remoteList.filter(r => !localIds.has(r.id));
+
+    let downloaded = 0;
+    for (let i = 0; i < toDownload.length; i++) {
+      const remote = toDownload[i];
+      syncBtn.textContent = `☁️ 다운로드 중 (${i + 1}/${toDownload.length})...`;
+      try {
+        const mime = remote.type === 'pdf' ? 'application/pdf' : 'image/jpeg';
+        const fileBlob = await fetchBlob(remote.fileUrl, mime);
+
+        const pages = [];
+        for (const pUrl of (remote.pagesUrls || [])) {
+          pages.push(await fetchBlob(pUrl, 'image/jpeg'));
+        }
+
+        await saveSheet({ id: remote.id, file: fileBlob, type: remote.type, thumbnail: null, createdAt: remote.createdAt, ...(pages.length ? { pages } : {}) });
+        localMeta.unshift({ id: remote.id, title: remote.title, artist: remote.artist, key: remote.key, bpm: remote.bpm, tags: remote.tags || [], folder: remote.folder || '', type: remote.type, createdAt: remote.createdAt });
+        downloaded++;
+      } catch (e) { console.warn('download failed:', remote.id, e); }
+    }
+
+    setMeta(localMeta);
+    loadList(panel);
+    alert(`동기화 완료!\n새로 받은 파일: ${downloaded}개\n(전체 원격: ${remoteList.length}개, 이미 보유: ${localIds.size}개)`);
+  } catch (e) {
+    alert('동기화 오류: ' + e.message);
+  } finally {
+    syncBtn.disabled = false;
+    syncBtn.textContent = orig;
   }
 }
 

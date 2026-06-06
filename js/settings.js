@@ -19,6 +19,8 @@ export function render(panel) {
   const curTheme = s.theme || 'dark-pro';
   const curSize = s.fontSize || 16;
   const curLeft = s.leftHanded || false;
+  const fbCfgStr = localStorage.getItem('gta_firebase_cfg') || '';
+  const syncKey = s.syncKey || '';
 
   panel.innerHTML = `
     <h1 class="page-title">⚙️ 설정</h1>
@@ -62,6 +64,29 @@ export function render(panel) {
       </div>
     </div>
 
+    <div class="card">
+      <div class="section-label">☁️ 클라우드 동기화 (Firebase)</div>
+      <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 12px">
+        모든 기기에서 같은 악보를 공유하려면 Firebase 무료 프로젝트를 연결하세요.<br>
+        <strong>설정 방법:</strong><br>
+        1. <a href="https://console.firebase.google.com" target="_blank" style="color:var(--link)">Firebase Console</a> → 새 프로젝트 생성<br>
+        2. 프로젝트 설정 → 앱 추가(웹) → 아래 JSON 복사하여 붙여넣기<br>
+        3. Firestore Database 생성 (테스트 모드)<br>
+        4. Storage 생성 (테스트 모드)<br>
+        5. 동기화 키: 같은 키를 쓰는 기기끼리 데이터를 공유합니다
+      </p>
+      <div class="label">Firebase 설정 JSON</div>
+      <textarea id="fb-config" rows="5" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'
+        style="font-size:0.75rem;font-family:monospace;resize:vertical">${fbCfgStr}</textarea>
+      <div class="label" style="margin-top:10px">동기화 키 (비밀번호처럼 사용 — 같은 키 = 같은 데이터)</div>
+      <input type="text" id="sync-key" placeholder="예: myband2024" value="${syncKey}" style="max-width:300px">
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-primary" id="fb-save-btn">저장 및 연결 테스트</button>
+        <button class="btn btn-secondary" id="fb-clear-btn">연동 해제</button>
+      </div>
+      <div id="fb-status" style="font-size:0.82rem;margin-top:8px;color:var(--text2)"></div>
+    </div>
+
     <div class="card" style="border-color:var(--danger)">
       <div class="section-label" style="color:var(--danger)">위험 영역</div>
       <button class="btn" id="reset-btn" style="background:var(--danger);color:#fff;margin-top:8px">전체 데이터 초기화</button>
@@ -99,6 +124,30 @@ export function render(panel) {
   // 가져오기
   panel.querySelector('#import-btn').addEventListener('click', () => panel.querySelector('#import-file').click());
   panel.querySelector('#import-file').addEventListener('change', e => importData(e.target.files[0]));
+
+  // Firebase 설정 저장 + 연결 테스트
+  panel.querySelector('#fb-save-btn').addEventListener('click', async () => {
+    const cfgStr = panel.querySelector('#fb-config').value.trim();
+    const key = panel.querySelector('#sync-key').value.trim();
+    const status = panel.querySelector('#fb-status');
+    if (!cfgStr || !key) { status.textContent = '⚠️ Firebase 설정과 동기화 키를 모두 입력해주세요.'; return; }
+    try { JSON.parse(cfgStr); } catch { status.textContent = '⚠️ 올바른 JSON 형식이 아닙니다.'; return; }
+    const { saveConfig, connect } = await import('./firebase-sync.js');
+    saveConfig(cfgStr);
+    const s = getSettings(); s.syncKey = key; saveSettings(s);
+    status.textContent = '🔄 연결 중...';
+    const res = await connect();
+    status.textContent = res.ok ? '✅ 연결 성공! 악보 탭에서 동기화 버튼을 사용하세요.' : `❌ 연결 실패: ${res.error}`;
+  });
+
+  panel.querySelector('#fb-clear-btn').addEventListener('click', () => {
+    if (!confirm('Firebase 연동을 해제하시겠습니까?')) return;
+    localStorage.removeItem('gta_firebase_cfg');
+    const s = getSettings(); delete s.syncKey; saveSettings(s);
+    panel.querySelector('#fb-config').value = '';
+    panel.querySelector('#sync-key').value = '';
+    panel.querySelector('#fb-status').textContent = '연동이 해제되었습니다.';
+  });
 
   // 초기화
   panel.querySelector('#reset-btn').addEventListener('click', () => {
