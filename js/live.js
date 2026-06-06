@@ -1,4 +1,5 @@
 import { getSheet } from './db.js';
+import { buildChartHtml } from './chart.js';
 
 function getSetlists() { return JSON.parse(localStorage.getItem('gta_setlists') || '[]'); }
 function saveSetlists(d) { localStorage.setItem('gta_setlists', JSON.stringify(d)); }
@@ -160,21 +161,7 @@ async function renderContent(container, record, startPage, ppv) {
 }
 
 function renderChartInContainer(container, draft) {
-  const sections = draft.sections.map(sec => {
-    const bars = sec.bars.map(b => b.chords
-      ? `<span style="display:inline-block;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;margin:3px;font-size:0.95rem;font-weight:700">${b.chords}</span>`
-      : '').join('');
-    const memo = sec.memo ? `<div style="font-size:0.78rem;color:var(--text2);margin-top:4px;font-style:italic">${sec.memo}</div>` : '';
-    return `<div style="margin-bottom:14px"><div style="font-weight:700;color:var(--accent);margin-bottom:6px;font-size:1rem">${sec.type}</div><div style="display:flex;flex-wrap:wrap">${bars}</div>${memo}</div>`;
-  }).join('');
-
-  container.innerHTML = `
-    <div style="padding:8px">
-      <div style="font-size:1.3rem;font-weight:700;margin-bottom:4px">${draft.title}</div>
-      <div style="color:var(--text2);font-size:0.85rem;margin-bottom:16px">${[draft.key,draft.time,draft.bpm?draft.bpm+'BPM':''].filter(Boolean).join(' · ')}</div>
-      ${sections || '<div style="color:var(--text2)">섹션 없음</div>'}
-    </div>
-  `;
+  container.innerHTML = buildChartHtml(draft, { fontSize: '1rem' });
 }
 
 function renderChartView(container, draft) {
