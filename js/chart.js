@@ -1063,7 +1063,11 @@ function renderSections(ed, draft) {
       // 포커스가 툴바 내부로 이동하는 경우 renderSections 하지 않음
       const relatedTarget = e.relatedTarget;
       const cell = inp.closest('.bar-cell');
-      if (relatedTarget && cell && cell.contains(relatedTarget)) return;
+      // 포커스가 셀 내부 또는 body에 붙은 툴바 내부로 이동 시 닫지 않음
+      if (relatedTarget && (
+        (cell && cell.contains(relatedTarget)) ||
+        relatedTarget.closest('.bar-mark-toolbar')
+      )) return;
       renderSections(ed, draft);
     });
 
