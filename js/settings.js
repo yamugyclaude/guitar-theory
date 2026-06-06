@@ -183,7 +183,7 @@ create policy "allow_all" on gta_sheets
     localStorage.setItem('gta_gemini_key', key);
     geminiStatus.textContent = '🔄 테스트 중...';
     try {
-      const { analyzeSheet } = await import('./gemini-analysis.js?v=2');
+      const { analyzeSheet } = await import('./gemini-analysis.js?v=3');
       // 1×1 흰색 픽셀로 연결 테스트
       const testBlob = await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==').then(r=>r.blob());
       await analyzeSheet(testBlob);
