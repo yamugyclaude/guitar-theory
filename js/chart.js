@@ -6,16 +6,12 @@ function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 
 // ── SVG 기호 (Unicode 미지원 대체) ──────────────────────────────────
 function segnoSvg(size = 16, color = 'currentColor') {
-  // 세뇨 기호: S자 곡선 + 중앙 세로선 + 위아래 점
-  return `<svg width="${size}" height="${Math.round(size*1.25)}" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
-    <!-- S 곡선 위쪽 반 -->
-    <path d="M11 5.5 C11 3 5 3 5 6.5 C5 8 8 8.5 11 10 C14 11.5 11 15 8 15 C5 15 4 13.5 4 12" stroke="${color}" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    <!-- 중앙 세로선 -->
-    <line x1="7.5" y1="1" x2="7.5" y2="19" stroke="${color}" stroke-width="1.3" stroke-linecap="round"/>
-    <!-- 위 점 -->
-    <circle cx="4"  cy="3.5" r="1.3" fill="${color}"/>
-    <!-- 아래 점 -->
-    <circle cx="11.5" cy="16" r="1.3" fill="${color}"/>
+  // 세뇨: 위 반원 + 아래 반원(S자) + 세로선 + 대각 점 두 개
+  return `<svg width="${size}" height="${Math.round(size*1.2)}" viewBox="0 0 14 17" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
+    <line x1="7" y1="0.5" x2="7" y2="16.5" stroke="${color}" stroke-width="1.3" stroke-linecap="round"/>
+    <path d="M10 4 Q10 1.5 7 1.5 Q4 1.5 4 4 Q4 6.5 7 7 Q10 7.5 10 10 Q10 12.5 7 12.5 Q4 12.5 4 10" stroke="${color}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <circle cx="3"  cy="3.5"  r="1.2" fill="${color}"/>
+    <circle cx="11" cy="12.5" r="1.2" fill="${color}"/>
   </svg>`;
 }
 function codaSvg(size = 16, color = 'currentColor') {
