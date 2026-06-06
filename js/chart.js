@@ -488,9 +488,8 @@ function leftMarkHtml(mark) {
       </div>
     </div>`;
   }
-  const opt = LEFT_MARK_OPTIONS.find(o => o.value === mark);
-  const color = opt?.color || 'var(--accent)';
-  return `<div style="position:absolute;left:2px;top:50%;transform:translateY(-50%);z-index:1;pointer-events:none;line-height:1">${markIconHtml(mark, color, 15)}</div>`;
+  // segno/coda는 topRow(위 기호행)에서만 표시 — 셀 안에는 렌더 안 함
+  return '';
 }
 
 // 오른쪽 기호 시각화
