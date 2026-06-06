@@ -476,9 +476,8 @@ function rightMarkHtml(mark) {
       </div>
     </div>`;
   }
-  const opt = RIGHT_MARK_OPTIONS.find(o => o.value === mark);
-  const color = opt?.color || 'var(--accent)';
-  return `<div style="position:absolute;bottom:2px;right:3px;font-size:0.62rem;font-weight:700;color:${color};z-index:1;pointer-events:none;line-height:1;font-style:italic">${mark}</div>`;
+  // 텍스트 기호(Fine, D.C. 등)는 하단 밴드에서 렌더 — 여기서는 아무것도 반환 안 함
+  return '';
 }
 
 // 볼타 괄호 시각화
@@ -517,21 +516,38 @@ function barCellHtml(sec, si, bi, barNum) {
   const borderLeft = leftMark === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
   const borderRight = (rightMark === ':||' || rightMark === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
 
-  // 볼타 있으면 마디번호를 볼타 아래로 내림
-  // 볼타 높이 12px + 마디번호 위치 14px
-  const numTop = volta ? '14px' : '3px';
   const numLeft = leftMark === '||:' ? '12px' : '4px';
-  // 코드 슬롯 상단 패딩: 볼타+번호 공간 확보
-  const topPad = volta ? 'padding-top:26px;' : 'padding-top:14px;';
+
+  // ── 셀 레이아웃 ──────────────────────────────────────────────────
+  // 상단 밴드(16px): 볼타 괄호 + 마디 번호
+  // 중간 영역:       4비트 코드 슬롯
+  // 하단 밴드(14px): Fine / D.C. / expr 등 끝 기호
+
+  // 하단에 표시할 기호
+  const bottomMark = (rightMark && rightMark !== ':||' && rightMark !== ':||:') ? rightMark : '';
+  const bottomExpr = expr || '';
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
-    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${leftPad}${rightPad}${isPickup?'max-width:52px;opacity:0.75;':''}">
+    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${leftPad}${rightPad}display:flex;flex-direction:column;${isPickup?'max-width:52px;opacity:0.75;':''}">
     ${leftMarkHtml(leftMark)}
     ${rightMarkHtml(rightMark)}
-    ${voltaHtml(volta)}
-    <div style="font-size:0.5rem;color:var(--text2);position:absolute;top:${numTop};left:${numLeft};line-height:1;pointer-events:none">${isPickup?'↑':barNum}</div>
-    ${expr ? `<div style="position:absolute;top:3px;right:3px;font-size:0.55rem;color:#aaa;pointer-events:none;font-style:italic">${expr}</div>` : ''}
-    <div class="bar-display" style="display:flex;min-height:2.2em;${topPad}padding-bottom:4px;pointer-events:none">${slotsHtml}</div>
+
+    <!-- 상단 밴드: 볼타 + 마디 번호 -->
+    <div style="height:16px;position:relative;flex-shrink:0;pointer-events:none">
+      ${volta ? `<div style="position:absolute;inset:0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0"></div>
+        <span style="position:absolute;top:2px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>` : ''}
+      <span style="position:absolute;bottom:2px;left:${numLeft};font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>
+    </div>
+
+    <!-- 중간: 코드 슬롯 -->
+    <div class="bar-display" style="display:flex;flex:1;min-height:2em;pointer-events:none">${slotsHtml}</div>
+
+    <!-- 하단 밴드: Fine, D.C., expr 등 -->
+    <div style="height:14px;position:relative;flex-shrink:0;pointer-events:none">
+      ${bottomMark ? `<span style="position:absolute;bottom:2px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${RIGHT_MARK_OPTIONS.find(o=>o.value===bottomMark)?.color||'var(--accent)'};line-height:1">${bottomMark}</span>` : ''}
+      ${bottomExpr ? `<span style="position:absolute;bottom:2px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${bottomExpr}</span>` : ''}
+    </div>
+
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
       style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.82rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
@@ -597,7 +613,7 @@ function sectionRowsHtml(sec, si, barOffset) {
     const spacers = missing > 0
       ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border-radius:4px;min-height:2.2em"></div>`).join('')
       : '';
-    return `<div style="display:flex;gap:3px;margin-bottom:6px">${cells}${spacers}</div>`;
+    return `<div style="display:flex;gap:3px;margin-bottom:10px">${cells}${spacers}</div>`;
   }).join('');
 }
 
@@ -876,35 +892,26 @@ export function buildChartHtml(draft, opts = {}) {
       const ex = b.expr || '';
       const borderL = lm === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
       const borderR = (rm === ':||' || rm === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
-      const pleft = lm === '||:' ? 'padding-left:10px;' : 'padding-left:3px;';
-      const pright = (rm===':||'||rm===':||:') ? 'padding-right:10px;' : 'padding-right:3px;';
+      const pleft = lm === '||:' ? 'padding-left:10px;' : '';
+      const pright = (rm===':||'||rm===':||:') ? 'padding-right:10px;' : '';
+      const numLeft = lm === '||:' ? '12px' : '4px';
+      const bottomMark = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
 
-      // 오른쪽 기호 텍스트 (||, :|| 제외)
-      const rmTxt = (rm && rm !== ':||' && rm !== ':||:')
-        ? `<div style="position:absolute;bottom:1px;right:3px;font-size:0.58rem;font-weight:700;color:${RIGHT_MARK_OPTIONS.find(o=>o.value===rm)?.color||'var(--accent)'};font-style:italic;line-height:1">${rm}</div>`
-        : '';
-      const vtTxt = vt
-        ? `<div style="position:absolute;top:0;left:0;right:0;height:9px;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:2px 0 0 0"><span style="position:absolute;top:0;left:2px;font-size:0.52rem;font-weight:700;color:#80c8a0;line-height:1">${vt}</span></div>`
-        : '';
-      const exTxt = ex ? `<div style="position:absolute;top:1px;right:2px;font-size:0.52rem;color:#aaa;font-style:italic">${ex}</div>` : '';
-
-      return `<div style="
-        ${flexStyle}
-        padding-top:${showNums?'11px':'2px'};padding-bottom:3px;${pleft}${pright}
-        background:var(--bg3);
-        ${borderL}${borderR}
-        border-top:1px solid var(--border);border-bottom:1px solid var(--border);
-        border-radius:4px;
-        position:relative;
-        overflow:hidden;
-        ${isPickup ? 'opacity:0.8;' : ''}
-      ">
-        ${showNums ? `<div style="font-size:0.5rem;color:var(--text2);position:absolute;top:2px;left:${lm==='||:'?'12':'3'}px;line-height:1">${isPickup?'↑':barNum}</div>` : ''}
+      return `<div style="${flexStyle}display:flex;flex-direction:column;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;${pleft}${pright}${isPickup?'opacity:0.8;':''}">
         ${leftMarkHtml(lm)}
         ${rightMarkHtml(rm)}
-        ${vtTxt}${exTxt}
-        <div style="display:flex;min-height:1.6em">${slotsHtml}</div>
-        ${rmTxt}
+        <!-- 상단 밴드 -->
+        <div style="height:16px;position:relative;flex-shrink:0">
+          ${vt ? `<div style="position:absolute;inset:0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0"></div><span style="position:absolute;top:2px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${vt}</span>` : ''}
+          ${showNums ? `<span style="position:absolute;bottom:2px;left:${numLeft};font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>` : ''}
+        </div>
+        <!-- 코드 슬롯 -->
+        <div style="display:flex;flex:1;min-height:1.8em">${slotsHtml}</div>
+        <!-- 하단 밴드 -->
+        <div style="height:14px;position:relative;flex-shrink:0">
+          ${bottomMark ? `<span style="position:absolute;bottom:2px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${RIGHT_MARK_OPTIONS.find(o=>o.value===bottomMark)?.color||'var(--accent)'};line-height:1">${bottomMark}</span>` : ''}
+          ${ex ? `<span style="position:absolute;bottom:2px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${ex}</span>` : ''}
+        </div>
       </div>`;
     });
 
