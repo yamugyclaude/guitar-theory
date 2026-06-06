@@ -75,7 +75,7 @@ export function render(panel) {
       </p>
       <div class="label">OpenRouter API Key</div>
       <div style="display:flex;gap:8px">
-        <input type="password" id="gemini-key-input" placeholder="sk-or-..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
+        <input type="password" id="gemini-key-input" placeholder="AIza..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
         <button class="btn btn-secondary" id="gemini-toggle-btn" style="flex-shrink:0;font-size:0.75rem;padding:6px 10px">보기</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
@@ -185,26 +185,19 @@ create policy "allow_all" on gta_sheets
     localStorage.setItem('gta_gemini_key', key);
     geminiStatus.textContent = '🔄 테스트 중...';
     try {
-      // 직접 API 호출해서 정확한 에러 확인
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`,
-          'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
-          'X-Title': 'Guitar Theory App'
-        },
-        body: JSON.stringify({
-          model: 'moonshotai/kimi-k2.6:free',
-          messages: [{ role: 'user', content: 'hi' }],
-          max_tokens: 5
-        })
-      });
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }], generationConfig: { maxOutputTokens: 5 } })
+        }
+      );
       const data = await res.json();
       if (!res.ok) {
-        geminiStatus.innerHTML = `❌ 실패 (${res.status}): <pre style="font-size:0.7rem;white-space:pre-wrap">${JSON.stringify(data,null,2)}</pre>`;
+        geminiStatus.innerHTML = `❌ 실패 (${res.status}): <pre style="font-size:0.7rem;white-space:pre-wrap">${JSON.stringify(data?.error,null,2)}</pre>`;
       } else {
-        geminiStatus.textContent = '✅ 연결 성공! AI 분석 기능을 사용할 수 있습니다.';
+        geminiStatus.textContent = '✅ 연결 성공! Gemini AI 분석을 사용할 수 있습니다.';
       }
     } catch (e) {
       geminiStatus.textContent = `❌ 실패: ${e.message}`;

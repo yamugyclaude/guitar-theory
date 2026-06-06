@@ -1,4 +1,4 @@
-// AI 악보 분석 모듈 (OpenRouter - 무료, 카드 불필요)
+// AI 악보 분석 모듈 (Google Gemini API 직접 연동)
 // 키는 localStorage('gta_gemini_key')에만 저장 — 코드에 하드코딩 금지
 
 export function getApiKey() { return localStorage.getItem('gta_gemini_key') || ''; }
@@ -50,41 +50,33 @@ const ANALYSIS_PROMPT = `이 악보 이미지를 분석해서 아래 JSON 형식
 - 세뇨(𝄋) → startMark: "𝄋 Segno", 코다(𝄌) → startMark: "𝄌 Coda"
 - D.S./D.C./Fine 등 → endMark에 기록`;
 
-// 이미지 지원 무료 모델 (순서대로 fallback)
-const VISION_MODELS = [
-  'google/gemini-2.0-flash-exp:free',
-  'google/gemma-4-31b-it:free',
-  'google/gemma-4-26b-a4b-it:free',
-  'meta-llama/llama-4-scout:free',
-  'nvidia/nemotron-nano-12b-v2-vl:free',
+// Gemini 모델 (순서대로 fallback)
+const GEMINI_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
 ];
 
-async function callOpenRouter(apiKey, imageParts, promptText) {
+async function callGemini(apiKey, imageParts, promptText) {
   const errors = [];
-  for (const model of VISION_MODELS) {
+  for (const model of GEMINI_MODELS) {
     try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
-          'X-Title': 'Guitar Theory App'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: [{ type: 'text', text: promptText }, ...imageParts] }],
-          temperature: 0.1,
-          max_tokens: 4096
+          contents: [{ parts: [{ text: promptText }, ...imageParts] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
         })
       });
       const data = await res.json();
       if (!res.ok) {
-        const msg = data?.error?.message || JSON.stringify(data?.error) || `HTTP ${res.status}`;
+        const msg = data?.error?.message || `HTTP ${res.status}`;
         errors.push(`[${model}] ${msg}`);
         continue;
       }
-      const text = data.choices?.[0]?.message?.content || '';
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       if (!text) { errors.push(`[${model}] 빈 응답`); continue; }
       return text;
     } catch (e) { errors.push(`[${model}] ${e.message}`); }
@@ -98,35 +90,33 @@ function parseJson(text) {
   catch { throw new Error('응답 파싱 실패. 다시 시도해주세요.\n\n원본: ' + text.slice(0, 300)); }
 }
 
+async function blobToGeminiPart(blob) {
+  const mime = blob.type || 'image/jpeg';
+  const base64 = await blobToBase64(blob);
+  return { inlineData: { mimeType: mime, data: base64 } };
+}
+
 // raw 호출 (프롬프트 직접 지정)
 export async function callAiRaw(imageBlob, promptText) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-  const mime = imageBlob.type || 'image/jpeg';
-  const base64 = await blobToBase64(imageBlob);
-  const imageParts = [{ type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } }];
-  return callOpenRouter(apiKey, imageParts, promptText);
+  const imageParts = [await blobToGeminiPart(imageBlob)];
+  return callGemini(apiKey, imageParts, promptText);
 }
 
 // 단일 이미지 분석
 export async function analyzeSheet(imageBlob) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-  const mime = imageBlob.type || 'image/jpeg';
-  const base64 = await blobToBase64(imageBlob);
-  const imageParts = [{ type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } }];
-  return parseJson(await callOpenRouter(apiKey, imageParts, ANALYSIS_PROMPT));
+  const imageParts = [await blobToGeminiPart(imageBlob)];
+  return parseJson(await callGemini(apiKey, imageParts, ANALYSIS_PROMPT));
 }
 
 // 복수 이미지 일괄 분석 (같은 곡의 여러 페이지)
 export async function analyzeSheets(imageBlobs) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
-  const imageParts = await Promise.all(imageBlobs.map(async blob => {
-    const mime = blob.type || 'image/jpeg';
-    const base64 = await blobToBase64(blob);
-    return { type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } };
-  }));
+  const imageParts = await Promise.all(imageBlobs.map(blobToGeminiPart));
   const prompt = ANALYSIS_PROMPT + `\n\n이 악보는 같은 곡의 ${imageBlobs.length}페이지입니다. 전체를 하나의 곡으로 분석해주세요.`;
-  return parseJson(await callOpenRouter(apiKey, imageParts, prompt));
+  return parseJson(await callGemini(apiKey, imageParts, prompt));
 }
