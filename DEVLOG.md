@@ -251,6 +251,15 @@ Storage 버킷: `gta-sheets` (Public)
 
 ---
 
+## 계정 정보
+
+| 서비스 | 계정 | 비고 |
+|---|---|---|
+| Supabase | yamugy@gmail.com | ⚠️ 다른 프로젝트 계정과 다름 |
+| GitHub | yamugyclaude | 저장소: yamugyclaude/guitar-theory |
+
+---
+
 ## 아키텍처 메모
 
 ### PDF.js 로딩 방식
