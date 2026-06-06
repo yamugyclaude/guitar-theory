@@ -174,7 +174,12 @@ async function renderContent(container, record, startPage, ppv) {
 }
 
 function renderChartInContainer(container, draft) {
-  container.innerHTML = buildChartHtml(draft, { fontSize: '1rem', showBarNumbers: true });
+  try {
+    container.innerHTML = buildChartHtml(draft, { fontSize: '1rem', showBarNumbers: true });
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--danger);padding:16px">렌더링 오류: ${e.message}<br><pre style="font-size:0.7rem;overflow:auto">${e.stack}</pre></div>`;
+    console.error('buildChartHtml error:', e);
+  }
 }
 
 function renderChartView(container, draft) {
@@ -290,10 +295,15 @@ async function startFullscreen(startIdx) {
 
     if (item.type === 'chart') {
       content.style.cssText = 'flex:1;overflow-y:auto;display:block;padding:12px;min-height:0;';
-      const draft = getDrafts().find(d => d.id === item.id);
-      totalPages = 1;
-      if (draft) renderChartInContainer(content, draft);
-      else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
+      try {
+        const draft = getDrafts().find(d => d.id === item.id);
+        totalPages = 1;
+        if (draft) renderChartInContainer(content, draft);
+        else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
+      } catch(e) {
+        content.innerHTML = `<div style="color:var(--danger);padding:16px">불러오기 오류: ${e.message}</div>`;
+        console.error('loadCurrent chart error:', e);
+      }
     } else {
       content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
       const record = await getSheet(item.id);

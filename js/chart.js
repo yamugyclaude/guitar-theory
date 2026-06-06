@@ -771,6 +771,9 @@ function escHtml(s) {
 function renderSections(ed, draft) {
   const area = ed.querySelector('#sections-area');
 
+  // 모든 bar 정규화 (구버전 데이터 호환)
+  draft.sections.forEach(sec => sec.bars.forEach(normalizeBar));
+
   // 전체 마디 번호 offset 계산
   let offset = 0;
   const offsets = draft.sections.map(s => { const o = offset; offset += s.bars.length; return o; });
@@ -1076,6 +1079,8 @@ export function buildChartHtml(draft, opts = {}) {
     const allBars = sec.bars || [];
     if (!allBars.length && !sec.type) return '';
 
+    // 모든 bar 정규화 (구버전 데이터 호환)
+    allBars.forEach(normalizeBar);
     // 마디 번호 계산 (전체 bars 기준)
     const startNum = globalBarCount + 1;
     globalBarCount += allBars.length;
