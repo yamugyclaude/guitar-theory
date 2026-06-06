@@ -424,8 +424,9 @@ function renderSections(ed, draft) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
         <div class="label" style="margin:0">마디 그리드 <span style="font-size:0.72rem;color:var(--text2)">(셀 클릭 → 코드 입력 · 한 마디 2코드: "Am G")</span></div>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-secondary add-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">+ 마디</button>
-          <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">− 마디</button>
+          <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="1" style="font-size:0.72rem;padding:3px 8px">+1마디</button>
+          <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="row" style="font-size:0.72rem;padding:3px 8px">+1행</button>
+          <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">−1마디</button>
           <button class="btn btn-secondary clear-bars-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px;color:var(--danger)">비우기</button>
         </div>
       </div>
@@ -479,18 +480,17 @@ function renderSections(ed, draft) {
     btn.addEventListener('click', () => {
       const si = +btn.dataset.si;
       const bpr = draft.sections[si].barsPerRow || draft.defaultBarsPerRow || 4;
-      // 행 단위로 추가
-      for (let i = 0; i < bpr; i++) draft.sections[si].bars.push({ chords: '' });
+      const count = btn.dataset.unit === 'row' ? bpr : 1;
+      for (let i = 0; i < count; i++) draft.sections[si].bars.push({ chords: '' });
       renderSections(ed, draft); renderPreview(ed, draft);
     });
   });
   area.querySelectorAll('.remove-bar-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const si = +btn.dataset.si;
-      const bpr = draft.sections[si].barsPerRow || draft.defaultBarsPerRow || 4;
       const bars = draft.sections[si].bars;
-      if (bars.length <= bpr) return; // 최소 1행
-      draft.sections[si].bars = bars.slice(0, bars.length - bpr);
+      if (bars.length <= 1) return;
+      draft.sections[si].bars = bars.slice(0, bars.length - 1);
       renderSections(ed, draft); renderPreview(ed, draft);
     });
   });
@@ -555,47 +555,60 @@ export function buildChartHtml(draft, opts = {}) {
 
   const sections = (draft.sections || []).map(sec => {
     const bpr = sec.barsPerRow || draft.defaultBarsPerRow || 4;
-    const validBars = sec.bars.filter(b => b.chords?.trim());
-    if (!validBars.length && !sec.type) return '';
+    const allBars = sec.bars || [];
+    if (!allBars.length && !sec.type) return '';
 
-    // 마디 번호 계산
+    // 마디 번호 계산 (전체 bars 기준)
     const startNum = globalBarCount + 1;
-    globalBarCount += validBars.length;
+    globalBarCount += allBars.length;
 
     // 못갖춘마디: 첫 마디 작게
-    const pickupStyle = 'flex:0 0 auto;min-width:40px;max-width:60px;';
+    const pickupStyle = 'flex:0 0 auto;min-width:36px;max-width:54px;';
     const normalStyle = 'flex:1;min-width:0;';
 
-    // 마디 셀 렌더
-    const barCells = validBars.map((b, bi) => {
+    // 마디 셀 렌더 — 4비트 슬롯
+    const barCells = allBars.map((b, bi) => {
       const barNum = startNum + bi;
       const isPickup = sec.pickup && bi === 0;
-      const style = isPickup ? pickupStyle : normalStyle;
-      // 한 마디 안 여러 코드 (공백 구분)
-      const chords = b.chords.trim().split(/\s+/).filter(Boolean);
-      const chordHtml = chords.length > 1
-        ? chords.map(c => `<span style="font-size:${fs};font-weight:700">${c}</span>`).join('<span style="color:var(--text2);margin:0 2px;font-size:0.7em">/</span>')
-        : `<span style="font-size:${fs};font-weight:700">${chords[0] || '—'}</span>`;
+      const flexStyle = isPickup ? pickupStyle : normalStyle;
+      // 공백 구분으로 최대 4개 코드 파싱
+      const rawChords = (b.chords || '').trim().split(/\s+/).filter(Boolean);
+      // 4 슬롯에 균등 배치: 1코드→슬롯1, 2코드→슬롯1,3, 3코드→슬롯1,2,3, 4코드→슬롯1,2,3,4
+      const slotMap = { 1:[0], 2:[0,2], 3:[0,1,2], 4:[0,1,2,3] };
+      const slots = ['','','',''];
+      const positions = slotMap[Math.min(rawChords.length, 4)] || [0];
+      rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
+
+      const slotsHtml = slots.map((c, si2) => {
+        const isFirst = si2 === 0;
+        const divider = si2 > 0 ? `<span style="color:var(--border);font-size:0.75em;margin:0 1px">|</span>` : '';
+        return divider + (c
+          ? `<span style="font-size:${fs};font-weight:700;color:var(--text);white-space:nowrap">${c}</span>`
+          : `<span style="display:inline-block;min-width:0.5em">&nbsp;</span>`
+        );
+      }).join('');
 
       return `<div style="
-        ${style}
-        padding:6px 4px 4px;
+        ${flexStyle}
+        padding:5px 3px 4px;
         background:var(--bg3);
         border:1px solid var(--border);
         border-radius:4px;
-        text-align:center;
         position:relative;
+        overflow:hidden;
         ${isPickup ? 'opacity:0.8;' : ''}
       ">
-        ${showNums ? `<div style="font-size:0.6rem;color:var(--text2);position:absolute;top:2px;left:4px;line-height:1">${isPickup?'↑':barNum}</div>` : ''}
-        <div style="padding-top:${showNums?'10px':'0'}">${chordHtml}</div>
+        ${showNums ? `<div style="font-size:0.55rem;color:var(--text2);position:absolute;top:2px;left:3px;line-height:1">${isPickup?'↑':barNum}</div>` : ''}
+        <div style="display:flex;align-items:center;justify-content:center;gap:0;padding-top:${showNums?'10px':'2px'};min-height:1.4em">
+          ${slotsHtml}
+        </div>
       </div>`;
     });
 
     // 행 분할
     const rows = [];
-    const start = sec.pickup && validBars.length > 0 ? 1 : 0;
-    if (sec.pickup && validBars.length > 0) rows.push([0]); // 못갖춘마디 단독 행
+    const start = sec.pickup && allBars.length > 0 ? 1 : 0;
+    if (sec.pickup && allBars.length > 0) rows.push([0]); // 못갖춘마디 단독 행
     for (let i = start; i < barCells.length; i += bpr) {
       rows.push(Array.from({ length: Math.min(bpr, barCells.length - i) }, (_, k) => i + k));
     }
