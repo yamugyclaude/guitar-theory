@@ -484,8 +484,8 @@ function rightMarkHtml(mark) {
 // 볼타 괄호 시각화
 function voltaHtml(volta) {
   if (!volta) return '';
-  return `<div style="position:absolute;top:0;left:0;right:0;height:10px;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:2px 0 0 0;pointer-events:none;z-index:1">
-    <span style="position:absolute;top:0;left:3px;font-size:0.55rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>
+  return `<div style="position:absolute;top:0;left:0;right:0;height:12px;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0;pointer-events:none;z-index:1">
+    <span style="position:absolute;top:1px;left:4px;font-size:0.6rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>
   </div>`;
 }
 
@@ -517,17 +517,21 @@ function barCellHtml(sec, si, bi, barNum) {
   const borderLeft = leftMark === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
   const borderRight = (rightMark === ':||' || rightMark === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
 
-  const hasTopMark = volta !== '';
-  const topPad = hasTopMark ? 'padding-top:12px;' : 'padding-top:12px;';
+  // 볼타 있으면 마디번호를 볼타 아래로 내림
+  // 볼타 높이 12px + 마디번호 위치 14px
+  const numTop = volta ? '14px' : '3px';
+  const numLeft = leftMark === '||:' ? '12px' : '4px';
+  // 코드 슬롯 상단 패딩: 볼타+번호 공간 확보
+  const topPad = volta ? 'padding-top:26px;' : 'padding-top:14px;';
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
     style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${leftPad}${rightPad}${isPickup?'max-width:52px;opacity:0.75;':''}">
     ${leftMarkHtml(leftMark)}
     ${rightMarkHtml(rightMark)}
     ${voltaHtml(volta)}
-    <div style="font-size:0.5rem;color:var(--text2);position:absolute;top:2px;left:${leftMark==='||:'?'12':'3'}px;line-height:1;pointer-events:none">${isPickup?'↑':barNum}</div>
-    ${expr ? `<div style="position:absolute;top:2px;right:3px;font-size:0.55rem;color:#aaa;pointer-events:none;font-style:italic">${expr}</div>` : ''}
-    <div class="bar-display" style="display:flex;min-height:2.2em;${topPad}padding-bottom:3px;pointer-events:none">${slotsHtml}</div>
+    <div style="font-size:0.5rem;color:var(--text2);position:absolute;top:${numTop};left:${numLeft};line-height:1;pointer-events:none">${isPickup?'↑':barNum}</div>
+    ${expr ? `<div style="position:absolute;top:3px;right:3px;font-size:0.55rem;color:#aaa;pointer-events:none;font-style:italic">${expr}</div>` : ''}
+    <div class="bar-display" style="display:flex;min-height:2.2em;${topPad}padding-bottom:4px;pointer-events:none">${slotsHtml}</div>
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
       style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.82rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
@@ -593,7 +597,7 @@ function sectionRowsHtml(sec, si, barOffset) {
     const spacers = missing > 0
       ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border-radius:4px;min-height:2.2em"></div>`).join('')
       : '';
-    return `<div style="display:flex;gap:3px;margin-bottom:3px">${cells}${spacers}</div>`;
+    return `<div style="display:flex;gap:3px;margin-bottom:6px">${cells}${spacers}</div>`;
   }).join('');
 }
 
