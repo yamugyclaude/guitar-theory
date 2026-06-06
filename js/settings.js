@@ -226,14 +226,27 @@ create policy "allow_all" on gta_sheets
     if (!url || !anonKey || !syncKey) {
       status.textContent = '⚠️ URL, Key, 동기화 키를 모두 입력해주세요.'; return;
     }
-    const { saveConfig, connect } = await import('./supabase-sync.js');
+    const { saveConfig, connect, pushAllData, pullAllData, subscribeDataChanges } = await import('./supabase-sync.js');
     saveConfig(url, anonKey);
     const s = getSettings(); s.syncKey = syncKey; saveSettings(s);
     status.textContent = '🔄 연결 중...';
     const res = await connect();
-    status.textContent = res.ok
-      ? '✅ 연결 성공! 악보 탭 → ☁️ 동기화 버튼으로 다른 기기와 동기화하세요.'
-      : `❌ 연결 실패: ${res.error}`;
+    if (res.ok) {
+      status.textContent = '🔄 데이터 동기화 중...';
+      // 원격 → 로컬 pull (다른 기기 작업 내용 가져오기)
+      await pullAllData();
+      // 로컬 → 원격 push (현재 기기 데이터 올리기)
+      await pushAllData();
+      // 실시간 구독 시작
+      subscribeDataChanges(dataKey => {
+        console.log('실시간 동기화:', dataKey);
+        // 페이지 새로고침 없이 반영이 필요한 경우 이벤트 발생
+        window.dispatchEvent(new CustomEvent('gta-data-synced', { detail: { dataKey } }));
+      });
+      status.textContent = '✅ 연결 성공! 모든 데이터가 실시간으로 동기화됩니다.';
+    } else {
+      status.textContent = `❌ 연결 실패: ${res.error}`;
+    }
   });
 
   panel.querySelector('#sb-clear-btn').addEventListener('click', () => {

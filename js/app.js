@@ -69,7 +69,7 @@ function switchTab(tab) {
 }
 
 // ===== 초기화 =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // 탭 버튼 이벤트
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(Number(btn.dataset.tab)));
@@ -80,6 +80,32 @@ document.addEventListener('DOMContentLoaded', () => {
   if (settings.theme) document.documentElement.dataset.theme = settings.theme;
   if (settings.fontSize) document.documentElement.style.fontSize = settings.fontSize + 'px';
 
+  // Supabase 자동 연결 (설정된 경우)
+  if (localStorage.getItem('gta_supabase_cfg') && settings.syncKey) {
+    try {
+      const { connect, pullAllData, pushAllData, subscribeDataChanges } = await import('./supabase-sync.js');
+      const res = await connect();
+      if (res.ok) {
+        await pullAllData(); // 다른 기기 변경사항 가져오기
+        subscribeDataChanges(dataKey => {
+          window.dispatchEvent(new CustomEvent('gta-data-synced', { detail: { dataKey } }));
+        });
+      }
+    } catch (e) { console.warn('자동 연결 실패:', e.message); }
+  }
+
   // 첫 탭 렌더
   renderers[1](document.getElementById('tab-1'));
+
+  // localStorage 변경 감지 → Supabase 자동 push
+  const DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta'];
+  const _origSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    _origSetItem(key, value);
+    if (DATA_KEYS.includes(key)) {
+      import('./supabase-sync.js').then(({ isReady, pushData }) => {
+        if (isReady()) pushData(key);
+      });
+    }
+  };
 });

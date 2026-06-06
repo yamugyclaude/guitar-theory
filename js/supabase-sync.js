@@ -97,6 +97,70 @@ export async function pullAll() {
   }));
 }
 
+// ── 앱 데이터 동기화 (gta_chart_drafts / gta_setlists / gta_sheet_meta) ──
+
+const DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta'];
+
+// 로컬 → Supabase
+export async function pushData(dataKey) {
+  if (!isReady()) return;
+  const key = getSyncKey();
+  const payload = JSON.parse(localStorage.getItem(dataKey) || 'null');
+  const { error } = await _client.from('gta_data').upsert({
+    sync_key: key,
+    data_key: dataKey,
+    payload,
+    updated_at: Date.now(),
+  });
+  if (error) console.error('pushData error:', error.message);
+}
+
+export async function pushAllData() {
+  for (const k of DATA_KEYS) await pushData(k);
+}
+
+// Supabase → 로컬
+export async function pullAllData() {
+  if (!isReady()) return;
+  const key = getSyncKey();
+  const { data, error } = await _client
+    .from('gta_data')
+    .select('data_key, payload')
+    .eq('sync_key', key);
+  if (error) { console.error('pullAllData error:', error.message); return; }
+  for (const row of (data || [])) {
+    if (row.payload !== null) {
+      localStorage.setItem(row.data_key, JSON.stringify(row.payload));
+    }
+  }
+}
+
+// Supabase Realtime 구독 — 다른 기기가 변경하면 로컬에 즉시 반영
+let _channel = null;
+export function subscribeDataChanges(onUpdate) {
+  if (!isReady() || _channel) return;
+  const key = getSyncKey();
+  _channel = _client
+    .channel('gta_data_changes')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'gta_data',
+      filter: `sync_key=eq.${key}`,
+    }, payload => {
+      const row = payload.new;
+      if (row?.data_key && row?.payload !== null) {
+        localStorage.setItem(row.data_key, JSON.stringify(row.payload));
+        onUpdate?.(row.data_key);
+      }
+    })
+    .subscribe();
+}
+
+export function unsubscribeDataChanges() {
+  if (_channel) { _client.removeChannel(_channel); _channel = null; }
+}
+
 // URL → Blob 다운로드
 export async function fetchBlob(url, mime) {
   const r = await fetch(url);
