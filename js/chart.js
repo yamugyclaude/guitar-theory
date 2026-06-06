@@ -588,8 +588,8 @@ function barCellHtml(sec, si, bi, barNum) {
 
   const slotsHtml = slots.map((c, idx) => `
     <div class="bar-slot" data-si="${si}" data-bi="${bi}" data-slot="${idx}"
-      style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:hidden;padding:1px 2px;cursor:text;position:relative">
-      <span class="slot-text" style="font-size:0.78rem;font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${c?'inherit':'transparent'}">${c||'·'}</span>
+      style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:visible;padding:1px 2px;cursor:text;position:relative">
+      <span class="slot-text" style="font-size:0.78rem;font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${c?'inherit':'transparent'}">${c||'·'}</span>
     </div>`
   ).join('');
 
@@ -1284,7 +1284,7 @@ export function buildChartHtml(draft, opts = {}) {
           normalizeBar(b);
           const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
           const slotsHtml = slots.map((c, si2) =>
-            `<div style="flex:1;${si2>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:hidden;padding:2px 3px">
+            `<div style="flex:1;${si2>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:visible;padding:2px 3px">
               ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
             </div>`
           ).join('');

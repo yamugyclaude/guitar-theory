@@ -8,45 +8,19 @@ function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts'
 let wakeLock = null;
 let pagesPerView = 1;
 let liveZoom = parseFloat(localStorage.getItem('gta_live_zoom') || '1.0');
-let _contentEl = null; // 현재 content 엘리먼트 참조 (높이 계산용)
+let _contentEl = null;
 
 function saveZoom(z) { liveZoom = z; localStorage.setItem('gta_live_zoom', z); }
 
-// 차트 HTML을 페이지 단위로 분할
-function paginateChart(draft, pageH, zoom) {
-  // zoom 1.0 = 1rem(16px) 기준, 비율로 조정
-  const fs = (zoom * 1).toFixed(3) + 'rem';
-  const fullHtml = (() => {
-    try { return buildChartHtml(draft, { fontSize: fs, showBarNumbers: true }); }
-    catch(e) { return `<p style="color:red">오류: ${e.message}</p>`; }
-  })();
+function chartFontSize() { return (liveZoom * 16).toFixed(1) + 'px'; }
 
-  const w = _contentEl?.clientWidth || window.innerWidth;
-  const measure = document.createElement('div');
-  measure.style.cssText = `position:fixed;visibility:hidden;top:-9999px;left:0;width:${w}px;padding:12px;box-sizing:border-box;font-size:${fs};`;
-  measure.innerHTML = fullHtml;
-  document.body.appendChild(measure);
-  // 레이아웃 강제 계산
-  void measure.offsetHeight;
-
-  const blocks = [...measure.children];
-  const pages = [];
-  let curPage = [];
-  let curH = 0;
-
-  blocks.forEach(block => {
-    const bh = block.getBoundingClientRect().height + 12;
-    if (curH + bh > pageH && curPage.length > 0) {
-      pages.push(curPage.join(''));
-      curPage = [];
-      curH = 0;
-    }
-    curPage.push(block.outerHTML);
-    curH += bh;
-  });
-  if (curPage.length) pages.push(curPage.join(''));
-  document.body.removeChild(measure);
-  return pages.length ? pages : [fullHtml];
+function renderChart(container, draft) {
+  try {
+    const html = buildChartHtml(draft, { fontSize: chartFontSize(), showBarNumbers: true });
+    container.innerHTML = `<div style="padding:8px;font-size:${chartFontSize()}">${html}</div>`;
+  } catch(e) {
+    container.innerHTML = `<div style="color:red;padding:16px">오류: ${e.message}</div>`;
+  }
 }
 
 // 실제 컨테이너 높이 기반으로 이미지 높이 계산
@@ -233,7 +207,6 @@ async function startFullscreen(startIdx) {
   let currentIdx = Math.min(startIdx, setlist.length - 1);
   let currentPage = 1;
   let totalPages = 1;
-  let chartPages = []; // 현재 차트의 페이지 배열
 
   if ('wakeLock' in navigator) {
     try { wakeLock = await navigator.wakeLock.request('screen'); } catch {}
@@ -249,7 +222,6 @@ async function startFullscreen(startIdx) {
     <span id="live-title" style="font-weight:700;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
     <div style="display:flex;gap:6px;flex-shrink:0">
       <span id="live-counter" style="font-size:0.75rem;color:var(--text2);white-space:nowrap;align-self:center"></span>
-      <button id="view-toggle" class="btn btn-secondary" style="font-size:0.75rem;padding:5px 10px">2장 보기</button>
       <button id="live-close" class="btn btn-secondary" style="font-size:0.75rem;padding:5px 10px">✕</button>
     </div>
   `;
@@ -280,39 +252,18 @@ async function startFullscreen(startIdx) {
   overlay.append(header, content, nav);
   document.body.appendChild(overlay);
 
-  // 뷰 토글 (1장 ↔ 2장)
-  header.querySelector('#view-toggle').addEventListener('click', () => {
-    pagesPerView = pagesPerView === 1 ? 2 : 1;
-    header.querySelector('#view-toggle').textContent = pagesPerView === 1 ? '2장 보기' : '1장 보기';
-    currentPage = 1;
-    loadCurrent();
-  });
-
-  function renderChartPage(container, pages, pageNum) {
-    container.innerHTML = `<div style="padding:4px 0">${pages[pageNum - 1] || ''}</div>`;
-    container.scrollTop = 0;
-  }
-
-  // 줌 컨트롤 (저장된 값 사용)
-  const ZOOM_STEPS = [0.6, 0.75, 0.85, 1.0, 1.15, 1.3, 1.5, 1.75, 2.0];
+  // 줌 컨트롤
+  const ZOOM_STEPS = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
   function updateZoomLabel() {
     nav.querySelector('#zoom-label').textContent = Math.round(liveZoom * 100) + '%';
   }
   updateZoomLabel();
 
-  async function reloadWithZoom() {
+  function reloadWithZoom() {
     const item = setlist[currentIdx];
     if (item?.type === 'chart') {
       const draft = getDrafts().find(d => d.id === item.id);
-      if (draft) {
-        await new Promise(r => requestAnimationFrame(r));
-        const pageH = content.clientHeight - 24;
-        chartPages = paginateChart(draft, pageH, liveZoom);
-        totalPages = chartPages.length;
-        currentPage = 1;
-        renderChartPage(content, chartPages, currentPage);
-        updatePageBtns();
-      }
+      if (draft) renderChart(content, draft);
     } else {
       applyZoom();
     }
@@ -327,12 +278,8 @@ async function startFullscreen(startIdx) {
     if (s.length) { saveZoom(s[0]); updateZoomLabel(); reloadWithZoom(); }
   });
 
-  // 화면 크기 변경 시 재조정
-  let resizeTimer;
-  const resizeObs = new ResizeObserver(() => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => reloadWithZoom(), 200);
-  });
+  // 화면 크기 변경 시 이미지 재조정 (악보 타입만)
+  const resizeObs = new ResizeObserver(() => { applyZoom(); });
   resizeObs.observe(content);
 
   // 헤더 자동 숨김
@@ -366,19 +313,11 @@ async function startFullscreen(startIdx) {
     currentPage = 1;
 
     if (item.type === 'chart') {
-      content.style.cssText = 'flex:1;overflow-y:auto;display:block;padding:12px;min-height:0;box-sizing:border-box;';
-      try {
-        const draft = getDrafts().find(d => d.id === item.id);
-        if (!draft) { content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>'; return; }
-        await new Promise(r => requestAnimationFrame(r));
-        const pageH = content.clientHeight - 24;
-        chartPages = paginateChart(draft, pageH, liveZoom);
-        totalPages = chartPages.length;
-        renderChartPage(content, chartPages, currentPage);
-      } catch(e) {
-        content.innerHTML = `<div style="color:var(--danger);padding:16px">불러오기 오류: ${e.message}</div>`;
-        console.error('loadCurrent chart error:', e);
-      }
+      content.style.cssText = 'flex:1;overflow-y:auto;display:block;min-height:0;';
+      totalPages = 1;
+      const draft = getDrafts().find(d => d.id === item.id);
+      if (draft) renderChart(content, draft);
+      else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
     } else {
       content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
       const record = await getSheet(item.id);
@@ -398,15 +337,11 @@ async function startFullscreen(startIdx) {
     if (next < 1 || next > totalPages) return;
     currentPage = next;
     const item = setlist[currentIdx];
-    if (item.type === 'chart') {
-      renderChartPage(content, chartPages, currentPage);
-    } else {
-      const record = await getSheet(item.id);
-      if (record) {
-        const result = await renderContent(content, record, currentPage, pagesPerView);
-        totalPages = result?.totalPages || totalPages;
-        applyZoom();
-      }
+    const record = await getSheet(item.id);
+    if (record) {
+      const result = await renderContent(content, record, currentPage, pagesPerView);
+      totalPages = result?.totalPages || totalPages;
+      applyZoom();
     }
     updatePageBtns();
     content.scrollTop = 0;
