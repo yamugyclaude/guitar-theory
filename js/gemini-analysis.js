@@ -237,6 +237,25 @@ export async function testConnection(onStatus) {
     }
     throw new Error('모든 OpenRouter 모델이 한도 초과입니다. 잠시 후 다시 시도해주세요.');
   } else {
-    throw new Error('알 수 없는 키 형식입니다.\nGemini 키(AIza...)또는 OpenRouter 키(sk-or-...)를 입력해주세요.');
+    // unknown → Gemini로 시도
+    for (const model of GEMINI_MODELS) {
+      onStatus(`🔄 Gemini ${model} 테스트 중...`);
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }], generationConfig: { maxOutputTokens: 5 } })
+        });
+        const data = await res.json();
+        if (res.ok) return `✅ 연결 성공! (Gemini · ${model})`;
+        if (res.status === 429) continue;
+        throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      } catch (e) {
+        if (e.message.includes('quota') || e.message.includes('rate')) continue;
+        throw e;
+      }
+    }
+    throw new Error('모든 Gemini 모델이 한도 초과입니다. 잠시 후 다시 시도해주세요.');
   }
 }
