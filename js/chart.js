@@ -4,13 +4,39 @@ function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts'
 function saveDrafts(d) { localStorage.setItem('gta_chart_drafts', JSON.stringify(d)); }
 function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 
+// ── SVG 기호 (Unicode 미지원 대체) ──────────────────────────────────
+function segnoSvg(size = 16, color = 'currentColor') {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
+    <line x1="1" y1="3.5" x2="15" y2="3.5" stroke="${color}" stroke-width="1.3"/>
+    <line x1="1" y1="12.5" x2="15" y2="12.5" stroke="${color}" stroke-width="1.3"/>
+    <path d="M11 5.5 C11 4 5 4 5 8 C5 12 11 12 11 10.5" stroke="${color}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <circle cx="5.2" cy="6.2" r="1.1" fill="${color}"/>
+    <circle cx="10.8" cy="9.8" r="1.1" fill="${color}"/>
+  </svg>`;
+}
+function codaSvg(size = 16, color = 'currentColor') {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
+    <circle cx="8" cy="8" r="5" stroke="${color}" stroke-width="1.5"/>
+    <circle cx="8" cy="8" r="1.5" fill="${color}"/>
+    <line x1="8" y1="1" x2="8" y2="15" stroke="${color}" stroke-width="1.3"/>
+    <line x1="1" y1="8" x2="15" y2="8" stroke="${color}" stroke-width="1.3"/>
+  </svg>`;
+}
+function fermataSvg(size = 14, color = 'currentColor') {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 14 10" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
+    <path d="M1 9 Q7 1 13 9" stroke="${color}" stroke-width="1.3" fill="none"/>
+    <circle cx="7" cy="6" r="1.5" fill="${color}"/>
+    <line x1="1" y1="9" x2="13" y2="9" stroke="${color}" stroke-width="1.2"/>
+  </svg>`;
+}
+
 // ── 음악 기호 정의 ───────────────────────────────────────────────────
 // 마디 왼쪽 기호 (bar의 leftMark 필드)
 const LEFT_MARK_OPTIONS = [
-  { value: '',      label: '없음' },
-  { value: '||:',   label: '||:',        desc: '반복 시작', color: 'var(--accent)',    bold: true },
-  { value: '𝄋',     label: '𝄋 Segno',    desc: '세뇨',     color: 'var(--accent)' },
-  { value: '𝄌',     label: '𝄌 Coda',     desc: '코다',     color: '#e8a020' },
+  { value: '',       label: '없음' },
+  { value: '||:',    label: '||:',     desc: '반복 시작', color: 'var(--accent)', bold: true },
+  { value: 'segno',  label: 'Segno',   desc: '세뇨',      color: 'var(--accent)' },
+  { value: 'coda',   label: 'Coda',    desc: '코다',      color: '#e8a020' },
 ];
 // 마디 오른쪽 기호 (bar의 rightMark 필드)
 const RIGHT_MARK_OPTIONS = [
@@ -24,7 +50,7 @@ const RIGHT_MARK_OPTIONS = [
   { value: 'D.S. al Coda', label: 'D.S. al Coda',   desc: '세뇨→코다',      color: '#60a0e0' },
   { value: 'D.C. al Fine', label: 'D.C. al Fine',   desc: '처음→Fine',      color: '#60a0e0' },
   { value: 'D.S. al Fine', label: 'D.S. al Fine',   desc: '세뇨→Fine',      color: '#60a0e0' },
-  { value: 'To 𝄌',         label: 'To Coda',        desc: '코다로 점프',    color: '#e8a020' },
+  { value: 'To Coda',       label: 'To Coda',        desc: '코다로 점프',    color: '#e8a020' },
 ];
 // 볼타 괄호 (1番括弧, 2番括弧)
 const VOLTA_OPTIONS = [
@@ -36,7 +62,7 @@ const VOLTA_OPTIONS = [
 // 페르마타 / 다이나믹 (메모용, 특정 박에 표시)
 const EXPR_OPTIONS = [
   { value: '',       label: '없음' },
-  { value: '𝄐',      label: '𝄐 Fermata',   desc: '늘임표' },
+  { value: 'fermata', label: '𝄐 Fermata',   desc: '늘임표' },
   { value: 'pp',     label: 'pp',           desc: '피아니시모' },
   { value: 'p',      label: 'p',            desc: '피아노' },
   { value: 'mp',     label: 'mp',           desc: '메조피아노' },
@@ -50,9 +76,23 @@ const EXPR_OPTIONS = [
   { value: 'a tempo',label: 'a tempo',      desc: '원래 빠르기로' },
 ];
 
-// 하위 호환
 const END_MARKS = ['', 'D.C.', 'D.S.', 'D.C. al Coda', 'D.S. al Coda', 'Fine'];
-const START_MARKS = ['', '𝄋 Segno', '𝄌 Coda'];
+const START_MARKS = ['', 'segno', 'coda'];
+
+// 기호값 → 표시 HTML (버튼 라벨용)
+function markDisplayHtml(value, size = 14) {
+  if (value === 'segno')   return segnoSvg(size, 'var(--accent)') + ' Segno';
+  if (value === 'coda')    return codaSvg(size, '#e8a020') + ' Coda';
+  if (value === 'fermata') return fermataSvg(size, 'var(--text2)');
+  return value;
+}
+// 기호값 → 단독 아이콘 HTML (마디 표시용)
+function markIconHtml(value, color, size = 16) {
+  if (value === 'segno')   return segnoSvg(size, color);
+  if (value === 'coda')    return codaSvg(size, color);
+  if (value === 'fermata') return fermataSvg(size, color);
+  return `<span style="color:${color};font-size:0.75rem;font-weight:700">${value}</span>`;
+}
 
 export function render(panel) {
   panel.innerHTML = `
@@ -450,7 +490,7 @@ function leftMarkHtml(mark) {
   }
   const opt = LEFT_MARK_OPTIONS.find(o => o.value === mark);
   const color = opt?.color || 'var(--accent)';
-  return `<div style="position:absolute;left:2px;top:2px;font-size:0.7rem;font-weight:700;color:${color};z-index:1;pointer-events:none;line-height:1">${mark}</div>`;
+  return `<div style="position:absolute;left:2px;top:50%;transform:translateY(-50%);z-index:1;pointer-events:none;line-height:1">${markIconHtml(mark, color, 15)}</div>`;
 }
 
 // 오른쪽 기호 시각화
@@ -512,11 +552,14 @@ function barCellHtml(sec, si, bi) {
   const pleft  = lm === '||:'              ? 'padding-left:8px;'  : '';
   const pright = (rm===':||'||rm===':||:') ? 'padding-right:8px;' : '';
 
+  const barMemo = b.memo || '';
+
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
-    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}">
+    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
     ${leftMarkHtml(lm)}
     ${rightMarkHtml(rm)}
-    <div class="bar-display" style="display:flex;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
+    <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
+    ${barMemo ? `<div class="bar-memo-display" style="font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none">${escHtml(barMemo)}</div>` : ''}
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
       style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.85rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
@@ -529,33 +572,20 @@ function barMarkToolbarHtml(si, bi, bar) {
   const rm = bar.rightMark || '';
   const vt = bar.volta || '';
   const ex = bar.expr || '';
+  const bm = bar.memo || '';
 
-  const lBtns = LEFT_MARK_OPTIONS.filter(o => o.value).map(o =>
-    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="leftMark" data-val="${o.value}"
-      style="font-size:0.68rem;padding:2px 5px;border-radius:3px;border:1px solid ${lm===o.value?o.color||'var(--accent)':'var(--border)'};background:${lm===o.value?(o.color||'var(--accent)')+'22':'var(--bg3)'};color:${lm===o.value?(o.color||'var(--accent)'):'var(--text2)'};cursor:pointer;font-weight:${lm===o.value?'700':'400'};white-space:nowrap"
-      title="${o.desc||''}">${o.label}</button>`
-  ).join('');
+  const mkBtn = (field, o, active, activeColor) =>
+    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="${field}" data-val="${o.value}"
+      style="display:inline-flex;align-items:center;gap:2px;font-size:0.68rem;padding:2px 6px;border-radius:3px;border:1px solid ${active?(activeColor||'var(--accent)'):'var(--border)'};background:${active?(activeColor||'var(--accent)')+'22':'var(--bg3)'};color:${active?(activeColor||'var(--accent)'):'var(--text2)'};cursor:pointer;font-weight:${active?'700':'400'};white-space:nowrap"
+      title="${o.desc||''}">${markDisplayHtml(o.value)}</button>`;
 
-  const rBtns = RIGHT_MARK_OPTIONS.filter(o => o.value).map(o =>
-    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="rightMark" data-val="${o.value}"
-      style="font-size:0.68rem;padding:2px 5px;border-radius:3px;border:1px solid ${rm===o.value?o.color||'var(--accent)':'var(--border)'};background:${rm===o.value?(o.color||'var(--accent)')+'22':'var(--bg3)'};color:${rm===o.value?(o.color||'var(--accent)'):'var(--text2)'};cursor:pointer;font-weight:${rm===o.value?'700':'400'};white-space:nowrap"
-      title="${o.desc||''}">${o.label}</button>`
-  ).join('');
-
-  const vBtns = VOLTA_OPTIONS.filter(o => o.value).map(o =>
-    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="volta" data-val="${o.value}"
-      style="font-size:0.68rem;padding:2px 5px;border-radius:3px;border:1px solid ${vt===o.value?'#80c8a0':'var(--border)'};background:${vt===o.value?'#80c8a022':'var(--bg3)'};color:${vt===o.value?'#80c8a0':'var(--text2)'};cursor:pointer;white-space:nowrap"
-      title="${o.desc||''}">${o.label}</button>`
-  ).join('');
-
-  const eBtns = EXPR_OPTIONS.filter(o => o.value).map(o =>
-    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="expr" data-val="${o.value}"
-      style="font-size:0.65rem;padding:2px 5px;border-radius:3px;border:1px solid ${ex===o.value?'var(--accent)':'var(--border)'};background:${ex===o.value?'var(--accent)22':'var(--bg3)'};color:${ex===o.value?'var(--accent)':'var(--text2)'};cursor:pointer;white-space:nowrap;font-style:italic"
-      title="${o.desc||''}">${o.label}</button>`
-  ).join('');
+  const lBtns = LEFT_MARK_OPTIONS.filter(o=>o.value).map(o => mkBtn('leftMark', o, lm===o.value, o.color)).join('');
+  const rBtns = RIGHT_MARK_OPTIONS.filter(o=>o.value).map(o => mkBtn('rightMark', o, rm===o.value, o.color)).join('');
+  const vBtns = VOLTA_OPTIONS.filter(o=>o.value).map(o => mkBtn('volta', o, vt===o.value, '#80c8a0')).join('');
+  const eBtns = EXPR_OPTIONS.filter(o=>o.value).map(o => mkBtn('expr', o, ex===o.value, 'var(--accent)')).join('');
 
   return `<div class="bar-mark-toolbar" data-si="${si}" data-bi="${bi}"
-    style="position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);min-width:220px">
+    style="position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);min-width:240px">
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">왼쪽 기호</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${lBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">오른쪽 기호</div>
@@ -563,7 +593,11 @@ function barMarkToolbarHtml(si, bi, bar) {
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">볼타 괄호</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${vBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">다이나믹 / 템포</div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${eBtns}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${eBtns}</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">마디 메모</div>
+    <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
+      placeholder="가사, 운지법, 지시어..."
+      style="width:100%;font-size:0.72rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:4px 6px;resize:vertical;min-height:36px;font-family:inherit;line-height:1.4;box-sizing:border-box">${escHtml(bm)}</textarea>
   </div>`;
 }
 
@@ -621,8 +655,9 @@ function sectionRowsHtml(sec, si, barOffset) {
           inner += `<div style="position:absolute;inset:4px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
           if (vs.isFirst) inner += `<span style="position:absolute;top:5px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
-        if (lm === '𝄋' || lm === '𝄌') {
-          inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.9rem;line-height:1">${lm}</span>`;
+        if (lm === 'segno' || lm === 'coda') {
+          const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
+          inner += `<div style="position:absolute;top:1px;left:50%;transform:translateX(-50%)">${markIconHtml(lm, lmColor, 14)}</div>`;
         }
         const numColor = isPickup ? '#888' : 'var(--text2)';
         inner += `<span style="position:absolute;bottom:2px;left:4px;font-size:0.52rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
@@ -809,6 +844,32 @@ function renderSections(ed, draft) {
         if (updatedCell) openBarCell(updatedCell);
       });
     });
+
+    // 마디 메모 textarea (툴바 안)
+    const memoTa = toolbarEl.querySelector('.bar-memo-input');
+    if (memoTa) {
+      memoTa.addEventListener('mousedown', e => e.stopPropagation());
+      memoTa.addEventListener('input', () => {
+        draft.sections[si].bars[bi].memo = memoTa.value;
+      });
+      memoTa.addEventListener('blur', () => {
+        draft.sections[si].bars[bi].memo = memoTa.value;
+        // 메모 표시 영역 즉시 갱신
+        const dispEl = cell.querySelector('.bar-memo-display');
+        if (memoTa.value) {
+          if (dispEl) { dispEl.innerHTML = escHtml(memoTa.value); }
+          else {
+            const d = document.createElement('div');
+            d.className = 'bar-memo-display';
+            d.style.cssText = 'font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none';
+            d.innerHTML = escHtml(memoTa.value);
+            cell.querySelector('.bar-display').after(d);
+          }
+        } else {
+          dispEl?.remove();
+        }
+      });
+    }
   }
 
   // 셀 표시만 업데이트 (툴바 유지, 입력 유지)
@@ -1032,9 +1093,11 @@ export function buildChartHtml(draft, opts = {}) {
           const borderR = (rm===':||'||rm===':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
           const pleft = lm === '||:' ? 'padding-left:8px;' : '';
           const pright = (rm===':||'||rm===':||:') ? 'padding-right:8px;' : '';
-          return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;min-height:2.2em;align-items:stretch;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
+          const bMemo = b.memo || '';
+          return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
             ${leftMarkHtml(lm)}${rightMarkHtml(rm)}
-            ${slotsHtml}
+            <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch">${slotsHtml}</div>
+            ${bMemo ? `<div style="font-size:0.62rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3">${escHtml(bMemo)}</div>` : ''}
           </div>`;
         }).join('')}
         ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.2em"></div>`).join('') : ''}
