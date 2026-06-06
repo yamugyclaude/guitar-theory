@@ -709,11 +709,12 @@ function sectionRowsHtml(sec, si, barOffset) {
       }
     });
     if (vStart !== null) voltaSpans.push({ start: vStart, end: idxs.length - 1, label: vLabel });
-    // pos→span 매핑
-    const voltaSpanMap = {}; // pos → { isFirst, isLast, label }
-    voltaSpans.forEach(vs => {
+    // pos→span 매핑 (isLastVolta: 전체 volta 그룹 중 마지막 → 오른쪽 열림)
+    const voltaSpanMap = {};
+    voltaSpans.forEach((vs, spanIdx) => {
+      const isLastVolta = spanIdx === voltaSpans.length - 1;
       for (let p = vs.start; p <= vs.end; p++) {
-        voltaSpanMap[p] = { isFirst: p === vs.start, isLast: p === vs.end, label: vs.label };
+        voltaSpanMap[p] = { isFirst: p === vs.start, isLast: p === vs.end, label: vs.label, isLastVolta };
       }
     });
 
@@ -735,7 +736,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         // 볼타 괄호 — 하단층
         if (vs) {
           const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
-          const br = ''; // 오른쪽은 열려있음
+          const br = '';
           inner += `<div style="position:absolute;top:${voltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} 0 0 0;pointer-events:none"></div>`;
           if (vs.isFirst) inner += `<span style="position:absolute;top:${voltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
