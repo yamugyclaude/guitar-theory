@@ -6,12 +6,12 @@ function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 
 // ── SVG 기호 (Unicode 미지원 대체) ──────────────────────────────────
 function segnoSvg(size = 16, color = 'currentColor') {
-  // 세뇨: S자 + 세로선 + 점 두 개 (S 중간 교차점 기준 좌·우 동서 배치)
+  // 세뇨: S자 + 대각선(/) + 점 두 개 (대각선 기준 좌·우 동서)
   return `<svg width="${size}" height="${Math.round(size*1.2)}" viewBox="0 0 16 19" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
-    <line x1="8" y1="1.5" x2="8" y2="17.5" stroke="${color}" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="12" y1="2" x2="4" y2="17" stroke="${color}" stroke-width="1.3" stroke-linecap="round"/>
     <path d="M11.5 5 Q11.5 2.5 8 2.5 Q4.5 2.5 4.5 5 Q4.5 7.5 8 8 Q11.5 8.5 11.5 11 Q11.5 13.5 8 13.5 Q4.5 13.5 4.5 11" stroke="${color}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-    <circle cx="2"  cy="8" r="1.3" fill="${color}"/>
-    <circle cx="14" cy="8" r="1.3" fill="${color}"/>
+    <circle cx="2.5" cy="9"  r="1.3" fill="${color}"/>
+    <circle cx="13.5" cy="9" r="1.3" fill="${color}"/>
   </svg>`;
 }
 function codaSvg(size = 16, color = 'currentColor') {
