@@ -654,13 +654,14 @@ function sectionRowsHtml(sec, si, barOffset) {
           inner += `<div style="position:absolute;inset:6px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
           if (vs.isFirst) inner += `<span style="position:absolute;top:7px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
-        // 세뇨/코다: 셀 우측에 아이콘, 번호와 겹치지 않게
+        // 세뇨/코다: 왼쪽 정위치
         if (lm === 'segno' || lm === 'coda') {
           const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-          inner += `<div style="position:absolute;top:50%;right:3px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
+          inner += `<div style="position:absolute;top:50%;left:2px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
         }
+        // 마디 번호: 우측 하단 (기호와 반대편)
         const numColor = isPickup ? '#888' : 'var(--text2)';
-        inner += `<span style="position:absolute;bottom:2px;left:3px;font-size:0.52rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
+        inner += `<span style="position:absolute;bottom:1px;right:3px;font-size:0.5rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
         return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
       }).join('')}
       ${spacers}
@@ -1069,9 +1070,9 @@ export function buildChartHtml(draft, opts = {}) {
           }
           if (lm === 'segno' || lm === 'coda') {
             const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-            inner += `<div style="position:absolute;top:50%;right:3px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
+            inner += `<div style="position:absolute;top:50%;left:2px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
           }
-          if (showNums) inner += `<span style="position:absolute;bottom:2px;left:3px;font-size:0.52rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
+          if (showNums) inner += `<span style="position:absolute;bottom:1px;right:3px;font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
           return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
