@@ -813,7 +813,7 @@ async function syncFromCloud(panel) {
 
 // ===== AI 자동 분석 (Gemini Vision) =====
 async function runAiAnalysis(meta, record, viewer, panel) {
-  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js?v=10');
+  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js?v=11');
   if (!isConfigured()) {
     alert('⚙️ 설정 탭에서 Gemini API 키를 먼저 입력해주세요.\n(Google AI Studio에서 무료 발급)');
     return;
@@ -988,7 +988,7 @@ function renderAnalysisReview(result, meta, container, panel) {
 
 // ===== 일괄 AI 분석 (여러 페이지 → 한 곡) =====
 async function runBatchAiAnalysis(ids, panel) {
-  const { isConfigured, analyzeSheets } = await import('./gemini-analysis.js?v=10');
+  const { isConfigured, analyzeSheets } = await import('./gemini-analysis.js?v=11');
   if (!isConfigured()) { alert('⚙️ 설정 탭에서 API 키를 먼저 입력해주세요.'); return; }
 
   const viewer = panel.querySelector('#sheet-viewer');

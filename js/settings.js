@@ -184,7 +184,7 @@ create policy "allow_all" on gta_sheets
     if (!key) { geminiStatus.textContent = '⚠️ 키를 입력해주세요.'; return; }
     localStorage.setItem('gta_gemini_key', key);
     try {
-      const { testConnection } = await import('./gemini-analysis.js');
+      const { testConnection } = await import('./gemini-analysis.js?v=11');
       const msg = await testConnection(s => { geminiStatus.textContent = s; });
       geminiStatus.textContent = msg;
     } catch (e) {
