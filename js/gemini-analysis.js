@@ -67,7 +67,7 @@ export async function analyzeSheet(imageBlob) {
       'X-Title': 'Guitar Theory App'
     },
     body: JSON.stringify({
-      model: 'google/gemma-4-31b-it:free',
+      model: 'moonshotai/kimi-k2.6:free',
       messages: [{
         role: 'user',
         content: [
