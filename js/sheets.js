@@ -216,7 +216,7 @@ async function uploadSheet(panel) {
 
   const { isReady, connect, pushSheet: fbPush } = await import('./supabase-sync.js');
   let fbReady = isReady();
-  if (!fbReady && localStorage.getItem('gta_firebase_cfg')) {
+  if (!fbReady && (localStorage.getItem('gta_supabase_url') || localStorage.getItem('gta_supabase_key'))) {
     const res = await connect();
     fbReady = res.ok;
   }
@@ -249,12 +249,12 @@ async function uploadSheet(panel) {
     meta.unshift(metaItem);
     setMeta(meta);
 
-    // Firebase 동기화
+    // Supabase 동기화
     if (fbReady) {
       try {
         btn.textContent = `☁️ 업로드 중... (${fi + 1}/${files.length})`;
         await fbPush(id, file, pages || [], metaItem);
-      } catch (e) { console.warn('Firebase push failed:', e); }
+      } catch (e) { console.warn('Supabase push failed:', e); }
     }
   }
 
@@ -436,7 +436,7 @@ async function openSheet(panel, id) {
     setMeta(getMeta().filter(m => m.id !== id));
     viewer.innerHTML = '';
     loadList(panel);
-    // Firebase에서도 삭제
+    // Supabase에서도 삭제
     const { isReady, removeSheet: fbRemove } = await import('./supabase-sync.js');
     if (isReady()) fbRemove(id).catch(() => {});
   });
@@ -642,7 +642,7 @@ async function syncFromCloud(panel) {
     let ready = isReady();
     if (!ready) {
       const res = await connect();
-      if (!res.ok) { alert('Firebase 연결 실패: ' + res.error + '\n\n설정 탭에서 Firebase를 연결해주세요.'); return; }
+      if (!res.ok) { alert('Supabase 연결 실패: ' + res.error + '\n\n설정 탭에서 Supabase URL과 Key를 확인해주세요.'); return; }
       ready = true;
     }
 

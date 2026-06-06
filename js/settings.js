@@ -19,7 +19,7 @@ export function render(panel) {
   const curTheme = s.theme || 'dark-pro';
   const curSize = s.fontSize || 16;
   const curLeft = s.leftHanded || false;
-  const fbCfgStr = localStorage.getItem('gta_firebase_cfg') || '';
+  const fbCfgStr = ''; // Firebase 제거됨 (Supabase로 대체)
   const syncKey = s.syncKey || '';
 
   panel.innerHTML = `
