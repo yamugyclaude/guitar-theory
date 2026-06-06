@@ -735,7 +735,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         // 볼타 괄호 — 하단층
         if (vs) {
           const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
-          const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
+          const br = ''; // 오른쪽은 열려있음
           inner += `<div style="position:absolute;top:${voltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} 0 0 0;pointer-events:none"></div>`;
           if (vs.isFirst) inner += `<span style="position:absolute;top:${voltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
@@ -1263,7 +1263,7 @@ export function buildChartHtml(draft, opts = {}) {
           let inner = '';
           if (vs) {
             const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
-            const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
+            const br = ''; // 오른쪽은 열려있음
             inner += `<div style="position:absolute;top:${rVoltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} 0 0 0"></div>`;
             if (vs.isFirst) inner += `<span style="position:absolute;top:${rVoltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
           }
