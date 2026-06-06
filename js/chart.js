@@ -4,6 +4,53 @@ function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts'
 function saveDrafts(d) { localStorage.setItem('gta_chart_drafts', JSON.stringify(d)); }
 function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 
+// ── 음악 기호 정의 ───────────────────────────────────────────────────
+// 마디 왼쪽 기호 (bar의 leftMark 필드)
+const LEFT_MARK_OPTIONS = [
+  { value: '',      label: '없음' },
+  { value: '||:',   label: '||:',        desc: '반복 시작', color: 'var(--accent)',    bold: true },
+  { value: '𝄋',     label: '𝄋 Segno',    desc: '세뇨',     color: 'var(--accent)' },
+  { value: '𝄌',     label: '𝄌 Coda',     desc: '코다',     color: '#e8a020' },
+];
+// 마디 오른쪽 기호 (bar의 rightMark 필드)
+const RIGHT_MARK_OPTIONS = [
+  { value: '',              label: '없음' },
+  { value: ':||',           label: ':||',            desc: '반복 끝',        color: 'var(--accent)',    bold: true },
+  { value: ':||:',          label: ':||:',           desc: '반복 끝+시작',   color: 'var(--accent)',    bold: true },
+  { value: 'Fine',          label: 'Fine',           desc: '마침',           color: '#e060a0' },
+  { value: 'D.C.',          label: 'D.C.',           desc: 'Da Capo (처음으로)', color: '#60a0e0' },
+  { value: 'D.S.',          label: 'D.S.',           desc: 'Dal Segno (세뇨로)', color: '#60a0e0' },
+  { value: 'D.C. al Coda', label: 'D.C. al Coda',   desc: '처음→코다',      color: '#60a0e0' },
+  { value: 'D.S. al Coda', label: 'D.S. al Coda',   desc: '세뇨→코다',      color: '#60a0e0' },
+  { value: 'D.C. al Fine', label: 'D.C. al Fine',   desc: '처음→Fine',      color: '#60a0e0' },
+  { value: 'D.S. al Fine', label: 'D.S. al Fine',   desc: '세뇨→Fine',      color: '#60a0e0' },
+  { value: 'To 𝄌',         label: 'To Coda',        desc: '코다로 점프',    color: '#e8a020' },
+];
+// 볼타 괄호 (1番括弧, 2番括弧)
+const VOLTA_OPTIONS = [
+  { value: '',    label: '없음' },
+  { value: '1.',  label: '1.',  desc: '1번 엔딩', color: '#80c8a0' },
+  { value: '2.',  label: '2.',  desc: '2번 엔딩', color: '#80c8a0' },
+  { value: '3.',  label: '3.',  desc: '3번 엔딩', color: '#80c8a0' },
+];
+// 페르마타 / 다이나믹 (메모용, 특정 박에 표시)
+const EXPR_OPTIONS = [
+  { value: '',       label: '없음' },
+  { value: '𝄐',      label: '𝄐 Fermata',   desc: '늘임표' },
+  { value: 'pp',     label: 'pp',           desc: '피아니시모' },
+  { value: 'p',      label: 'p',            desc: '피아노' },
+  { value: 'mp',     label: 'mp',           desc: '메조피아노' },
+  { value: 'mf',     label: 'mf',           desc: '메조포르테' },
+  { value: 'f',      label: 'f',            desc: '포르테' },
+  { value: 'ff',     label: 'ff',           desc: '포르티시모' },
+  { value: 'cresc.', label: 'cresc.',       desc: '점점 세게' },
+  { value: 'dim.',   label: 'dim.',         desc: '점점 여리게' },
+  { value: 'rit.',   label: 'rit.',         desc: '점점 느리게' },
+  { value: 'accel.', label: 'accel.',       desc: '점점 빠르게' },
+  { value: 'a tempo',label: 'a tempo',      desc: '원래 빠르기로' },
+];
+
+// 하위 호환
 const END_MARKS = ['', 'D.C.', 'D.S.', 'D.C. al Coda', 'D.S. al Coda', 'Fine'];
 const START_MARKS = ['', '𝄋 Segno', '𝄌 Coda'];
 
@@ -388,14 +435,77 @@ ${structureDesc}
 // ── 4비트 슬롯 HTML 생성 헬퍼 ──────────────────────────────────────
 const SLOT_MAP = { 1:[0], 2:[0,2], 3:[0,2,3], 4:[0,1,2,3] };
 
+// 왼쪽 기호 시각화
+function leftMarkHtml(mark) {
+  if (!mark) return '';
+  if (mark === '||:') {
+    return `<div style="position:absolute;left:0;top:0;bottom:0;width:8px;display:flex;align-items:stretch;z-index:1;pointer-events:none">
+      <div style="width:3px;background:var(--accent);border-radius:2px 0 0 2px"></div>
+      <div style="width:1px;background:var(--accent);margin:3px 1px"></div>
+      <div style="display:flex;flex-direction:column;justify-content:space-evenly;width:3px;padding:4px 0">
+        <div style="width:2px;height:2px;border-radius:50%;background:var(--accent)"></div>
+        <div style="width:2px;height:2px;border-radius:50%;background:var(--accent)"></div>
+      </div>
+    </div>`;
+  }
+  const opt = LEFT_MARK_OPTIONS.find(o => o.value === mark);
+  const color = opt?.color || 'var(--accent)';
+  return `<div style="position:absolute;left:2px;top:2px;font-size:0.7rem;font-weight:700;color:${color};z-index:1;pointer-events:none;line-height:1">${mark}</div>`;
+}
+
+// 오른쪽 기호 시각화
+function rightMarkHtml(mark) {
+  if (!mark) return '';
+  if (mark === ':||') {
+    return `<div style="position:absolute;right:0;top:0;bottom:0;width:8px;display:flex;align-items:stretch;flex-direction:row-reverse;z-index:1;pointer-events:none">
+      <div style="width:3px;background:var(--accent);border-radius:0 2px 2px 0"></div>
+      <div style="width:1px;background:var(--accent);margin:3px 1px"></div>
+      <div style="display:flex;flex-direction:column;justify-content:space-evenly;width:3px;padding:4px 0">
+        <div style="width:2px;height:2px;border-radius:50%;background:var(--accent)"></div>
+        <div style="width:2px;height:2px;border-radius:50%;background:var(--accent)"></div>
+      </div>
+    </div>`;
+  }
+  if (mark === ':||:') {
+    return `<div style="position:absolute;right:0;top:0;bottom:0;width:10px;display:flex;align-items:stretch;flex-direction:row-reverse;z-index:1;pointer-events:none">
+      <div style="width:3px;background:var(--accent);border-radius:0 2px 2px 0"></div>
+      <div style="width:1px;background:var(--accent);margin:3px 1px"></div>
+      <div style="display:flex;flex-direction:column;justify-content:space-evenly;width:3px;padding:4px 0">
+        <div style="width:2px;height:2px;border-radius:50%;background:var(--accent)"></div>
+        <div style="width:2px;height:2px;border-radius:50%;background:var(--accent)"></div>
+      </div>
+    </div>`;
+  }
+  const opt = RIGHT_MARK_OPTIONS.find(o => o.value === mark);
+  const color = opt?.color || 'var(--accent)';
+  return `<div style="position:absolute;bottom:2px;right:3px;font-size:0.62rem;font-weight:700;color:${color};z-index:1;pointer-events:none;line-height:1;font-style:italic">${mark}</div>`;
+}
+
+// 볼타 괄호 시각화
+function voltaHtml(volta) {
+  if (!volta) return '';
+  return `<div style="position:absolute;top:0;left:0;right:0;height:10px;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:2px 0 0 0;pointer-events:none;z-index:1">
+    <span style="position:absolute;top:0;left:3px;font-size:0.55rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>
+  </div>`;
+}
+
 function barCellHtml(sec, si, bi, barNum) {
   const b = sec.bars[bi];
   const isPickup = sec.pickup && bi === 0;
   const chord = (b.chords || '').trim();
+  const leftMark = b.leftMark || '';
+  const rightMark = b.rightMark || '';
+  const volta = b.volta || '';
+  const expr = b.expr || '';
+
   const rawChords = chord.split(/\s+/).filter(Boolean);
   const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
   const slots = ['','','',''];
   rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
+
+  // 왼쪽 기호에 맞게 패딩 조정
+  const leftPad = leftMark === '||:' ? 'padding-left:10px;' : '';
+  const rightPad = (rightMark === ':||' || rightMark === ':||:') ? 'padding-right:10px;' : '';
 
   const slotsHtml = slots.map((c, idx) => `
     <div style="flex:1;${idx>0?'border-left:1px solid var(--border);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px 1px">
@@ -403,15 +513,68 @@ function barCellHtml(sec, si, bi, barNum) {
     </div>`
   ).join('');
 
+  // 왼쪽 테두리 강조 (||: 일 때)
+  const borderLeft = leftMark === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
+  const borderRight = (rightMark === ':||' || rightMark === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+
+  const hasTopMark = volta !== '';
+  const topPad = hasTopMark ? 'padding-top:12px;' : 'padding-top:12px;';
+
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
-    style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${isPickup?'max-width:52px;opacity:0.75;':''}">
-    <div style="font-size:0.5rem;color:var(--text2);position:absolute;top:2px;left:3px;line-height:1;pointer-events:none">${isPickup?'↑':barNum}</div>
-    <!-- 표시 레이어 -->
-    <div class="bar-display" style="display:flex;min-height:2.2em;padding-top:12px;padding-bottom:3px;pointer-events:none">${slotsHtml}</div>
-    <!-- 편집 인풋 (클릭 시 표시) -->
+    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${leftPad}${rightPad}${isPickup?'max-width:52px;opacity:0.75;':''}">
+    ${leftMarkHtml(leftMark)}
+    ${rightMarkHtml(rightMark)}
+    ${voltaHtml(volta)}
+    <div style="font-size:0.5rem;color:var(--text2);position:absolute;top:2px;left:${leftMark==='||:'?'12':'3'}px;line-height:1;pointer-events:none">${isPickup?'↑':barNum}</div>
+    ${expr ? `<div style="position:absolute;top:2px;right:3px;font-size:0.55rem;color:#aaa;pointer-events:none;font-style:italic">${expr}</div>` : ''}
+    <div class="bar-display" style="display:flex;min-height:2.2em;${topPad}padding-bottom:3px;pointer-events:none">${slotsHtml}</div>
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
-      style="display:none;position:absolute;inset:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.82rem;padding:0 2px;box-sizing:border-box;z-index:2;color:var(--text)">
+      style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.82rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
+  </div>`;
+}
+
+// 마디 기호 설정 툴바 HTML
+function barMarkToolbarHtml(si, bi, bar) {
+  const lm = bar.leftMark || '';
+  const rm = bar.rightMark || '';
+  const vt = bar.volta || '';
+  const ex = bar.expr || '';
+
+  const lBtns = LEFT_MARK_OPTIONS.filter(o => o.value).map(o =>
+    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="leftMark" data-val="${o.value}"
+      style="font-size:0.68rem;padding:2px 5px;border-radius:3px;border:1px solid ${lm===o.value?o.color||'var(--accent)':'var(--border)'};background:${lm===o.value?(o.color||'var(--accent)')+'22':'var(--bg3)'};color:${lm===o.value?(o.color||'var(--accent)'):'var(--text2)'};cursor:pointer;font-weight:${lm===o.value?'700':'400'};white-space:nowrap"
+      title="${o.desc||''}">${o.label}</button>`
+  ).join('');
+
+  const rBtns = RIGHT_MARK_OPTIONS.filter(o => o.value).map(o =>
+    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="rightMark" data-val="${o.value}"
+      style="font-size:0.68rem;padding:2px 5px;border-radius:3px;border:1px solid ${rm===o.value?o.color||'var(--accent)':'var(--border)'};background:${rm===o.value?(o.color||'var(--accent)')+'22':'var(--bg3)'};color:${rm===o.value?(o.color||'var(--accent)'):'var(--text2)'};cursor:pointer;font-weight:${rm===o.value?'700':'400'};white-space:nowrap"
+      title="${o.desc||''}">${o.label}</button>`
+  ).join('');
+
+  const vBtns = VOLTA_OPTIONS.filter(o => o.value).map(o =>
+    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="volta" data-val="${o.value}"
+      style="font-size:0.68rem;padding:2px 5px;border-radius:3px;border:1px solid ${vt===o.value?'#80c8a0':'var(--border)'};background:${vt===o.value?'#80c8a022':'var(--bg3)'};color:${vt===o.value?'#80c8a0':'var(--text2)'};cursor:pointer;white-space:nowrap"
+      title="${o.desc||''}">${o.label}</button>`
+  ).join('');
+
+  const eBtns = EXPR_OPTIONS.filter(o => o.value).map(o =>
+    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="expr" data-val="${o.value}"
+      style="font-size:0.65rem;padding:2px 5px;border-radius:3px;border:1px solid ${ex===o.value?'var(--accent)':'var(--border)'};background:${ex===o.value?'var(--accent)22':'var(--bg3)'};color:${ex===o.value?'var(--accent)':'var(--text2)'};cursor:pointer;white-space:nowrap;font-style:italic"
+      title="${o.desc||''}">${o.label}</button>`
+  ).join('');
+
+  return `<div class="bar-mark-toolbar" data-si="${si}" data-bi="${bi}"
+    style="position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);min-width:220px">
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">왼쪽 기호</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${lBtns}</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">오른쪽 기호</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${rBtns}</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">볼타 괄호</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${vBtns}</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">다이나믹 / 템포</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${eBtns}</div>
   </div>`;
 }
 
@@ -426,10 +589,9 @@ function sectionRowsHtml(sec, si, barOffset) {
   }
   return rowGroups.map(idxs => {
     const cells = idxs.map(bi => barCellHtml(sec, si, bi, barOffset + bi + 1)).join('');
-    // 행이 bpr보다 적으면 빈 spacer로 채워 너비 균일하게 유지
     const missing = bpr - idxs.length;
     const spacers = missing > 0
-      ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid transparent;border-radius:4px;min-height:2.2em"></div>`).join('')
+      ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border-radius:4px;min-height:2.2em"></div>`).join('')
       : '';
     return `<div style="display:flex;gap:3px;margin-bottom:3px">${cells}${spacers}</div>`;
   }).join('');
@@ -476,26 +638,15 @@ function renderSections(ed, draft) {
         <button class="btn btn-secondary del-sec" data-si="${si}" style="font-size:0.7rem;padding:2px 7px;color:var(--danger);margin-left:auto">🗑</button>
       </div>
 
-      <!-- 악보 기호 패널 (접기/펼치기) -->
+      <!-- 섹션 옵션 패널 (접기/펼치기) -->
       <div class="sym-panel" data-si="${si}" style="display:${symOpen?'flex':'none'};flex-wrap:wrap;gap:6px;margin-bottom:10px;padding:8px;background:var(--bg2);border-radius:6px;align-items:center">
         <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
-          <input type="checkbox" class="chk-repeat-start" data-si="${si}" ${sec.repeatStart?'checked':''}> ||:
+          <input type="checkbox" class="chk-pickup" data-si="${si}" ${sec.pickup?'checked':''}> 못갖춘마디 (픽업)
         </label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
-          <input type="checkbox" class="chk-repeat-end" data-si="${si}" ${sec.repeatEnd?'checked':''}> :||
-        </label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
-          <input type="checkbox" class="chk-pickup" data-si="${si}" ${sec.pickup?'checked':''}> 못갖춘마디
-        </label>
-        <select class="sel-start-mark" data-si="${si}" style="font-size:0.78rem;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
-          ${START_MARKS.map(m => `<option value="${m}" ${sec.startMark===m?'selected':''}>${m||'앞기호 없음'}</option>`).join('')}
-        </select>
-        <select class="sel-end-mark" data-si="${si}" style="font-size:0.78rem;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
-          ${END_MARKS.map(m => `<option value="${m}" ${sec.endMark===m?'selected':''}>${m||'끝기호 없음'}</option>`).join('')}
-        </select>
         <input type="text" class="memo-input" data-si="${si}" value="${sec.memo||''}"
-          placeholder="메모 (카포2, 느리게...)"
-          style="flex:1;min-width:120px;font-size:0.78rem;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+          placeholder="메모 (카포2, 느리게, 8비트...)"
+          style="flex:1;min-width:140px;font-size:0.78rem;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+        <span style="font-size:0.72rem;color:var(--text2)">💡 마디 클릭 후 기호 버튼으로 ||: :|| Fine 등 설정</span>
       </div>
 
       <!-- 마디 그리드 (클릭 편집 가능) -->
@@ -531,56 +682,105 @@ function renderSections(ed, draft) {
   });
 
   // ── 마디 셀 인라인 편집 ──────────────────────────────────────────
-  // 셀 클릭 → 인풋 열기
   area.querySelectorAll('.bar-cell').forEach(cell => {
     cell.addEventListener('click', () => openBarCell(cell));
   });
 
   function openBarCell(cell) {
-    // 이미 편집 중인 다른 셀이 있으면 먼저 닫기 (blur가 처리)
     const inp = cell.querySelector('.bar-edit-input');
     const disp = cell.querySelector('.bar-display');
     if (!inp || inp.style.display === 'block') return;
+
+    // 열려 있는 다른 툴바 제거
+    area.querySelectorAll('.bar-mark-toolbar').forEach(t => t.remove());
+
     inp.style.display = 'block';
-    disp.style.visibility = 'hidden'; // 자리 유지하면서 숨김
+    disp.style.visibility = 'hidden';
     inp.focus();
     inp.select();
+
+    // 기호 툴바 생성
+    const si = +inp.dataset.si, bi = +inp.dataset.bi;
+    const bar = draft.sections[si].bars[bi];
+    const toolbar = document.createElement('div');
+    toolbar.innerHTML = barMarkToolbarHtml(si, bi, bar);
+    const toolbarEl = toolbar.firstElementChild;
+    cell.style.position = 'relative';
+    cell.appendChild(toolbarEl);
+
+    // 기호 버튼 — mousedown으로 blur 방지, click으로 토글
+    toolbarEl.querySelectorAll('.bar-mark-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.preventDefault()); // blur 방지
+      btn.addEventListener('click', () => {
+        const field = btn.dataset.field;
+        const val = btn.dataset.val;
+        const b = draft.sections[si].bars[bi];
+        // 같은 값 클릭하면 해제 (토글)
+        b[field] = (b[field] === val) ? '' : val;
+        // 툴바 버튼 상태 업데이트
+        toolbarEl.querySelectorAll(`.bar-mark-btn[data-field="${field}"]`).forEach(b2 => {
+          const opt = (field === 'leftMark' ? LEFT_MARK_OPTIONS : field === 'rightMark' ? RIGHT_MARK_OPTIONS : field === 'volta' ? VOLTA_OPTIONS : EXPR_OPTIONS).find(o => o.value === b2.dataset.val);
+          const color = opt?.color || 'var(--accent)';
+          const isActive = b[field] === b2.dataset.val;
+          b2.style.border = `1px solid ${isActive ? color : 'var(--border)'}`;
+          b2.style.background = isActive ? color + '22' : 'var(--bg3)';
+          b2.style.color = isActive ? color : 'var(--text2)';
+          b2.style.fontWeight = isActive ? '700' : '400';
+        });
+        // 셀 시각 업데이트 (전체 재렌더 없이)
+        updateBarCellDisplay(cell, si, bi, draft);
+      });
+    });
+  }
+
+  // 셀 표시만 업데이트 (툴바 유지, 입력 유지)
+  function updateBarCellDisplay(cell, si, bi, draft) {
+    let off = 0;
+    for (let i = 0; i < si; i++) off += draft.sections[i].bars.length;
+    const barNum = off + bi + 1;
+    const sec = draft.sections[si];
+    const b = sec.bars[bi];
+    // 기호 레이어만 교체
+    cell.querySelectorAll('.bar-left-mark-layer,.bar-right-mark-layer,.bar-volta-layer,.bar-expr-layer').forEach(el => el.remove());
+    // 재삽입
+    const temp = document.createElement('div');
+    temp.innerHTML = leftMarkHtml(b.leftMark||'') + rightMarkHtml(b.rightMark||'') + voltaHtml(b.volta||'');
+    [...temp.children].forEach(c => cell.insertBefore(c, cell.firstChild));
+    // border 업데이트
+    if (b.leftMark === '||:') { cell.style.borderLeft = '3px solid var(--accent)'; cell.style.paddingLeft = '10px'; }
+    else { cell.style.borderLeft = '1px solid var(--border)'; cell.style.paddingLeft = ''; }
+    if (b.rightMark === ':||' || b.rightMark === ':||:') { cell.style.borderRight = '3px solid var(--accent)'; cell.style.paddingRight = '10px'; }
+    else { cell.style.borderRight = '1px solid var(--border)'; cell.style.paddingRight = ''; }
   }
 
   area.querySelectorAll('.bar-edit-input').forEach(inp => {
     const si = +inp.dataset.si;
     const bi = +inp.dataset.bi;
 
-    // 타이핑 중 draft 동기화
     inp.addEventListener('input', () => {
       draft.sections[si].bars[bi].chords = inp.value;
     });
 
-    // blur → 전체 재렌더 (슬롯 업데이트 포함)
     inp.addEventListener('blur', () => {
       draft.sections[si].bars[bi].chords = inp.value;
       renderSections(ed, draft);
     });
 
-    // 키보드 네비게이션
     inp.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
-        inp.value = draft.sections[si].bars[bi].chords; // 원래값 복원
+        inp.value = draft.sections[si].bars[bi].chords;
         inp.blur();
         return;
       }
       if (e.key === 'Tab' || e.key === 'Enter') {
         e.preventDefault();
-        draft.sections[si].bars[bi].chords = inp.value; // 먼저 저장
-        const nextSi = si, nextBi = bi + 1;
-        const isLast = nextBi >= draft.sections[si].bars.length;
-        if (isLast && e.key === 'Enter') {
-          // 마지막 셀 Enter → 마디 추가 후 이동
+        draft.sections[si].bars[bi].chords = inp.value;
+        const nextBi = bi + 1;
+        if (nextBi >= draft.sections[si].bars.length && e.key === 'Enter') {
           draft.sections[si].bars.push({ chords: '' });
         }
-        // blur 없이 재렌더 후 다음 셀 열기
         renderSections(ed, draft);
-        const nextCell = area.querySelector(`.bar-cell[data-si="${nextSi}"][data-bi="${nextBi}"]`);
+        const nextCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${nextBi}"]`);
         if (nextCell) openBarCell(nextCell);
       }
     });
@@ -605,12 +805,8 @@ function renderSections(ed, draft) {
     });
   });
 
-  // 악보 기호
-  area.querySelectorAll('.chk-repeat-start').forEach(c => c.addEventListener('change', () => { draft.sections[+c.dataset.si].repeatStart = c.checked; renderSections(ed, draft); }));
-  area.querySelectorAll('.chk-repeat-end').forEach(c => c.addEventListener('change', () => { draft.sections[+c.dataset.si].repeatEnd = c.checked; renderSections(ed, draft); }));
+  // 섹션 옵션
   area.querySelectorAll('.chk-pickup').forEach(c => c.addEventListener('change', () => { draft.sections[+c.dataset.si].pickup = c.checked; renderSections(ed, draft); }));
-  area.querySelectorAll('.sel-start-mark').forEach(s => s.addEventListener('change', () => { draft.sections[+s.dataset.si].startMark = s.value; renderSections(ed, draft); }));
-  area.querySelectorAll('.sel-end-mark').forEach(s => s.addEventListener('change', () => { draft.sections[+s.dataset.si].endMark = s.value; renderSections(ed, draft); }));
   area.querySelectorAll('.memo-input').forEach(inp => inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].memo = inp.value; }));
 
   // 마디/행 변경
@@ -670,20 +866,41 @@ export function buildChartHtml(draft, opts = {}) {
         );
       }).join('');
 
+      const lm = b.leftMark || '';
+      const rm = b.rightMark || '';
+      const vt = b.volta || '';
+      const ex = b.expr || '';
+      const borderL = lm === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
+      const borderR = (rm === ':||' || rm === ':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+      const pleft = lm === '||:' ? 'padding-left:10px;' : 'padding-left:3px;';
+      const pright = (rm===':||'||rm===':||:') ? 'padding-right:10px;' : 'padding-right:3px;';
+
+      // 오른쪽 기호 텍스트 (||, :|| 제외)
+      const rmTxt = (rm && rm !== ':||' && rm !== ':||:')
+        ? `<div style="position:absolute;bottom:1px;right:3px;font-size:0.58rem;font-weight:700;color:${RIGHT_MARK_OPTIONS.find(o=>o.value===rm)?.color||'var(--accent)'};font-style:italic;line-height:1">${rm}</div>`
+        : '';
+      const vtTxt = vt
+        ? `<div style="position:absolute;top:0;left:0;right:0;height:9px;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:2px 0 0 0"><span style="position:absolute;top:0;left:2px;font-size:0.52rem;font-weight:700;color:#80c8a0;line-height:1">${vt}</span></div>`
+        : '';
+      const exTxt = ex ? `<div style="position:absolute;top:1px;right:2px;font-size:0.52rem;color:#aaa;font-style:italic">${ex}</div>` : '';
+
       return `<div style="
         ${flexStyle}
-        padding:5px 3px 4px;
+        padding-top:${showNums?'11px':'2px'};padding-bottom:3px;${pleft}${pright}
         background:var(--bg3);
-        border:1px solid var(--border);
+        ${borderL}${borderR}
+        border-top:1px solid var(--border);border-bottom:1px solid var(--border);
         border-radius:4px;
         position:relative;
         overflow:hidden;
         ${isPickup ? 'opacity:0.8;' : ''}
       ">
-        ${showNums ? `<div style="font-size:0.55rem;color:var(--text2);position:absolute;top:2px;left:3px;line-height:1">${isPickup?'↑':barNum}</div>` : ''}
-        <div style="display:flex;align-items:center;justify-content:center;gap:0;padding-top:${showNums?'10px':'2px'};min-height:1.4em">
-          ${slotsHtml}
-        </div>
+        ${showNums ? `<div style="font-size:0.5rem;color:var(--text2);position:absolute;top:2px;left:${lm==='||:'?'12':'3'}px;line-height:1">${isPickup?'↑':barNum}</div>` : ''}
+        ${leftMarkHtml(lm)}
+        ${rightMarkHtml(rm)}
+        ${vtTxt}${exTxt}
+        <div style="display:flex;min-height:1.6em">${slotsHtml}</div>
+        ${rmTxt}
       </div>`;
     });
 
