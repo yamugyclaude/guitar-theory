@@ -14,26 +14,28 @@ function saveZoom(z) { liveZoom = z; localStorage.setItem('gta_live_zoom', z); }
 
 // 차트 HTML을 페이지 단위로 분할
 function paginateChart(draft, pageH, zoom) {
-  const fs = Math.round(15 * zoom) + 'px'; // 기준 15px * zoom
+  // zoom 1.0 = 1rem(16px) 기준, 비율로 조정
+  const fs = (zoom * 1).toFixed(3) + 'rem';
   const fullHtml = (() => {
     try { return buildChartHtml(draft, { fontSize: fs, showBarNumbers: true }); }
     catch(e) { return `<p style="color:red">오류: ${e.message}</p>`; }
   })();
 
-  // 임시 div로 전체 높이 측정
+  const w = _contentEl?.clientWidth || window.innerWidth;
   const measure = document.createElement('div');
-  measure.style.cssText = `position:fixed;visibility:hidden;top:0;left:0;width:${_contentEl?.clientWidth||800}px;padding:12px;box-sizing:border-box;`;
+  measure.style.cssText = `position:fixed;visibility:hidden;top:-9999px;left:0;width:${w}px;padding:12px;box-sizing:border-box;font-size:${fs};`;
   measure.innerHTML = fullHtml;
   document.body.appendChild(measure);
+  // 레이아웃 강제 계산
+  void measure.offsetHeight;
 
-  // 섹션 블록들을 순서대로 페이지에 채워넣기
   const blocks = [...measure.children];
   const pages = [];
   let curPage = [];
   let curH = 0;
 
   blocks.forEach(block => {
-    const bh = block.offsetHeight + 16;
+    const bh = block.getBoundingClientRect().height + 12;
     if (curH + bh > pageH && curPage.length > 0) {
       pages.push(curPage.join(''));
       curPage = [];
@@ -257,18 +259,22 @@ async function startFullscreen(startIdx) {
   _contentEl = content;
 
   const nav = document.createElement('div');
-  nav.style.cssText = `flex-shrink:0;display:grid;grid-template-columns:1fr auto auto auto auto 1fr;align-items:center;gap:4px;padding:8px 10px;background:var(--bg2);border-top:1px solid var(--border);`;
+  nav.style.cssText = `flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border);padding:6px 10px;display:flex;flex-direction:column;gap:6px;`;
   nav.innerHTML = `
-    <button id="live-prev" class="btn btn-primary" style="padding:10px 8px;font-size:0.82rem">← 이전</button>
-    <button id="page-prev" class="btn btn-secondary" style="padding:10px 8px;font-size:0.82rem">◀</button>
-    <button id="page-next" class="btn btn-secondary" style="padding:10px 8px;font-size:0.82rem">▶</button>
-    <div style="display:flex;align-items:center;gap:2px">
-      <button id="zoom-out" class="btn btn-secondary" style="padding:8px 10px;font-size:1rem;line-height:1">−</button>
-      <span id="zoom-label" style="font-size:0.72rem;color:var(--text2);min-width:36px;text-align:center">맞춤</span>
-      <button id="zoom-in" class="btn btn-secondary" style="padding:8px 10px;font-size:1rem;line-height:1">+</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+      <button id="live-prev" class="btn btn-primary" style="flex:1;padding:10px 6px;font-size:0.82rem">← 이전</button>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+        <button id="page-prev" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">◀</button>
+        <span id="page-label" style="font-size:0.72rem;color:var(--text2);min-width:40px;text-align:center"></span>
+        <button id="page-next" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">▶</button>
+      </div>
+      <button id="live-next" class="btn btn-primary" style="flex:1;padding:10px 6px;font-size:0.82rem">다음 →</button>
     </div>
-    <button id="live-next" class="btn btn-primary" style="padding:10px 8px;font-size:0.82rem">다음 →</button>
-    <span></span>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+      <button id="zoom-out" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">−</button>
+      <span id="zoom-label" style="font-size:0.78rem;color:var(--text2);min-width:44px;text-align:center"></span>
+      <button id="zoom-in" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">+</button>
+    </div>
   `;
 
   overlay.append(header, content, nav);
@@ -321,8 +327,12 @@ async function startFullscreen(startIdx) {
     if (s.length) { saveZoom(s[0]); updateZoomLabel(); reloadWithZoom(); }
   });
 
-  // 화면 크기 변경 시 이미지 재조정
-  const resizeObs = new ResizeObserver(() => { if (liveZoom === 1.0) applyZoom(); });
+  // 화면 크기 변경 시 재조정
+  let resizeTimer;
+  const resizeObs = new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => reloadWithZoom(), 200);
+  });
   resizeObs.observe(content);
 
   // 헤더 자동 숨김
@@ -406,8 +416,9 @@ async function startFullscreen(startIdx) {
     nav.querySelector('#page-prev').disabled = currentPage <= 1;
     nav.querySelector('#page-next').disabled = currentPage + pagesPerView - 1 >= totalPages;
     const show = totalPages > 1;
-    nav.querySelector('#page-prev').style.display = show ? '' : 'none';
-    nav.querySelector('#page-next').style.display = show ? '' : 'none';
+    nav.querySelector('#page-prev').style.visibility = show ? '' : 'hidden';
+    nav.querySelector('#page-next').style.visibility = show ? '' : 'hidden';
+    nav.querySelector('#page-label').textContent = show ? `${currentPage}/${totalPages}` : '';
   }
 
   function navigateSong(dir) {
