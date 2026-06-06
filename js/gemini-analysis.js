@@ -52,10 +52,11 @@ const ANALYSIS_PROMPT = `이 악보 이미지를 분석해서 아래 JSON 형식
 
 // 이미지 지원 무료 모델 (순서대로 fallback)
 const VISION_MODELS = [
+  'google/gemini-2.0-flash-exp:free',
   'google/gemma-4-31b-it:free',
   'google/gemma-4-26b-a4b-it:free',
+  'meta-llama/llama-4-scout:free',
   'nvidia/nemotron-nano-12b-v2-vl:free',
-  'moonshotai/kimi-k2.6:free',
 ];
 
 async function callOpenRouter(apiKey, imageParts, promptText) {
