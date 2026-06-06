@@ -76,8 +76,36 @@ const EXPR_OPTIONS = [
   { value: 'a tempo',label: 'a tempo',      desc: '원래 빠르기로' },
 ];
 
+// 반복 끝 기호 (repeatEnd 필드) — 독립
+const REPEAT_END_OPTIONS = [
+  { value: '',     label: '없음' },
+  { value: ':||',  label: ':||',  desc: '반복 끝',      color: 'var(--accent)', bold: true },
+  { value: ':||:', label: ':||:', desc: '반복 끝+시작',  color: 'var(--accent)', bold: true },
+];
+// 텍스트 기호 (rightMark 필드) — Fine / D.C. 등
+const TEXT_MARK_OPTIONS = [
+  { value: '',              label: '없음' },
+  { value: 'Fine',          label: 'Fine',         desc: '마침',           color: '#e060a0' },
+  { value: 'D.C.',          label: 'D.C.',          desc: 'Da Capo',        color: '#60a0e0' },
+  { value: 'D.S.',          label: 'D.S.',          desc: 'Dal Segno',      color: '#60a0e0' },
+  { value: 'D.C. al Coda', label: 'D.C. al Coda',  desc: '처음→코다',      color: '#60a0e0' },
+  { value: 'D.S. al Coda', label: 'D.S. al Coda',  desc: '세뇨→코다',      color: '#60a0e0' },
+  { value: 'D.C. al Fine', label: 'D.C. al Fine',  desc: '처음→Fine',      color: '#60a0e0' },
+  { value: 'D.S. al Fine', label: 'D.S. al Fine',  desc: '세뇨→Fine',      color: '#60a0e0' },
+  { value: 'To Coda',      label: 'To Coda',        desc: '코다로 점프',    color: '#e8a020' },
+];
+
 const END_MARKS = ['', 'D.C.', 'D.S.', 'D.C. al Coda', 'D.S. al Coda', 'Fine'];
 const START_MARKS = ['', 'segno', 'coda'];
+
+// bar 데이터 정규화 (구버전 데이터 호환)
+function normalizeBar(b) {
+  // 구버전: leftMark='||:' → repeatStart=true, leftMark=''
+  if (b.leftMark === '||:') { b.repeatStart = true; b.leftMark = ''; }
+  // 구버전: rightMark=':||' or ':||:' → repeatEnd=value, rightMark=''
+  if (b.rightMark === ':||' || b.rightMark === ':||:') { b.repeatEnd = b.rightMark; b.rightMark = ''; }
+  return b;
+}
 
 // 기호값 → 표시 HTML (버튼 라벨용)
 function markDisplayHtml(value, size = 14) {
@@ -532,8 +560,11 @@ function barCellHtml(sec, si, bi, barNum) {
   const b = sec.bars[bi];
   const isPickup = sec.pickup && bi === 0;
   const chord = (b.chords || '').trim();
-  const lm = b.leftMark || '';
-  const rm = b.rightMark || '';
+  normalizeBar(b);
+  const rs = b.repeatStart || false;   // ||:
+  const lm = b.leftMark    || '';      // segno | coda
+  const re = b.repeatEnd   || '';      // :|| | :||:
+  const rm = b.rightMark   || '';      // Fine | D.C. ...
 
   const rawChords = chord.split(/\s+/).filter(Boolean);
   const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
@@ -546,18 +577,18 @@ function barCellHtml(sec, si, bi, barNum) {
     </div>`
   ).join('');
 
-  const borderLeft  = lm === '||:'               ? 'border-left:3px solid var(--accent);'  : 'border-left:1px solid var(--border);';
-  const borderRight = (rm===':||'||rm===':||:')  ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
-  const pleft  = lm === '||:'              ? 'padding-left:8px;'  : '';
-  const pright = (rm===':||'||rm===':||:') ? 'padding-right:8px;' : '';
+  const borderLeft  = rs                           ? 'border-left:3px solid var(--accent);'  : 'border-left:1px solid var(--border);';
+  const borderRight = (re===':||'||re===':||:')    ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+  const pleft  = rs                        ? 'padding-left:8px;'  : '';
+  const pright = (re===':||'||re===':||:') ? 'padding-right:8px;' : '';
 
   const barMemo = b.memo || '';
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
     style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
-    ${leftMarkHtml(lm)}
-    ${rightMarkHtml(rm)}
-    ${barNum != null ? `<span style="position:absolute;top:2px;${lm==='||:'?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
+    ${rs ? leftMarkHtml('||:') : ''}
+    ${rightMarkHtml(re)}
+    ${barNum != null ? `<span style="position:absolute;top:2px;${rs?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
     <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
     ${barMemo ? `<div class="bar-memo-display" style="font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none">${escHtml(barMemo)}</div>` : ''}
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
@@ -568,28 +599,52 @@ function barCellHtml(sec, si, bi, barNum) {
 
 // 마디 기호 설정 툴바 HTML
 function barMarkToolbarHtml(si, bi, bar) {
-  const lm = bar.leftMark || '';
-  const rm = bar.rightMark || '';
-  const vt = bar.volta || '';
-  const ex = bar.expr || '';
-  const bm = bar.memo || '';
+  normalizeBar(bar);
+  const rs  = bar.repeatStart || false;   // ||: (bool)
+  const lm  = bar.leftMark   || '';       // segno | coda | ''
+  const re  = bar.repeatEnd  || '';       // :|| | :||: | ''
+  const rm  = bar.rightMark  || '';       // Fine | D.C. | ...
+  const vt  = bar.volta      || '';
+  const ex  = bar.expr       || '';
+  const bm  = bar.memo       || '';
 
-  const mkBtn = (field, o, active, activeColor) =>
-    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="${field}" data-val="${o.value}"
-      style="display:inline-flex;align-items:center;gap:2px;font-size:0.68rem;padding:2px 6px;border-radius:3px;border:1px solid ${active?(activeColor||'var(--accent)'):'var(--border)'};background:${active?(activeColor||'var(--accent)')+'22':'var(--bg3)'};color:${active?(activeColor||'var(--accent)'):'var(--text2)'};cursor:pointer;font-weight:${active?'700':'400'};white-space:nowrap"
-      title="${o.desc||''}">${markDisplayHtml(o.value)}</button>`;
+  const mkToggle = (field, val, label, active, color) =>
+    `<button class="bar-mark-btn" data-si="${si}" data-bi="${bi}" data-field="${field}" data-val="${val}"
+      style="display:inline-flex;align-items:center;gap:2px;font-size:0.68rem;padding:2px 6px;border-radius:3px;
+             border:1px solid ${active?(color||'var(--accent)'):'var(--border)'};
+             background:${active?(color||'var(--accent)')+'22':'var(--bg3)'};
+             color:${active?(color||'var(--accent)'):'var(--text2)'};
+             cursor:pointer;font-weight:${active?'700':'400'};white-space:nowrap">${label}</button>`;
 
-  const lBtns = LEFT_MARK_OPTIONS.filter(o=>o.value).map(o => mkBtn('leftMark', o, lm===o.value, o.color)).join('');
-  const rBtns = RIGHT_MARK_OPTIONS.filter(o=>o.value).map(o => mkBtn('rightMark', o, rm===o.value, o.color)).join('');
-  const vBtns = VOLTA_OPTIONS.filter(o=>o.value).map(o => mkBtn('volta', o, vt===o.value, '#80c8a0')).join('');
-  const eBtns = EXPR_OPTIONS.filter(o=>o.value).map(o => mkBtn('expr', o, ex===o.value, 'var(--accent)')).join('');
+  // 왼쪽: ||:(toggle bool) + Segno/Coda(단일선택)
+  const rsBtn  = mkToggle('repeatStart', 'true', '||: 반복시작', rs, 'var(--accent)');
+  const lmBtns = LEFT_MARK_OPTIONS.filter(o=>o.value).map(o =>
+    mkToggle('leftMark', o.value, markDisplayHtml(o.value), lm===o.value, o.color)
+  ).join('');
+
+  // 오른쪽: :|| / :||:(단일선택) + Fine/D.C. 등(단일선택)
+  const reBtns = REPEAT_END_OPTIONS.filter(o=>o.value).map(o =>
+    mkToggle('repeatEnd', o.value, o.label, re===o.value, o.color)
+  ).join('');
+  const rmBtns = TEXT_MARK_OPTIONS.filter(o=>o.value).map(o =>
+    mkToggle('rightMark', o.value, o.label, rm===o.value, o.color)
+  ).join('');
+
+  const vBtns = VOLTA_OPTIONS.filter(o=>o.value).map(o =>
+    mkToggle('volta', o.value, o.label, vt===o.value, '#80c8a0')
+  ).join('');
+  const eBtns = EXPR_OPTIONS.filter(o=>o.value).map(o =>
+    mkToggle('expr', o.value, markDisplayHtml(o.value)||o.label, ex===o.value, 'var(--accent)')
+  ).join('');
 
   return `<div class="bar-mark-toolbar" data-si="${si}" data-bi="${bi}"
-    style="position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);min-width:240px">
-    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">왼쪽 기호</div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${lBtns}</div>
-    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">오른쪽 기호</div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${rBtns}</div>
+    style="position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);min-width:260px">
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">← 왼쪽 (복수 선택 가능)</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${rsBtn}${lmBtns}</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">→ 오른쪽 반복</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">${reBtns}</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">→ 오른쪽 텍스트 기호</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${rmBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">볼타 괄호</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${vBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">다이나믹 / 템포</div>
@@ -642,7 +697,7 @@ function sectionRowsHtml(sec, si, barOffset) {
 
     // ─── 위 기호 행 (층 구조: 위=세뇨/코다, 아래=볼타 괄호) ───
     // 세뇨/코다 있는 마디가 있으면 topRow를 2층으로 (34px), 없으면 1층 (18px)
-    const hasSymIcon = idxs.some(bi => { const lm = bars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
+    const hasSymIcon = idxs.some(bi => { normalizeBar(bars[bi]); const lm = bars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
     const hasVolta   = idxs.some(bi => bars[bi].volta);
     const topH = (hasSymIcon && hasVolta) ? 34 : (hasSymIcon || hasVolta) ? 22 : 14;
     // 볼타 괄호 상단 위치: 세뇨/코다가 위층을 쓰면 아래로 밀림
@@ -650,6 +705,7 @@ function sectionRowsHtml(sec, si, barOffset) {
 
     const topRow = `<div style="display:flex;gap:3px;height:${topH}px;align-items:stretch">
       ${idxs.map((bi, pos) => {
+        normalizeBar(bars[bi]);
         const b = bars[bi];
         const lm = b.leftMark || '';
         const vs = voltaSpanMap[pos];
@@ -678,23 +734,16 @@ function sectionRowsHtml(sec, si, barOffset) {
     </div>`;
 
     // ─── 아래 기호 행 ───
-    // botRow 높이: bottomMark + expr 둘 다 있으면 2줄
-    const hasBothBot = idxs.some(bi => {
-      const b = bars[bi]; const rm = b.rightMark||'';
-      return (rm && rm!==':||' && rm!==':||:') && b.expr;
-    });
-    const botH = hasBothBot ? 28 : 16;
-    const botRow = `<div style="display:flex;gap:3px;min-height:${botH}px;align-items:flex-start">
+    const botRow = `<div style="display:flex;gap:3px;align-items:flex-start">
       ${idxs.map(bi => {
         const b = bars[bi];
-        const rm = b.rightMark || '';
+        const rm = b.rightMark || '';   // Fine | D.C. ...
         const expr = b.expr || '';
-        const bottomMark = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
-        const color = RIGHT_MARK_OPTIONS.find(o => o.value === bottomMark)?.color || 'var(--accent)';
+        const color = TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || 'var(--accent)';
         let inner = '';
-        if (bottomMark) inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${bottomMark}</div>`;
-        if (expr)       inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${expr}</div>`;
-        return `<div style="flex:1;min-width:0;overflow:hidden">${inner}</div>`;
+        if (rm)   inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
+        if (expr) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${expr}</div>`;
+        return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
@@ -837,8 +886,13 @@ function renderSections(ed, draft) {
         const field = btn.dataset.field;
         const val = btn.dataset.val;
         const b = draft.sections[si].bars[bi];
-        // 같은 값 클릭하면 해제 (토글)
-        b[field] = (b[field] === val) ? '' : val;
+        normalizeBar(b);
+        // repeatStart는 bool 토글, 나머지는 같은 값 클릭 시 해제
+        if (field === 'repeatStart') {
+          b.repeatStart = !b.repeatStart;
+        } else {
+          b[field] = (b[field] === val) ? '' : val;
+        }
         // 툴바 버튼 상태 업데이트
         toolbarEl.querySelectorAll(`.bar-mark-btn[data-field="${field}"]`).forEach(b2 => {
           const opt = (field === 'leftMark' ? LEFT_MARK_OPTIONS : field === 'rightMark' ? RIGHT_MARK_OPTIONS : field === 'volta' ? VOLTA_OPTIONS : EXPR_OPTIONS).find(o => o.value === b2.dataset.val);
@@ -1064,7 +1118,7 @@ export function buildChartHtml(draft, opts = {}) {
       });
 
       // 위 기호 행 — 세뇨/코다와 볼타가 겹치면 2층으로
-      const rHasSymIcon = rowIdxs.some(bi => { const lm=allBars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
+      const rHasSymIcon = rowIdxs.some(bi => { normalizeBar(allBars[bi]); const lm=allBars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
       const rHasVolta   = rowIdxs.some(bi => allBars[bi].volta);
       const rTopH = (rHasSymIcon && rHasVolta) ? 34 : (rHasSymIcon || rHasVolta) ? 22 : 14;
       const rVoltaTop = rHasSymIcon ? 16 : 4;
@@ -1103,16 +1157,17 @@ export function buildChartHtml(draft, opts = {}) {
               ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
             </div>`
           ).join('');
-          const lm = b.leftMark || '';
-          const rm = b.rightMark || '';
-          const borderL = lm === '||:' ? 'border-left:3px solid var(--accent);' : 'border-left:1px solid var(--border);';
-          const borderR = (rm===':||'||rm===':||:') ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
-          const pleft = lm === '||:' ? 'padding-left:8px;' : '';
-          const pright = (rm===':||'||rm===':||:') ? 'padding-right:8px;' : '';
+          normalizeBar(b);
+          const rs2 = b.repeatStart || false;
+          const re2 = b.repeatEnd   || '';
           const bMemo = b.memo || '';
+          const borderL = rs2                          ? 'border-left:3px solid var(--accent);'  : 'border-left:1px solid var(--border);';
+          const borderR = (re2===':||'||re2===':||:')  ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+          const pleft  = rs2                           ? 'padding-left:8px;'  : '';
+          const pright = (re2===':||'||re2===':||:')   ? 'padding-right:8px;' : '';
           return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
-            ${leftMarkHtml(lm)}${rightMarkHtml(rm)}
-            ${showNums ? `<span style="position:absolute;top:2px;${lm==='||:'?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
+            ${rs2 ? leftMarkHtml('||:') : ''}${rightMarkHtml(re2)}
+            ${showNums ? `<span style="position:absolute;top:2px;${rs2?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
             <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch">${slotsHtml}</div>
             ${bMemo ? `<div style="font-size:0.62rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3">${escHtml(bMemo)}</div>` : ''}
           </div>`;
@@ -1124,12 +1179,11 @@ export function buildChartHtml(draft, opts = {}) {
       const botRow = `<div style="display:flex;gap:3px;align-items:flex-start">
         ${rowIdxs.map(bi => {
           const b = allBars[bi];
-          const rm = b.rightMark || '';
+          const rm = b.rightMark || '';   // Fine | D.C. ...
           const ex = b.expr || '';
-          const bm = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
-          const color = RIGHT_MARK_OPTIONS.find(o => o.value === bm)?.color || 'var(--accent)';
+          const color = TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || 'var(--accent)';
           let inner = '';
-          if (bm) inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${bm}</div>`;
+          if (rm) inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
           if (ex) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${ex}</div>`;
           return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
         }).join('')}${spacers}
