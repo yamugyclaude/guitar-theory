@@ -595,8 +595,6 @@ function barCellHtml(sec, si, bi, barNum) {
   const pleft  = rs                        ? 'padding-left:8px;'  : '';
   const pright = (re===':||'||re===':||:') ? 'padding-right:8px;' : '';
 
-  const barMemo = b.memo || '';
-
   const sc = secColor(si);
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
@@ -605,7 +603,6 @@ function barCellHtml(sec, si, bi, barNum) {
     ${rightMarkHtml(re)}
     ${barNum != null ? `<span style="position:absolute;top:2px;${rs?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
     <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none;padding:4px 0">${slotsHtml}</div>
-    ${barMemo ? `<div class="bar-memo-display" style="font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none">${escHtml(barMemo)}</div>` : ''}
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
       style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.85rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
@@ -667,7 +664,14 @@ function barMarkToolbarHtml(si, bi, bar) {
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">마디 메모</div>
     <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
       placeholder="가사, 운지법, 지시어..."
-      style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box">${escHtml(bm)}</textarea>
+      style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:6px">${escHtml(bm)}</textarea>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:0.65rem;color:var(--text2)">메모 색상</span>
+      ${['var(--text2)','#e06c75','#61afef','#98c379','#e5c07b','#c678dd','#56b6c2','#ff9f43'].map(col =>
+        `<div class="bar-memo-color-btn" data-si="${si}" data-bi="${bi}" data-color="${col}"
+          style="width:16px;height:16px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(bar.memoColor||'var(--text2)')===col?'white':'transparent'};box-sizing:border-box;flex-shrink:0"></div>`
+      ).join('')}
+    </div>
   </div>`;
 }
 
@@ -748,6 +752,19 @@ function sectionRowsHtml(sec, si, barOffset) {
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.6em"></div>`).join('') : ''}
     </div>`;
 
+    // ─── 마디별 메모 행 ───
+    const hasBarMemo = idxs.some(bi => bars[bi].memo);
+    const barMemoRow = `<div class="bar-memo-row" style="display:flex;gap:3px;margin-top:1px">
+      ${idxs.map(bi => {
+        const bm = bars[bi].memo || '';
+        const mc = bars[bi].memoColor || 'var(--text2)';
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:${hasBarMemo?'auto':'10px'};cursor:text;padding:${bm?'3px 5px':'2px 0'};border-radius:3px;transition:background 0.15s" title="클릭하여 메모">
+          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all">${bm ? escHtml(bm) : (hasBarMemo ? '' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+        </div>`;
+      }).join('')}
+      ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
+    </div>`;
+
     // ─── 아래 기호 행 ───
     const botRow = `<div style="display:flex;gap:3px;align-items:flex-start">
       ${idxs.map(bi => {
@@ -775,7 +792,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         style="display:none;flex:1;font-size:0.72rem;color:var(--text);background:var(--bg2);border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box">${memo ? escHtml(memo) : ''}</textarea>
     </div>`;
 
-    return `<div style="margin-bottom:4px">${topRow}${cellRow}${botRow}${memoRow}</div>`;
+    return `<div style="margin-bottom:4px">${topRow}${cellRow}${botRow}${barMemoRow}${memoRow}</div>`;
   }).join('');
 }
 
@@ -951,9 +968,42 @@ function renderSections(ed, draft) {
         } else {
           dispEl?.remove();
         }
+        // 행 메모 셀 표시 갱신
+        const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
+        if (memoCell) {
+          const mc = draft.sections[si].bars[bi].memoColor || 'var(--text2)';
+          memoCell.querySelector('.bar-memo-display').innerHTML = memoTa.value ? escHtml(memoTa.value) : '';
+          memoCell.querySelector('.bar-memo-display').style.color = mc;
+          memoCell.style.padding = memoTa.value ? '3px 5px' : '2px 0';
+        }
+      });
+
+      // 색상 버튼
+      toolbarEl.querySelectorAll('.bar-memo-color-btn').forEach(btn => {
+        btn.addEventListener('mousedown', e => e.preventDefault());
+        btn.addEventListener('click', () => {
+          const color = btn.dataset.color;
+          draft.sections[si].bars[bi].memoColor = color;
+          toolbarEl.querySelectorAll('.bar-memo-color-btn').forEach(b2 => {
+            b2.style.border = `2px solid ${b2.dataset.color === color ? 'white' : 'transparent'}`;
+          });
+          const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
+          if (memoCell) memoCell.querySelector('.bar-memo-display').style.color = color;
+        });
       });
     }
   }
+
+  // bar-memo-cell 클릭 → 해당 bar-cell 열기
+  area.querySelectorAll('.bar-memo-cell').forEach(mc => {
+    mc.addEventListener('click', () => {
+      const si2 = +mc.dataset.si, bi2 = +mc.dataset.bi;
+      const cell = area.querySelector(`.bar-cell[data-si="${si2}"][data-bi="${bi2}"]`);
+      if (cell) openBarCell(cell);
+    });
+    mc.addEventListener('mouseenter', () => mc.style.background = 'rgba(128,128,128,0.08)');
+    mc.addEventListener('mouseleave', () => mc.style.background = '');
+  });
 
   // 셀 표시만 업데이트 (툴바 유지, 입력 유지)
   function updateBarCellDisplay(cell, si, bi, draft) {
@@ -1195,11 +1245,20 @@ export function buildChartHtml(draft, opts = {}) {
             ${rs2 ? leftMarkHtml('||:') : ''}${rightMarkHtml(re2)}
             ${showNums ? `<span style="position:absolute;top:2px;${rs2?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
             <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch;padding:4px 0">${slotsHtml}</div>
-            ${bMemo ? `<div style="font-size:0.62rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3">${escHtml(bMemo)}</div>` : ''}
           </div>`;
         }).join('')}
         ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.2em"></div>`).join('') : ''}
       </div>`;
+
+      // 마디별 메모 행 (읽기 전용)
+      const hasBarMemo2 = rowIdxs.some(bi => allBars[bi].memo);
+      const barMemoRow2 = hasBarMemo2 ? `<div style="display:flex;gap:3px;margin-top:1px">
+        ${rowIdxs.map(bi => {
+          const bm2 = allBars[bi].memo || '';
+          const mc2 = allBars[bi].memoColor || 'var(--text2)';
+          return `<div style="flex:1;min-width:0;padding:${bm2?'3px 5px':'0'}">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4">${escHtml(bm2)}</span>` : ''}</div>`;
+        }).join('')}${spacers}
+      </div>` : '';
 
       // 아래 기호 행
       const botRow = `<div style="display:flex;gap:3px;align-items:flex-start">
@@ -1221,7 +1280,7 @@ export function buildChartHtml(draft, opts = {}) {
         ? `<div style="font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 4px;white-space:pre-wrap;line-height:1.3">${escHtml(memo)}</div>`
         : '';
 
-      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}${memoHtmlRow}</div>`;
+      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}${barMemoRow2}${memoHtmlRow}</div>`;
     }).join('');
 
     // 앞 기호
