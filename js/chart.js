@@ -104,6 +104,15 @@ function normalizeBar(b) {
   if (b.leftMark === '||:') { b.repeatStart = true; b.leftMark = ''; }
   // 구버전: rightMark=':||' or ':||:' → repeatEnd=value, rightMark=''
   if (b.rightMark === ':||' || b.rightMark === ':||:') { b.repeatEnd = b.rightMark; b.rightMark = ''; }
+  // chords 문자열 → 4칸 배열 마이그레이션
+  if (!Array.isArray(b.chords)) {
+    const str = (b.chords || '').trim();
+    const parts = str ? str.split(/\s+/).filter(Boolean) : [];
+    const positions = SLOT_MAP[Math.min(parts.length, 4)] || [0];
+    const arr = ['','','',''];
+    parts.slice(0,4).forEach((c,i) => { arr[positions[i]] = c; });
+    b.chords = arr;
+  }
   return b;
 }
 
@@ -572,21 +581,15 @@ function voltaHtml(volta) {
 function barCellHtml(sec, si, bi, barNum) {
   const b = sec.bars[bi];
   const isPickup = sec.pickup && bi === 0;
-  const chord = (b.chords || '').trim();
   normalizeBar(b);
-  const rs = b.repeatStart || false;   // ||:
-  const lm = b.leftMark    || '';      // segno | coda
-  const re = b.repeatEnd   || '';      // :|| | :||:
-  const rm = b.rightMark   || '';      // Fine | D.C. ...
-
-  const rawChords = chord.split(/\s+/).filter(Boolean);
-  const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
-  const slots = ['','','',''];
-  rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
+  const rs = b.repeatStart || false;
+  const re = b.repeatEnd   || '';
+  const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
 
   const slotsHtml = slots.map((c, idx) => `
-    <div style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px">
-      ${c ? `<span style="font-size:0.78rem;font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
+    <div class="bar-slot" data-si="${si}" data-bi="${bi}" data-slot="${idx}"
+      style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px;cursor:text;position:relative">
+      <span class="slot-text" style="font-size:0.78rem;font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${c?'inherit':'transparent'}">${c||'·'}</span>
     </div>`
   ).join('');
 
@@ -602,10 +605,7 @@ function barCellHtml(sec, si, bi, barNum) {
     ${rs ? leftMarkHtml('||:') : ''}
     ${rightMarkHtml(re)}
     ${barNum != null ? `<span style="position:absolute;top:2px;${rs?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
-    <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none;padding:4px 0">${slotsHtml}</div>
-    <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
-      placeholder="${bi+1}"
-      style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:4px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.85rem;padding:0 2px;box-sizing:border-box;z-index:3;color:var(--text)">
+    <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;padding:4px 0">${slotsHtml}</div>
   </div>`;
 }
 
@@ -736,7 +736,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         if (vs) {
           const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
           const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
-          inner += `<div style="position:absolute;top:${voltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
+          inner += `<div style="position:absolute;top:${voltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} 0 0 0;pointer-events:none"></div>`;
           if (vs.isFirst) inner += `<span style="position:absolute;top:${voltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
         // 세뇨/코다 — 상단층 왼쪽
@@ -892,26 +892,25 @@ function renderSections(ed, draft) {
     });
   });
 
-  // ── 마디 셀 인라인 편집 ──────────────────────────────────────────
+  // ── 마디 셀 클릭 → 기호 툴바 열기 (슬롯 클릭 제외) ──────────────
   area.querySelectorAll('.bar-cell').forEach(cell => {
-    cell.addEventListener('click', () => openBarCell(cell));
+    cell.addEventListener('click', e => {
+      if (e.target.closest('.bar-slot')) return; // 슬롯 클릭은 슬롯 핸들러가 처리
+      openBarCell(cell);
+    });
   });
 
   function openBarCell(cell) {
-    const inp = cell.querySelector('.bar-edit-input');
-    const disp = cell.querySelector('.bar-display');
-    if (!inp || inp.style.display === 'block') return;
+    // 이미 이 셀의 툴바가 열려 있으면 무시
+    if (cell.dataset.toolbarOpen === '1') return;
 
     // 열려 있는 다른 툴바 제거 (body 포함)
     document.querySelectorAll('.bar-mark-toolbar').forEach(t => t.remove());
-
-    inp.style.display = 'block';
-    disp.style.visibility = 'hidden';
-    inp.focus();
-    inp.select();
+    area.querySelectorAll('.bar-cell').forEach(c => delete c.dataset.toolbarOpen);
 
     // 기호 툴바 생성
-    const si = +inp.dataset.si, bi = +inp.dataset.bi;
+    const si = +cell.dataset.si, bi = +cell.dataset.bi;
+    cell.dataset.toolbarOpen = '1';
     const bar = draft.sections[si].bars[bi];
     const toolbar = document.createElement('div');
     toolbar.innerHTML = barMarkToolbarHtml(si, bi, bar);
@@ -1050,44 +1049,70 @@ function renderSections(ed, draft) {
     else { cell.style.borderRight = '1px solid var(--border)'; cell.style.paddingRight = ''; }
   }
 
-  area.querySelectorAll('.bar-edit-input').forEach(inp => {
-    const si = +inp.dataset.si;
-    const bi = +inp.dataset.bi;
+  // ─── 슬롯 독립 편집 ───
+  area.querySelectorAll('.bar-slot').forEach(slotDiv => {
+    slotDiv.addEventListener('click', e => {
+      e.stopPropagation();
+      const si = +slotDiv.dataset.si;
+      const bi = +slotDiv.dataset.bi;
+      const slotIdx = +slotDiv.dataset.slot;
 
-    inp.addEventListener('input', () => {
-      draft.sections[si].bars[bi].chords = inp.value;
-    });
+      // 이미 입력 중인 input 있으면 무시
+      if (slotDiv.querySelector('.slot-input')) return;
 
-    inp.addEventListener('blur', e => {
-      draft.sections[si].bars[bi].chords = inp.value;
-      // 포커스가 툴바 내부로 이동하는 경우 renderSections 하지 않음
-      const relatedTarget = e.relatedTarget;
-      const cell = inp.closest('.bar-cell');
-      // 포커스가 셀 내부 또는 body에 붙은 툴바 내부로 이동 시 닫지 않음
-      if (relatedTarget && (
-        (cell && cell.contains(relatedTarget)) ||
-        relatedTarget.closest('.bar-mark-toolbar')
-      )) return;
-      renderSections(ed, draft);
-    });
+      const bar = draft.sections[si].bars[bi];
+      normalizeBar(bar);
+      const currentVal = Array.isArray(bar.chords) ? (bar.chords[slotIdx] || '') : '';
 
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        inp.value = draft.sections[si].bars[bi].chords;
-        inp.blur();
-        return;
-      }
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        e.preventDefault();
-        draft.sections[si].bars[bi].chords = inp.value;
-        const nextBi = bi + 1;
-        if (nextBi >= draft.sections[si].bars.length && e.key === 'Enter') {
-          draft.sections[si].bars.push({ chords: '' });
+      const inp = document.createElement('input');
+      inp.className = 'slot-input';
+      inp.value = currentVal;
+      inp.placeholder = ['1','2','3','4'][slotIdx];
+      inp.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border:2px solid var(--accent);border-radius:3px;background:var(--bg2);text-align:center;font-weight:700;font-size:0.82rem;padding:0;box-sizing:border-box;z-index:5;color:var(--text);outline:none';
+      slotDiv.appendChild(inp);
+      inp.focus();
+      inp.select();
+
+      const save = () => {
+        if (!Array.isArray(bar.chords)) bar.chords = ['','','',''];
+        bar.chords[slotIdx] = inp.value.trim();
+      };
+
+      inp.addEventListener('input', save);
+
+      inp.addEventListener('blur', e2 => {
+        save();
+        const rt = e2.relatedTarget;
+        if (rt && rt.closest('.bar-mark-toolbar')) return;
+        inp.remove();
+        // 슬롯 텍스트 즉시 갱신
+        const span = slotDiv.querySelector('.slot-text');
+        const val = bar.chords[slotIdx];
+        if (span) { span.textContent = val || '·'; span.style.color = val ? 'inherit' : 'transparent'; }
+      });
+
+      inp.addEventListener('keydown', e2 => {
+        if (e2.key === 'Escape') { inp.value = currentVal; inp.blur(); return; }
+        if (e2.key === 'Tab' || e2.key === 'Enter') {
+          e2.preventDefault();
+          save();
+          inp.remove();
+          // 다음 슬롯 또는 다음 마디 첫 슬롯으로 이동
+          const nextSlotIdx = slotIdx + 1;
+          if (nextSlotIdx < 4) {
+            const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${bi}"][data-slot="${nextSlotIdx}"]`);
+            if (nextSlot) nextSlot.click();
+          } else {
+            const nextBi = bi + 1;
+            if (e2.key === 'Enter' && nextBi >= draft.sections[si].bars.length) {
+              draft.sections[si].bars.push({ chords: ['','','',''] });
+              renderSections(ed, draft);
+            }
+            const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${nextBi}"][data-slot="0"]`);
+            if (nextSlot) nextSlot.click();
+          }
         }
-        renderSections(ed, draft);
-        const nextCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${nextBi}"]`);
-        if (nextCell) openBarCell(nextCell);
-      }
+      });
     });
   });
 
@@ -1235,7 +1260,7 @@ export function buildChartHtml(draft, opts = {}) {
           if (vs) {
             const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
             const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
-            inner += `<div style="position:absolute;top:${rVoltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0"></div>`;
+            inner += `<div style="position:absolute;top:${rVoltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} 0 0 0"></div>`;
             if (vs.isFirst) inner += `<span style="position:absolute;top:${rVoltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
           }
           if (lm === 'segno' || lm === 'coda') {
@@ -1251,16 +1276,13 @@ export function buildChartHtml(draft, opts = {}) {
         ${rowIdxs.map(bi => {
           const b = allBars[bi];
           const isPickup = sec.pickup && bi === 0;
-          const rawChords = (b.chords || '').trim().split(/\s+/).filter(Boolean);
-          const slots = ['','','',''];
-          const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
-          rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
+          normalizeBar(b);
+          const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
           const slotsHtml = slots.map((c, si2) =>
             `<div style="flex:1;${si2>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px 1px">
               ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
             </div>`
           ).join('');
-          normalizeBar(b);
           const barNum = startNum + bi;
           const rs2 = b.repeatStart || false;
           const re2 = b.repeatEnd   || '';
