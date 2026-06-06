@@ -88,6 +88,16 @@ function renderEditor(panel, draft) {
         <button class="btn btn-secondary" id="add-section-btn">+ 섹션 추가</button>
       </div>
     </div>
+    <!-- AI 악보 불러오기 -->
+    <div class="card" style="padding:10px 14px;border:1px dashed var(--accent)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:0.82rem;font-weight:600">📷 악보에서 불러오기</span>
+        <input type="file" id="ai-sheet-file" accept=".png,.jpg,.jpeg,.pdf" style="flex:1;min-width:0;font-size:0.78rem">
+        <button class="btn btn-primary" id="ai-step1-btn" style="font-size:0.78rem;white-space:nowrap">① 구조 분석</button>
+      </div>
+      <div id="ai-status" style="font-size:0.78rem;color:var(--text2);margin-top:6px"></div>
+    </div>
+
     <hr class="divider">
     <div class="section-label">미리보기</div>
     <div id="preview-area" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px"></div>
@@ -182,6 +192,186 @@ function renderEditor(panel, draft) {
   ['#e-title','#e-key','#e-time','#e-bpm'].forEach(sel => {
     ed.querySelector(sel).addEventListener('input', () => { syncDraft(); renderPreview(ed, draft); });
   });
+
+  // ── AI 악보 불러오기 (2단계) ──────────────────────────
+  ed.querySelector('#ai-step1-btn').addEventListener('click', () => runAiStep1(ed, draft));
+}
+
+async function getImageBlobFromFile(file) {
+  if (!file) return null;
+  if (file.type.startsWith('image/')) return file;
+  // PDF → 첫 페이지 렌더
+  if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+    const pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) throw new Error('PDF.js가 로드되지 않았습니다. 이미지 파일을 사용해주세요.');
+    const url = URL.createObjectURL(file);
+    const pdf = await pdfjsLib.getDocument(url).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    URL.revokeObjectURL(url);
+    return await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
+  }
+  return null;
+}
+
+async function runAiStep1(ed, draft) {
+  const { isConfigured } = await import('./gemini-analysis.js?v=10');
+  if (!isConfigured()) { alert('⚙️ 설정 탭에서 API 키를 먼저 입력해주세요.'); return; }
+
+  const file = ed.querySelector('#ai-sheet-file').files[0];
+  if (!file) { alert('악보 파일을 선택해주세요.'); return; }
+
+  const statusEl = ed.querySelector('#ai-status');
+  statusEl.textContent = '🔍 1단계: 구조 분석 중... (마디 수, 코드 배치 파악)';
+  ed.querySelector('#ai-step1-btn').disabled = true;
+
+  try {
+    const blob = await getImageBlobFromFile(file);
+    if (!blob) throw new Error('이미지를 읽을 수 없습니다.');
+
+    const { callAiRaw } = await import('./gemini-analysis.js?v=10');
+    const STRUCTURE_PROMPT = `이 악보 이미지의 구조만 분석해주세요. 코드명은 지금 필요 없습니다.
+
+JSON으로만 응답하세요 (마크다운 없이):
+{
+  "title": "곡명 (있으면)",
+  "key": "조성 (있으면)",
+  "bpm": "템포 (있으면)",
+  "time": "박자 기호 예: 4/4",
+  "sections": [
+    {
+      "type": "섹션명 (Intro/Verse/Chorus 등)",
+      "bars": [
+        {"numChords": 1},
+        {"numChords": 2},
+        {"numChords": 1}
+      ],
+      "repeatStart": false,
+      "repeatEnd": false,
+      "startMark": "",
+      "endMark": ""
+    }
+  ]
+}
+
+규칙:
+- bars 배열 항목 수 = 실제 마디 수. 반드시 악보의 마디를 정확히 세어라
+- numChords: 해당 마디 안에 코드가 몇 개인지 (1, 2, 3 중 하나)
+- 못갖춘마디(pickup)가 있으면 첫 섹션의 첫 마디로 포함
+- 도돌이표 ||: → repeatStart:true, :|| → repeatEnd:true
+- 𝄋 → startMark:"𝄋 Segno", 𝄌 → startMark:"𝄌 Coda"
+- D.S./D.C./Fine → endMark에 기록`;
+
+    const structureText = await callAiRaw(blob, STRUCTURE_PROMPT);
+    const jsonStr = structureText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+    const structure = JSON.parse(jsonStr);
+
+    // 곡 정보 반영
+    if (structure.title) ed.querySelector('#e-title').value = structure.title;
+    if (structure.key)   ed.querySelector('#e-key').value   = structure.key;
+    if (structure.bpm)   ed.querySelector('#e-bpm').value   = structure.bpm;
+    if (structure.time)  ed.querySelector('#e-time').value  = structure.time;
+
+    // 구조로 섹션 생성 (bars는 numChords에 맞게 빈 셀)
+    draft.sections = structure.sections.map(s => ({
+      type: s.type || 'Section',
+      bars: (s.bars || []).map(b => ({
+        chords: '',
+        numChords: b.numChords || 1
+      })),
+      memo: '',
+      barsPerRow: draft.defaultBarsPerRow || 4,
+      pickup: false,
+      repeatStart: s.repeatStart || false,
+      repeatEnd: s.repeatEnd || false,
+      startMark: s.startMark || '',
+      endMark: s.endMark || ''
+    }));
+
+    renderSections(ed, draft);
+    renderPreview(ed, draft);
+
+    // 총 마디 수 요약
+    const totalBars = draft.sections.reduce((sum, s) => sum + s.bars.length, 0);
+    const summary = draft.sections.map(s => `${s.type}(${s.bars.length}마디)`).join(' · ');
+    statusEl.innerHTML = `
+      ✅ 구조 분석 완료 — 총 ${totalBars}마디 · ${summary}<br>
+      <span style="color:var(--text2)">마디 수가 맞으면 아래 버튼으로 코드를 채우세요.</span><br>
+      <button class="btn btn-primary" id="ai-step2-btn" style="font-size:0.78rem;margin-top:6px">② 코드 채우기</button>
+    `;
+    statusEl.querySelector('#ai-step2-btn').addEventListener('click', () => runAiStep2(ed, draft, blob, statusEl));
+
+  } catch (e) {
+    statusEl.textContent = `❌ 구조 분석 실패: ${e.message}`;
+  } finally {
+    ed.querySelector('#ai-step1-btn').disabled = false;
+  }
+}
+
+async function runAiStep2(ed, draft, imageBlob, statusEl) {
+  const { callAiRaw } = await import('./gemini-analysis.js?v=10');
+
+  statusEl.innerHTML = '🎵 2단계: 코드 채우는 중...';
+
+  // 확정된 구조를 텍스트로 변환
+  const structureDesc = draft.sections.map(s => {
+    const barDesc = s.bars.map((b, i) =>
+      `마디${i+1}(코드${b.numChords || 1}개)`
+    ).join(', ');
+    return `[${s.type}] ${s.bars.length}마디: ${barDesc}`;
+  }).join('\n');
+
+  const CHORD_PROMPT = `이 악보의 코드명만 읽어주세요.
+
+악보 구조 (이미 확정됨):
+${structureDesc}
+
+위 구조 그대로 각 마디의 코드를 채워서 JSON으로만 응답하세요:
+{
+  "sections": [
+    {
+      "type": "섹션명",
+      "bars": [
+        "Am7",
+        "D7 G",
+        "Em"
+      ]
+    }
+  ]
+}
+
+규칙:
+- 마디 배열 순서와 개수는 반드시 위 구조와 정확히 일치
+- 코드 1개짜리 마디: "Am7" (문자열)
+- 코드 2개짜리 마디: "Am7 D7" (공백으로 구분)
+- 코드 3개짜리 마디: "Am G Em" (공백으로 구분)
+- 표준 코드 표기 사용 (Am7, Gmaj7, D7 등)`;
+
+  try {
+    const chordText = await callAiRaw(imageBlob, CHORD_PROMPT);
+    const jsonStr = chordText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+    const filled = JSON.parse(jsonStr);
+
+    // 코드 채우기
+    filled.sections.forEach((fs, si) => {
+      if (!draft.sections[si]) return;
+      (fs.bars || []).forEach((chord, bi) => {
+        if (draft.sections[si].bars[bi] !== undefined) {
+          draft.sections[si].bars[bi].chords = typeof chord === 'string' ? chord : '';
+        }
+      });
+    });
+
+    renderSections(ed, draft);
+    renderPreview(ed, draft);
+    statusEl.innerHTML = '✅ 완료! 셀을 클릭해 직접 수정할 수 있습니다.';
+
+  } catch (e) {
+    statusEl.textContent = `❌ 코드 채우기 실패: ${e.message}`;
+  }
 }
 
 function renderSections(ed, draft) {
@@ -245,7 +435,7 @@ function renderSections(ed, draft) {
             data-si="${si}" data-bi="${bi}"
             value="${b.chords}"
             placeholder="${bi+1}"
-            style="width:58px;min-width:58px;text-align:center;font-weight:700;font-size:0.82rem;padding:6px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;"
+            style="width:${(b.numChords||1)>1?90:58}px;min-width:${(b.numChords||1)>1?90:58}px;text-align:center;font-weight:700;font-size:0.82rem;padding:6px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;"
           >
         `).join('')}
       </div>
@@ -261,7 +451,9 @@ function renderSections(ed, draft) {
   // 마디 셀 입력
   area.querySelectorAll('.bar-cell-input').forEach(inp => {
     inp.addEventListener('input', () => {
-      draft.sections[+inp.dataset.si].bars[+inp.dataset.bi] = { chords: inp.value };
+      const bar = draft.sections[+inp.dataset.si].bars[+inp.dataset.bi];
+      const numChords = bar.numChords;
+      draft.sections[+inp.dataset.si].bars[+inp.dataset.bi] = { chords: inp.value, ...(numChords ? { numChords } : {}) };
       renderPreview(ed, draft);
     });
     // Tab으로 다음 셀 이동

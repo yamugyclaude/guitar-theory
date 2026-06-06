@@ -97,6 +97,16 @@ function parseJson(text) {
   catch { throw new Error('응답 파싱 실패. 다시 시도해주세요.\n\n원본: ' + text.slice(0, 300)); }
 }
 
+// raw 호출 (프롬프트 직접 지정)
+export async function callAiRaw(imageBlob, promptText) {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
+  const mime = imageBlob.type || 'image/jpeg';
+  const base64 = await blobToBase64(imageBlob);
+  const imageParts = [{ type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } }];
+  return callOpenRouter(apiKey, imageParts, promptText);
+}
+
 // 단일 이미지 분석
 export async function analyzeSheet(imageBlob) {
   const apiKey = getApiKey();
