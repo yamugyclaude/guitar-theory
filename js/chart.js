@@ -500,7 +500,20 @@ ${structureDesc}
   }
 }
 
-// ── 4비트 슬롯 HTML 생성 헬퍼 ──────────────────────────────────────
+// ── 섹션 색상 팔레트 ─────────────────────────────────────────────────
+const SEC_COLORS = [
+  { bg: 'rgba(99,130,255,0.15)',  border: 'rgba(99,130,255,0.55)'  }, // 파랑
+  { bg: 'rgba(80,200,130,0.15)', border: 'rgba(80,200,130,0.55)'  }, // 초록
+  { bg: 'rgba(240,130,80,0.15)', border: 'rgba(240,130,80,0.55)'  }, // 주황
+  { bg: 'rgba(200,80,200,0.15)', border: 'rgba(200,80,200,0.55)'  }, // 보라
+  { bg: 'rgba(80,200,230,0.15)', border: 'rgba(80,200,230,0.55)'  }, // 하늘
+  { bg: 'rgba(230,200,60,0.15)', border: 'rgba(230,200,60,0.55)'  }, // 노랑
+  { bg: 'rgba(230,80,110,0.15)', border: 'rgba(230,80,110,0.55)'  }, // 빨강
+  { bg: 'rgba(100,210,210,0.15)',border: 'rgba(100,210,210,0.55)' }, // 청록
+];
+function secColor(si) { return SEC_COLORS[si % SEC_COLORS.length]; }
+
+// ── 4비트 슬롯 HTML 생성 헬퍼 ─────────────────────────────────────
 const SLOT_MAP = { 1:[0], 2:[0,2], 3:[0,2,3], 4:[0,1,2,3] };
 
 // 왼쪽 기호 시각화
@@ -572,7 +585,7 @@ function barCellHtml(sec, si, bi, barNum) {
   rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
 
   const slotsHtml = slots.map((c, idx) => `
-    <div style="flex:1;${idx>0?'border-left:1px solid var(--border);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px">
+    <div style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1px">
       ${c ? `<span style="font-size:0.78rem;font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
     </div>`
   ).join('');
@@ -584,12 +597,14 @@ function barCellHtml(sec, si, bi, barNum) {
 
   const barMemo = b.memo || '';
 
+  const sc = secColor(si);
+
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
-    style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
+    style="flex:1;min-width:0;background:${sc.bg};${borderLeft}${borderRight}border-top:1px solid ${sc.border};border-bottom:1px solid ${sc.border};border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
     ${rs ? leftMarkHtml('||:') : ''}
     ${rightMarkHtml(re)}
     ${barNum != null ? `<span style="position:absolute;top:2px;${rs?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
-    <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
+    <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none;padding:4px 0">${slotsHtml}</div>
     ${barMemo ? `<div class="bar-memo-display" style="font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none">${escHtml(barMemo)}</div>` : ''}
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
       placeholder="${bi+1}"
@@ -1158,7 +1173,7 @@ export function buildChartHtml(draft, opts = {}) {
           const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
           rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
           const slotsHtml = slots.map((c, si2) =>
-            `<div style="flex:1;${si2>0?'border-left:1px solid var(--border);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px 1px">
+            `<div style="flex:1;${si2>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:center;overflow:hidden;padding:2px 1px">
               ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
             </div>`
           ).join('');
@@ -1167,14 +1182,15 @@ export function buildChartHtml(draft, opts = {}) {
           const rs2 = b.repeatStart || false;
           const re2 = b.repeatEnd   || '';
           const bMemo = b.memo || '';
-          const borderL = rs2                          ? 'border-left:3px solid var(--accent);'  : 'border-left:1px solid var(--border);';
-          const borderR = (re2===':||'||re2===':||:')  ? 'border-right:3px solid var(--accent);' : 'border-right:1px solid var(--border);';
+          const sc2 = secColor(si);
+          const borderL = rs2 ? 'border-left:3px solid var(--accent);'  : `border-left:1px solid ${sc2.border};`;
+          const borderR = (re2===':||'||re2===':||:') ? 'border-right:3px solid var(--accent);' : `border-right:1px solid ${sc2.border};`;
           const pleft  = rs2                           ? 'padding-left:8px;'  : '';
           const pright = (re2===':||'||re2===':||:')   ? 'padding-right:8px;' : '';
-          return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
+          return `<div style="flex:1;min-width:0;background:${sc2.bg};${borderL}${borderR}border-top:1px solid ${sc2.border};border-bottom:1px solid ${sc2.border};border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
             ${rs2 ? leftMarkHtml('||:') : ''}${rightMarkHtml(re2)}
             ${showNums ? `<span style="position:absolute;top:2px;${rs2?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
-            <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch">${slotsHtml}</div>
+            <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch;padding:4px 0">${slotsHtml}</div>
             ${bMemo ? `<div style="font-size:0.62rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3">${escHtml(bMemo)}</div>` : ''}
           </div>`;
         }).join('')}
