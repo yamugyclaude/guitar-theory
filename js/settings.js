@@ -184,24 +184,29 @@ create policy "allow_all" on gta_sheets
     if (!key) { geminiStatus.textContent = '⚠️ 키를 입력해주세요.'; return; }
     localStorage.setItem('gta_gemini_key', key);
     geminiStatus.textContent = '🔄 테스트 중...';
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }], generationConfig: { maxOutputTokens: 5 } })
+    const models = ['gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+    let lastErr = '';
+    let ok = false;
+    for (const model of models) {
+      try {
+        geminiStatus.textContent = `🔄 ${model} 테스트 중...`;
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: 'hi' }] }], generationConfig: { maxOutputTokens: 5 } })
+          }
+        );
+        const data = await res.json();
+        if (res.ok) {
+          geminiStatus.textContent = `✅ 연결 성공! (${model}) Gemini AI 분석을 사용할 수 있습니다.`;
+          ok = true; break;
         }
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        geminiStatus.innerHTML = `❌ 실패 (${res.status}): <pre style="font-size:0.7rem;white-space:pre-wrap">${JSON.stringify(data?.error,null,2)}</pre>`;
-      } else {
-        geminiStatus.textContent = '✅ 연결 성공! Gemini AI 분석을 사용할 수 있습니다.';
-      }
-    } catch (e) {
-      geminiStatus.textContent = `❌ 실패: ${e.message}`;
+        lastErr = `[${model}] ${data?.error?.message || res.status}`;
+      } catch (e) { lastErr = `[${model}] ${e.message}`; }
     }
+    if (!ok) geminiStatus.innerHTML = `❌ 실패: <pre style="font-size:0.7rem;white-space:pre-wrap;overflow:auto;max-height:120px">${lastErr}</pre>`;
   });
   panel.querySelector('#gemini-clear-btn').addEventListener('click', () => {
     if (!confirm('Gemini API 키를 삭제하시겠습니까?')) return;

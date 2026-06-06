@@ -52,9 +52,10 @@ const ANALYSIS_PROMPT = `이 악보 이미지를 분석해서 아래 JSON 형식
 
 // Gemini 모델 (순서대로 fallback)
 const GEMINI_MODELS = [
-  'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
   'gemini-1.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-8b',
 ];
 
 async function callGemini(apiKey, imageParts, promptText) {
