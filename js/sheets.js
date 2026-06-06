@@ -32,6 +32,7 @@ function folderLabel(id) {
 
 // 현재 선택된 폴더 (모듈 내 상태)
 let activeFolder = null; // null = 전체
+let expandedFolders = new Set(); // 트리에서 펼쳐진 루트폴더 id
 
 function checkBackup(panel) {
   const last = localStorage.getItem('gta_last_backup');
@@ -53,51 +54,70 @@ export async function render(panel) {
     <h1 class="page-title">📂 악보 보관함</h1>
 
     <!-- 업로드 폼 -->
-    <div class="card">
-      <div class="label">악보 업로드 (PDF · PNG · JPG · 복수 선택 가능)</div>
-      <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="margin-bottom:10px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <div style="flex:2;min-width:120px"><div class="label">곡명</div><input type="text" id="meta-title" placeholder="곡명"></div>
-        <div style="flex:1;min-width:100px"><div class="label">아티스트</div><input type="text" id="meta-artist" placeholder="아티스트"></div>
-        <div style="flex:1;min-width:70px"><div class="label">키</div><input type="text" id="meta-key" placeholder="Am"></div>
-        <div style="flex:1;min-width:60px"><div class="label">BPM</div><input type="text" id="meta-bpm" placeholder="120"></div>
+    <div class="card" id="upload-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" id="upload-toggle">
+        <span style="font-weight:600;font-size:0.88rem">➕ 악보 업로드</span>
+        <span id="upload-arrow" style="font-size:0.8rem;color:var(--text2)">▼</span>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <div style="flex:2;min-width:140px"><div class="label">태그 (쉼표 구분)</div><input type="text" id="meta-tags" placeholder="블루스, 펑크"></div>
-        <div style="flex:1;min-width:120px">
-          <div class="label">폴더</div>
-          <select id="meta-folder"><option value="">폴더 없음</option></select>
+      <div id="upload-body" style="display:none;margin-top:12px">
+        <div class="label">악보 업로드 (PDF · PNG · JPG · 복수 선택 가능)</div>
+        <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="margin-bottom:10px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="flex:2;min-width:120px"><div class="label">곡명</div><input type="text" id="meta-title" placeholder="곡명"></div>
+          <div style="flex:1;min-width:100px"><div class="label">아티스트</div><input type="text" id="meta-artist" placeholder="아티스트"></div>
+          <div style="flex:1;min-width:70px"><div class="label">키</div><input type="text" id="meta-key" placeholder="Am"></div>
+          <div style="flex:1;min-width:60px"><div class="label">BPM</div><input type="text" id="meta-bpm" placeholder="120"></div>
         </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" id="upload-btn">저장</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <div style="flex:2;min-width:140px"><div class="label">태그 (쉼표 구분)</div><input type="text" id="meta-tags" placeholder="블루스, 펑크"></div>
+          <div style="flex:1;min-width:120px">
+            <div class="label">폴더</div>
+            <select id="meta-folder"><option value="">폴더 없음</option></select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="upload-btn">저장</button>
+        </div>
       </div>
     </div>
 
-    <!-- 폴더 관리 -->
-    <div class="card" style="padding:12px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <span class="section-label" style="margin-bottom:0">폴더</span>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-secondary" id="new-folder-btn" style="font-size:0.75rem;padding:4px 10px">+ 새 폴더</button>
-          <button class="btn btn-secondary" id="sync-btn" style="font-size:0.75rem;padding:4px 10px">☁️ 동기화</button>
+    <!-- 탐색기 레이아웃 -->
+    <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:400px;background:var(--bg2)">
+      <!-- 왼쪽: 폴더 트리 -->
+      <div id="folder-pane" style="width:200px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--bg3)">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:4px">
+          <span style="font-size:0.72rem;font-weight:700;color:var(--text2);letter-spacing:0.04em">폴더</span>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-secondary" id="new-folder-btn" style="font-size:0.65rem;padding:2px 7px">+ 폴더</button>
+            <button class="btn btn-secondary" id="sync-btn" style="font-size:0.65rem;padding:2px 7px">☁️</button>
+          </div>
         </div>
+        <div id="folder-tree"></div>
       </div>
-      <div id="folder-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-      <div id="subfolder-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:12px;border-left:2px solid var(--border)"></div>
+      <!-- 오른쪽: 파일 목록 -->
+      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+          <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)" style="padding:5px 10px;font-size:0.82rem">
+        </div>
+        <div id="sheet-list" style="flex:1;overflow-y:auto;padding:6px 8px"></div>
+      </div>
     </div>
 
-    <!-- 검색 + 목록 -->
-    <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
-      <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)" style="flex:1">
-    </div>
-    <div id="sheet-list"></div>
     <div id="sheet-viewer"></div>
   `;
 
   checkBackup(panel);
-  renderFolderList(panel);
+  renderFolderTree(panel);
   loadList(panel);
+
+  // 업로드 접기/펼치기
+  panel.querySelector('#upload-toggle').addEventListener('click', () => {
+    const body = panel.querySelector('#upload-body');
+    const arrow = panel.querySelector('#upload-arrow');
+    const open = body.style.display === 'none';
+    body.style.display = open ? '' : 'none';
+    arrow.textContent = open ? '▲' : '▼';
+  });
 
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
@@ -108,15 +128,16 @@ export async function render(panel) {
     if (folders.find(f => f.id === name.trim())) { alert('이미 있는 폴더입니다.'); return; }
     folders.push({ id: name.trim(), name: name.trim(), parentId: null });
     setFolders(folders);
-    renderFolderList(panel);
+    expandedFolders.add(name.trim());
+    renderFolderTree(panel);
   });
   panel.querySelector('#sync-btn').addEventListener('click', () => syncFromCloud(panel));
 }
 
-function renderFolderList(panel) {
+function renderFolderTree(panel) {
   const roots = rootFolders();
 
-  // 업로드 폼 폴더 select 업데이트 (계층 표시)
+  // 업로드 폼 폴더 select 업데이트
   const sel = panel.querySelector('#meta-folder');
   if (sel) {
     sel.innerHTML = `<option value="">폴더 없음</option>` +
@@ -125,79 +146,132 @@ function renderFolderList(panel) {
         return `<option value="${f.id}">📁 ${f.name}</option>` +
           subs.map(s => `<option value="${s.id}">　└ ${s.name}</option>`).join('');
       }).join('');
-    sel.value = sel.querySelector(`option[value="${activeFolder}"]`) ? activeFolder : '';
   }
 
-  // 루트 폴더 탭
-  const list = panel.querySelector('#folder-list');
-  // 현재 activeFolder의 루트를 파악
-  const activeFolderObj = activeFolder ? folderById(activeFolder) : null;
-  const activeRoot = activeFolderObj
-    ? (activeFolderObj.parentId ? activeFolderObj.parentId : activeFolderObj.id)
-    : null;
+  const tree = panel.querySelector('#folder-tree');
+  if (!tree) return;
 
-  list.innerHTML = `
-    <button class="btn ${activeFolder === null ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="" style="font-size:0.78rem;padding:5px 12px">전체</button>
-    ${roots.map(f => `
-      <div style="display:inline-flex;align-items:center;gap:2px">
-        <button class="btn ${activeRoot === f.id ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${f.id}" style="font-size:0.78rem;padding:5px 12px">📁 ${f.name}</button>
-        <button class="btn btn-secondary del-folder" data-folder="${f.id}" style="font-size:0.7rem;padding:4px 6px;color:var(--danger)">×</button>
+  const allMeta = getMeta();
+  function countInFolder(fid) {
+    const obj = folderById(fid);
+    if (obj && !obj.parentId) {
+      const childIds = new Set([fid, ...subFolders(fid).map(s => s.id)]);
+      return allMeta.filter(m => childIds.has(m.folder)).length;
+    }
+    return allMeta.filter(m => m.folder === fid).length;
+  }
+  const totalCount = allMeta.length;
+
+  // 트리 항목 빌더
+  function treeItemHtml(label, icon, fid, count, indent, isActive, isExpanded, hasSubs) {
+    const bg = isActive ? 'background:var(--accent);color:#fff;' : '';
+    const countColor = isActive ? 'opacity:0.8' : 'color:var(--text2)';
+    const chevron = hasSubs
+      ? `<span class="tree-chevron" data-fid="${fid}" style="display:inline-block;width:14px;text-align:center;font-size:0.65rem;cursor:pointer;flex-shrink:0">${isExpanded ? '▼' : '▶'}</span>`
+      : `<span style="display:inline-block;width:14px"></span>`;
+    return `
+      <div class="tree-item" data-fid="${fid}"
+        style="display:flex;align-items:center;gap:4px;padding:5px 8px 5px ${indent}px;cursor:pointer;border-radius:4px;margin:1px 4px;${bg}">
+        ${chevron}
+        <span style="flex-shrink:0">${icon}</span>
+        <span style="flex:1;font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</span>
+        <span style="font-size:0.68rem;${countColor};flex-shrink:0">${count}</span>
+        ${fid !== '__all__' ? `
+          <span class="tree-ctx" data-fid="${fid}" style="opacity:0;font-size:0.68rem;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,0.3);color:#fff;flex-shrink:0" title="옵션">⋯</span>
+        ` : ''}
       </div>
-    `).join('')}
-  `;
-
-  // 하위폴더 탭 (루트 선택 시)
-  const subList = panel.querySelector('#subfolder-list');
-  const subs = activeRoot ? subFolders(activeRoot) : [];
-  if (subs.length || activeRoot) {
-    subList.style.display = '';
-    subList.innerHTML = `
-      <button class="btn ${activeFolder === activeRoot ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${activeRoot || ''}" style="font-size:0.72rem;padding:4px 10px">전체</button>
-      ${subs.map(s => `
-        <div style="display:inline-flex;align-items:center;gap:2px">
-          <button class="btn ${activeFolder === s.id ? 'btn-primary' : 'btn-secondary'} folder-tab" data-folder="${s.id}" style="font-size:0.72rem;padding:4px 10px">${s.name}</button>
-          <button class="btn btn-secondary del-folder" data-folder="${s.id}" style="font-size:0.65rem;padding:3px 5px;color:var(--danger)">×</button>
-        </div>
-      `).join('')}
-      <button class="btn btn-secondary" id="new-subfolder-btn" style="font-size:0.72rem;padding:4px 10px">+ 하위폴더</button>
     `;
-    subList.querySelector('#new-subfolder-btn')?.addEventListener('click', () => {
-      const name = prompt(`"${folderById(activeRoot)?.name}" 안에 새 하위폴더 이름:`);
-      if (!name?.trim()) return;
-      const folders = getFolders();
-      const newId = `${activeRoot}/${name.trim()}`;
-      if (folders.find(f => f.id === newId)) { alert('이미 있는 폴더입니다.'); return; }
-      folders.push({ id: newId, name: name.trim(), parentId: activeRoot });
-      setFolders(folders);
-      renderFolderList(panel);
-    });
-  } else {
-    subList.style.display = 'none';
-    subList.innerHTML = '';
   }
 
-  panel.querySelectorAll('.folder-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeFolder = btn.dataset.folder || null;
-      renderFolderList(panel);
+  let html = treeItemHtml('전체', '🗂', '__all__', totalCount, 8, activeFolder === null, false, false);
+
+  for (const f of roots) {
+    const subs = subFolders(f.id);
+    const isExp = expandedFolders.has(f.id);
+    html += treeItemHtml(f.name, '📁', f.id, countInFolder(f.id), 8, activeFolder === f.id, isExp, subs.length > 0);
+    if (isExp) {
+      for (const s of subs) {
+        html += treeItemHtml(s.name, '📂', s.id, countInFolder(s.id), 26, activeFolder === s.id, false, false);
+      }
+      // 하위폴더 추가 항목
+      html += `<div class="tree-add-sub" data-parent="${f.id}"
+        style="display:flex;align-items:center;gap:4px;padding:4px 8px 4px 26px;cursor:pointer;margin:1px 4px;border-radius:4px;color:var(--text2);font-size:0.75rem;opacity:0.7">
+        <span style="display:inline-block;width:14px"></span>
+        <span>📂</span><span>+ 하위폴더</span>
+      </div>`;
+    }
+  }
+
+  tree.innerHTML = html;
+
+  // 트리 항목 클릭
+  tree.querySelectorAll('.tree-item').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('.tree-ctx')) return;
+      const fid = el.dataset.fid;
+      if (fid === '__all__') {
+        activeFolder = null;
+      } else {
+        activeFolder = fid;
+        // 루트 폴더면 자동 펼치기
+        const f = folderById(fid);
+        if (f && !f.parentId) expandedFolders.add(fid);
+      }
+      renderFolderTree(panel);
       filterList(panel, panel.querySelector('#search-input')?.value || '');
     });
   });
 
-  panel.querySelectorAll('.del-folder').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fid = btn.dataset.folder;
+  // 화살표 토글 (펼치기/접기)
+  tree.querySelectorAll('.tree-chevron').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const fid = el.dataset.fid;
+      if (expandedFolders.has(fid)) expandedFolders.delete(fid);
+      else expandedFolders.add(fid);
+      renderFolderTree(panel);
+    });
+  });
+
+  // 하위폴더 추가
+  tree.querySelectorAll('.tree-add-sub').forEach(el => {
+    el.addEventListener('click', () => {
+      const parentId = el.dataset.parent;
+      const name = prompt(`"${folderById(parentId)?.name}" 안에 새 하위폴더 이름:`);
+      if (!name?.trim()) return;
+      const folders = getFolders();
+      const newId = `${parentId}/${name.trim()}`;
+      if (folders.find(f => f.id === newId)) { alert('이미 있는 폴더입니다.'); return; }
+      folders.push({ id: newId, name: name.trim(), parentId });
+      setFolders(folders);
+      renderFolderTree(panel);
+    });
+  });
+
+  // ⋯ 컨텍스트 버튼
+  tree.querySelectorAll('.tree-ctx').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const fid = el.dataset.fid;
       const f = folderById(fid);
-      if (!confirm(`"${f?.name || fid}" 폴더를 삭제하시겠습니까? (악보는 유지됩니다)`)) return;
-      // 해당 폴더+하위폴더 id 수집
+      // 간단한 액션 메뉴 (confirm으로 대체)
+      const action = confirm(`"${f?.name}" 폴더를 삭제하시겠습니까?\n(악보는 유지됩니다)\n\n확인=삭제 / 취소=취소`);
+      if (!action) return;
       const toRemove = new Set([fid, ...getFolders().filter(x => x.parentId === fid).map(x => x.id)]);
       const meta = getMeta().map(m => toRemove.has(m.folder) ? { ...m, folder: '' } : m);
       setMeta(meta);
       setFolders(getFolders().filter(x => !toRemove.has(x.id)));
+      expandedFolders.delete(fid);
       if (activeFolder && toRemove.has(activeFolder)) activeFolder = null;
-      renderFolderList(panel);
+      renderFolderTree(panel);
       filterList(panel, panel.querySelector('#search-input')?.value || '');
     });
+  });
+
+  // 호버 시 ⋯ 표시
+  tree.querySelectorAll('.tree-item').forEach(el => {
+    el.addEventListener('mouseenter', () => { el.querySelector('.tree-ctx')?.style && (el.querySelector('.tree-ctx').style.opacity = '1'); });
+    el.addEventListener('mouseleave', () => { el.querySelector('.tree-ctx')?.style && (el.querySelector('.tree-ctx').style.opacity = '0'); });
   });
 }
 
