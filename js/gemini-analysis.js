@@ -101,11 +101,11 @@ async function blobToGeminiPart(blob) {
 
 // ===== OpenRouter =====
 const OPENROUTER_MODELS = [
-  'google/gemini-2.0-flash-exp:free',
   'meta-llama/llama-4-maverick:free',
   'meta-llama/llama-4-scout:free',
+  'qwen/qwen2.5-vl-72b-instruct:free',
   'google/gemma-3-27b-it:free',
-  'mistralai/mistral-small-3.2-24b-instruct:free',
+  'qwen/qwen2-vl-7b-instruct:free',
 ];
 
 async function callOpenRouter(apiKey, imageParts, promptText) {
