@@ -650,7 +650,7 @@ function barMarkToolbarHtml(si, bi, bar) {
   ).join('');
 
   return `<div class="bar-mark-toolbar" data-si="${si}" data-bi="${bi}"
-    style="position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,0.45);min-width:320px;width:max-content;max-width:420px">
+    style="position:fixed;left:0;top:0;z-index:9999;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,0.45);min-width:320px;width:max-content;max-width:90vw">
     <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
       <button class="bar-toolbar-close" style="background:none;border:none;color:var(--text2);font-size:1rem;cursor:pointer;padding:0 2px;line-height:1;opacity:0.6">✕</button>
     </div>
@@ -805,6 +805,8 @@ function escHtml(s) {
 
 function renderSections(ed, draft) {
   const area = ed.querySelector('#sections-area');
+  // body에 붙은 툴바 정리
+  document.querySelectorAll('.bar-mark-toolbar').forEach(t => t.remove());
 
   // 모든 bar 정규화 (구버전 데이터 호환)
   draft.sections.forEach(sec => sec.bars.forEach(normalizeBar));
@@ -900,8 +902,8 @@ function renderSections(ed, draft) {
     const disp = cell.querySelector('.bar-display');
     if (!inp || inp.style.display === 'block') return;
 
-    // 열려 있는 다른 툴바 제거
-    area.querySelectorAll('.bar-mark-toolbar').forEach(t => t.remove());
+    // 열려 있는 다른 툴바 제거 (body 포함)
+    document.querySelectorAll('.bar-mark-toolbar').forEach(t => t.remove());
 
     inp.style.display = 'block';
     disp.style.visibility = 'hidden';
@@ -914,16 +916,20 @@ function renderSections(ed, draft) {
     const toolbar = document.createElement('div');
     toolbar.innerHTML = barMarkToolbarHtml(si, bi, bar);
     const toolbarEl = toolbar.firstElementChild;
-    cell.style.position = 'relative';
-    cell.appendChild(toolbarEl);
+    document.body.appendChild(toolbarEl);
 
-    // 뷰포트 오른쪽 잘림 방지
+    // 셀 아래에 위치, 뷰포트 경계 보정
     requestAnimationFrame(() => {
-      const rect = toolbarEl.getBoundingClientRect();
-      if (rect.right > window.innerWidth - 8) {
-        toolbarEl.style.left = 'auto';
-        toolbarEl.style.right = '0';
-      }
+      const cellRect = cell.getBoundingClientRect();
+      const tw = toolbarEl.offsetWidth;
+      const th = toolbarEl.offsetHeight;
+      let left = cellRect.left;
+      let top = cellRect.bottom + 4;
+      if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+      if (left < 8) left = 8;
+      if (top + th > window.innerHeight - 8) top = cellRect.top - th - 4;
+      toolbarEl.style.left = left + 'px';
+      toolbarEl.style.top = top + 'px';
     });
 
     // 닫기 버튼
