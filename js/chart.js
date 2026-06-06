@@ -424,11 +424,15 @@ function sectionRowsHtml(sec, si, barOffset) {
   for (let i = start; i < bars.length; i += bpr) {
     rowGroups.push(Array.from({ length: Math.min(bpr, bars.length - i) }, (_, k) => i + k));
   }
-  return rowGroups.map(idxs => `
-    <div style="display:flex;gap:3px;margin-bottom:3px">
-      ${idxs.map(bi => barCellHtml(sec, si, bi, barOffset + bi + 1)).join('')}
-    </div>`
-  ).join('');
+  return rowGroups.map(idxs => {
+    const cells = idxs.map(bi => barCellHtml(sec, si, bi, barOffset + bi + 1)).join('');
+    // 행이 bpr보다 적으면 빈 spacer로 채워 너비 균일하게 유지
+    const missing = bpr - idxs.length;
+    const spacers = missing > 0
+      ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid transparent;border-radius:4px;min-height:2.2em"></div>`).join('')
+      : '';
+    return `<div style="display:flex;gap:3px;margin-bottom:3px">${cells}${spacers}</div>`;
+  }).join('');
 }
 
 function renderSections(ed, draft) {
@@ -691,11 +695,14 @@ export function buildChartHtml(draft, opts = {}) {
       rows.push(Array.from({ length: Math.min(bpr, barCells.length - i) }, (_, k) => i + k));
     }
 
-    const rowsHtml = rows.map(rowIdxs => `
-      <div style="display:flex;gap:3px;margin-bottom:3px">
-        ${rowIdxs.map(i => barCells[i]).join('')}
-      </div>
-    `).join('');
+    const rowsHtml = rows.map(rowIdxs => {
+      const isPickupRow = sec.pickup && rowIdxs[0] === 0 && rowIdxs.length === 1;
+      const missing = isPickupRow ? 0 : bpr - rowIdxs.length;
+      const spacers = missing > 0
+        ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border-radius:4px;min-height:2em"></div>`).join('')
+        : '';
+      return `<div style="display:flex;gap:3px;margin-bottom:3px">${rowIdxs.map(i => barCells[i]).join('')}${spacers}</div>`;
+    }).join('');
 
     // 앞 기호
     const startMarkHtml = sec.startMark
