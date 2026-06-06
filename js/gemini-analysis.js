@@ -7,9 +7,8 @@ export function saveApiKey(key) { localStorage.setItem('gta_gemini_key', key.tri
 export function isConfigured() { return !!getApiKey(); }
 export function keyType(key) {
   const k = (key || getApiKey()).trim();
-  if (k.startsWith('AIza')) return 'gemini';
   if (k.startsWith('sk-or-') || k.startsWith('sk-')) return 'openrouter';
-  return 'unknown';
+  return 'gemini'; // AIza..., AQ..., 기타 Google AI Studio 키 모두 Gemini로 처리
 }
 
 // ===== 공통 유틸 =====
