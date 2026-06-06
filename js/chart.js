@@ -54,6 +54,9 @@ function openEditor(panel, id, prefill = {}) {
   let draft = id ? getDrafts().find(d => d.id === id) : null;
   if (!draft) {
     draft = { id: uuid(), title: prefill.title || '', artist: prefill.artist || '', key: prefill.key || '', bpm: prefill.bpm || '', time: '4/4', defaultBarsPerRow: 4, sections: [] };
+  } else {
+    // 저장된 곡을 열 때 모든 섹션은 저장 상태(editing:false)로
+    draft.sections.forEach(s => { if (s.editing === undefined) s.editing = false; });
   }
   panel.querySelector('#draft-list').style.display = 'none';
   panel.querySelector('#editor').style.display = 'block';
@@ -149,9 +152,11 @@ function renderEditor(panel, draft) {
   ed.querySelector('#save-btn').addEventListener('click', () => {
     syncDraft();
     if (!draft.title.trim()) { alert('곡명을 입력해주세요.'); return; }
+    // editing 플래그는 UI 상태 — 저장하지 않음
+    const toSave = { ...draft, sections: draft.sections.map(s => { const {editing, ...rest} = s; return rest; }) };
     const drafts = getDrafts();
-    const idx = drafts.findIndex(d => d.id === draft.id);
-    if (idx >= 0) drafts[idx] = draft; else drafts.unshift(draft);
+    const idx = drafts.findIndex(d => d.id === toSave.id);
+    if (idx >= 0) drafts[idx] = toSave; else drafts.unshift(toSave);
     saveDrafts(drafts);
     const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
     if (!setlists.find(s => s.id === draft.id)) {
@@ -374,103 +379,228 @@ ${structureDesc}
   }
 }
 
+// 섹션 편집 HTML (편집 모드)
+function sectionEditorHtml(sec, si, draft) {
+  const bpr = sec.barsPerRow || draft.defaultBarsPerRow || 4;
+  return `
+    <!-- 섹션 헤더 -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <input type="text" class="sec-type-input" data-si="${si}" value="${sec.type}"
+        placeholder="섹션 이름"
+        style="flex:1;min-width:100px;font-weight:700;font-size:1rem;color:var(--accent);background:transparent;border:1px dashed var(--border);border-radius:4px;padding:4px 8px">
+    </div>
+
+    <!-- 악보 기호 -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">
+      <span style="font-size:0.75rem;color:var(--text2)">기호:</span>
+      <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
+        <input type="checkbox" class="chk-repeat-start" data-si="${si}" ${sec.repeatStart?'checked':''}>
+        <span style="font-family:serif;font-weight:bold">||:</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
+        <input type="checkbox" class="chk-repeat-end" data-si="${si}" ${sec.repeatEnd?'checked':''}>
+        <span style="font-family:serif;font-weight:bold">:||</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
+        <input type="checkbox" class="chk-pickup" data-si="${si}" ${sec.pickup?'checked':''}>
+        못갖춘마디
+      </label>
+      <select class="sel-start-mark" data-si="${si}" style="font-size:0.78rem;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+        ${START_MARKS.map(m => `<option value="${m}" ${sec.startMark===m?'selected':''}>${m||'앞기호 없음'}</option>`).join('')}
+      </select>
+      <select class="sel-end-mark" data-si="${si}" style="font-size:0.78rem;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
+        ${END_MARKS.map(m => `<option value="${m}" ${sec.endMark===m?'selected':''}>${m||'끝기호 없음'}</option>`).join('')}
+      </select>
+    </div>
+
+    <!-- 마디/행 설정 -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <span style="font-size:0.75rem;color:var(--text2)">마디/행:</span>
+      <button class="btn sec-bpr-btn ${bpr===4?'btn-primary':'btn-secondary'}" data-si="${si}" data-val="4" style="font-size:0.72rem;padding:3px 8px">4</button>
+      <button class="btn sec-bpr-btn ${bpr===8?'btn-primary':'btn-secondary'}" data-si="${si}" data-val="8" style="font-size:0.72rem;padding:3px 8px">8</button>
+      <input type="number" class="inp-bpr" data-si="${si}" min="1" max="16" value="${bpr}"
+        style="width:48px;font-size:0.78rem;padding:2px 6px;text-align:center" title="커스텀 마디/행">
+      <span style="font-size:0.72rem;color:var(--text2);margin-left:4px">현재 ${sec.bars.length}마디</span>
+    </div>
+
+    <!-- 마디 그리드 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+      <div class="label" style="margin:0;font-size:0.75rem">
+        마디 그리드
+        <span style="color:var(--text2);font-weight:400">(빈 칸=코드 유지 · 2코드: "Am G")</span>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="1" style="font-size:0.72rem;padding:3px 8px">+1마디</button>
+        <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="row" style="font-size:0.72rem;padding:3px 8px">+1행</button>
+        <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">−1마디</button>
+        <button class="btn btn-secondary clear-bars-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px;color:var(--danger)">비우기</button>
+      </div>
+    </div>
+    <!-- 행별로 bpr개씩 그리드 렌더 -->
+    <div class="bar-grid" data-si="${si}" style="margin-bottom:8px">
+      ${renderBarGridHtml(sec, si, draft)}
+    </div>
+
+    <div class="label" style="margin-top:4px;font-size:0.75rem">메모 / 연주 지시어</div>
+    <input type="text" class="memo-input" data-si="${si}" value="${sec.memo||''}" placeholder="예: 카포 2, 느리게, 8비트...">
+
+    <!-- 저장 버튼 -->
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button class="btn btn-primary sec-save-btn" data-si="${si}">✅ 섹션 저장</button>
+    </div>
+  `;
+}
+
+// 마디 그리드 HTML (행별 bpr 개씩)
+function renderBarGridHtml(sec, si, draft) {
+  const bpr = sec.barsPerRow || draft.defaultBarsPerRow || 4;
+  const bars = sec.bars;
+  const rows = [];
+  const start = sec.pickup && bars.length > 0 ? 1 : 0;
+  if (sec.pickup && bars.length > 0) rows.push([0]);
+  for (let i = start; i < bars.length; i += bpr) {
+    rows.push(Array.from({ length: Math.min(bpr, bars.length - i) }, (_, k) => i + k));
+  }
+  return rows.map(idxs => `
+    <div style="display:flex;gap:4px;margin-bottom:4px">
+      ${idxs.map(bi => {
+        const b = bars[bi];
+        return `<input type="text" class="bar-cell-input"
+          data-si="${si}" data-bi="${bi}"
+          value="${b.chords||''}"
+          placeholder="${bi+1}"
+          style="flex:1;min-width:0;text-align:center;font-weight:700;font-size:0.82rem;padding:6px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;">`;
+      }).join('')}
+    </div>
+  `).join('');
+}
+
+// 저장된 섹션 미리보기 HTML (compact)
+function sectionSavedHtml(sec, si, barOffset) {
+  const bpr = sec.barsPerRow || 4;
+  const bars = sec.bars;
+
+  // 마디 행 렌더 (4비트 슬롯)
+  const SLOT_MAP = { 1:[0], 2:[0,2], 3:[0,2,3], 4:[0,1,2,3] };
+  const start = sec.pickup && bars.length > 0 ? 1 : 0;
+  const rowIdxGroups = [];
+  if (sec.pickup && bars.length > 0) rowIdxGroups.push([0]);
+  for (let i = start; i < bars.length; i += bpr) {
+    rowIdxGroups.push(Array.from({ length: Math.min(bpr, bars.length - i) }, (_, k) => i + k));
+  }
+
+  const rowsHtml = rowIdxGroups.map(idxs => `
+    <div style="display:flex;gap:3px;margin-bottom:3px">
+      ${idxs.map(bi => {
+        const b = bars[bi];
+        const barNum = barOffset + bi + 1;
+        const isPickup = sec.pickup && bi === 0;
+        const rawChords = (b.chords||'').trim().split(/\s+/).filter(Boolean);
+        const positions = SLOT_MAP[Math.min(rawChords.length, 4)] || [0];
+        const slots = ['','','',''];
+        rawChords.slice(0,4).forEach((c,i) => { slots[positions[i]] = c; });
+
+        const slotsHtml = slots.map((c, slotIdx) => {
+          const border = slotIdx > 0 ? 'border-left:1px solid var(--border);' : '';
+          return `<div style="flex:1;${border}display:flex;align-items:center;justify-content:center;min-height:1.6em;padding:1px 2px">
+            ${c ? `<span style="font-size:0.78rem;font-weight:700;white-space:nowrap">${c}</span>` : ''}
+          </div>`;
+        }).join('');
+
+        return `<div style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;${isPickup?'max-width:54px;opacity:0.8;':''}">
+          <div style="font-size:0.5rem;color:var(--text2);position:absolute;top:1px;left:3px;line-height:1">${isPickup?'↑':barNum}</div>
+          <div style="display:flex;padding-top:10px;">${slotsHtml}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  const symbols = [
+    sec.startMark ? `<span style="color:var(--accent);margin-right:4px">${sec.startMark}</span>` : '',
+    sec.repeatStart ? `<span style="font-family:serif;font-weight:900;color:var(--text2);margin-right:3px">||:</span>` : '',
+    sec.repeatEnd   ? `<span style="font-family:serif;font-weight:900;color:var(--text2);margin-left:3px">:||</span>` : '',
+    sec.endMark     ? `<span style="font-size:0.78rem;font-weight:700;color:var(--accent);margin-left:6px;font-style:italic">${sec.endMark}</span>` : '',
+  ].join('');
+
+  return `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+      <span style="font-weight:700;font-size:0.9rem;color:var(--accent)">${symbols}${sec.type||'—'}</span>
+      <span style="font-size:0.72rem;color:var(--text2)">${bars.length}마디 · ${bpr}마디/행</span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-secondary sec-edit-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">✏️ 수정</button>
+        <button class="btn btn-secondary del-sec" data-si="${si}" style="font-size:0.72rem;padding:3px 8px;color:var(--danger)">🗑 삭제</button>
+      </div>
+    </div>
+    ${rowsHtml}
+    ${sec.memo ? `<div style="font-size:0.75rem;color:var(--text2);margin-top:4px;font-style:italic">✏️ ${sec.memo}</div>` : ''}
+  `;
+}
+
 function renderSections(ed, draft) {
   const area = ed.querySelector('#sections-area');
+
+  // 각 섹션의 barOffset 계산 (이전 섹션들의 마디 합)
+  let offset = 0;
+  const offsets = draft.sections.map(s => { const o = offset; offset += s.bars.length; return o; });
+
   area.innerHTML = draft.sections.map((sec, si) => {
-    const bpr = sec.barsPerRow || draft.defaultBarsPerRow || 4;
+    const isEditing = sec.editing !== false; // 기본값: 편집 모드
     return `
-    <div class="card" style="margin-bottom:8px" data-si="${si}">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <input type="text" class="sec-type-input" data-si="${si}" value="${sec.type}"
-          placeholder="섹션 이름"
-          style="flex:1;min-width:100px;font-weight:700;color:var(--accent);background:transparent;border:1px dashed var(--border);border-radius:4px;padding:4px 8px">
-        <button class="btn btn-secondary del-sec" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">삭제</button>
-      </div>
+    <div class="card" style="margin-bottom:8px;${isEditing?'border:1px solid var(--accent);':''}" data-si="${si}">
+      ${isEditing
+        ? sectionEditorHtml(sec, si, draft)
+        : sectionSavedHtml(sec, si, offsets[si])
+      }
+    </div>`;
+  }).join('');
 
-      <!-- 악보 기호 -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">
-        <span style="font-size:0.75rem;color:var(--text2)">기호:</span>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
-          <input type="checkbox" class="chk-repeat-start" data-si="${si}" ${sec.repeatStart?'checked':''}>
-          <span style="font-family:serif;font-weight:bold">||:</span> 반복시작
-        </label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
-          <input type="checkbox" class="chk-repeat-end" data-si="${si}" ${sec.repeatEnd?'checked':''}>
-          <span style="font-family:serif;font-weight:bold">:||</span> 반복끝
-        </label>
-        <label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer">
-          <input type="checkbox" class="chk-pickup" data-si="${si}" ${sec.pickup?'checked':''}>
-          못갖춘마디
-        </label>
-        <select class="sel-start-mark" data-si="${si}" style="font-size:0.78rem;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
-          ${START_MARKS.map(m => `<option value="${m}" ${sec.startMark===m?'selected':''}>${m||'앞기호 없음'}</option>`).join('')}
-        </select>
-        <select class="sel-end-mark" data-si="${si}" style="font-size:0.78rem;padding:2px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text)">
-          ${END_MARKS.map(m => `<option value="${m}" ${sec.endMark===m?'selected':''}>${m||'끝기호 없음'}</option>`).join('')}
-        </select>
-      </div>
+  // ── 이벤트 바인딩 ──────────────────────────────────────
 
-      <!-- 마디/행 설정 -->
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-size:0.75rem;color:var(--text2)">마디/행:</span>
-        <button class="btn sec-bpr-btn ${bpr===4?'btn-primary':'btn-secondary'}" data-si="${si}" data-val="4" style="font-size:0.72rem;padding:3px 8px">4</button>
-        <button class="btn sec-bpr-btn ${bpr===8?'btn-primary':'btn-secondary'}" data-si="${si}" data-val="8" style="font-size:0.72rem;padding:3px 8px">8</button>
-        <input type="number" class="inp-bpr" data-si="${si}" min="1" max="16" value="${bpr}"
-          style="width:48px;font-size:0.78rem;padding:2px 6px;text-align:center"
-          title="커스텀 마디/행">
-      </div>
+  // 섹션 저장
+  area.querySelectorAll('.sec-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      draft.sections[+btn.dataset.si].editing = false;
+      renderSections(ed, draft); renderPreview(ed, draft);
+    });
+  });
+  // 섹션 수정
+  area.querySelectorAll('.sec-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      draft.sections[+btn.dataset.si].editing = true;
+      renderSections(ed, draft); renderPreview(ed, draft);
+    });
+  });
+  // 섹션 삭제
+  area.querySelectorAll('.del-sec').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('이 섹션을 삭제하시겠습니까?')) return;
+      draft.sections.splice(+btn.dataset.si, 1);
+      renderSections(ed, draft); renderPreview(ed, draft);
+    });
+  });
 
-      <!-- 마디 그리드 -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
-        <div class="label" style="margin:0">마디 그리드 <span style="font-size:0.72rem;color:var(--text2)">(셀 클릭 → 코드 입력 · 한 마디 2코드: "Am G")</span></div>
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="1" style="font-size:0.72rem;padding:3px 8px">+1마디</button>
-          <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="row" style="font-size:0.72rem;padding:3px 8px">+1행</button>
-          <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">−1마디</button>
-          <button class="btn btn-secondary clear-bars-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px;color:var(--danger)">비우기</button>
-        </div>
-      </div>
-      <div class="bar-grid" data-si="${si}" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
-        ${sec.bars.map((b, bi) => `
-          <input type="text" class="bar-cell-input"
-            data-si="${si}" data-bi="${bi}"
-            value="${b.chords}"
-            placeholder="${bi+1}"
-            style="width:${(b.numChords||1)>1?90:58}px;min-width:${(b.numChords||1)>1?90:58}px;text-align:center;font-weight:700;font-size:0.82rem;padding:6px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;"
-          >
-        `).join('')}
-      </div>
-      <div class="label" style="margin-top:4px">메모 / 연주 지시어</div>
-      <input type="text" class="memo-input" data-si="${si}" value="${sec.memo}" placeholder="예: 카포 2, 느리게, 8비트...">
-    </div>
-  `}).join('');
-
-  // 이벤트 바인딩
+  // 섹션 이름
   area.querySelectorAll('.sec-type-input').forEach(inp => {
     inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; renderPreview(ed, draft); });
   });
+
   // 마디 셀 입력
   area.querySelectorAll('.bar-cell-input').forEach(inp => {
     inp.addEventListener('input', () => {
       const bar = draft.sections[+inp.dataset.si].bars[+inp.dataset.bi];
-      const numChords = bar.numChords;
-      draft.sections[+inp.dataset.si].bars[+inp.dataset.bi] = { chords: inp.value, ...(numChords ? { numChords } : {}) };
+      draft.sections[+inp.dataset.si].bars[+inp.dataset.bi] = { chords: inp.value, numChords: bar.numChords };
       renderPreview(ed, draft);
     });
-    // Tab으로 다음 셀 이동
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
         const si = +inp.dataset.si, bi = +inp.dataset.bi;
         const next = area.querySelector(`.bar-cell-input[data-si="${si}"][data-bi="${bi+1}"]`);
-        if (next) next.focus();
-        else {
-          // 마지막 셀에서 Enter → 마디 추가 후 포커스
-          draft.sections[si].bars.push({ chords: '' });
-          renderSections(ed, draft); renderPreview(ed, draft);
-          const newCell = area.querySelector(`.bar-cell-input[data-si="${si}"][data-bi="${bi+1}"]`);
-          if (newCell) newCell.focus();
-        }
+        if (next) { next.focus(); return; }
+        // 마지막 셀에서 Enter → 마디 추가
+        draft.sections[si].bars.push({ chords: '' });
+        renderSections(ed, draft); renderPreview(ed, draft);
+        area.querySelector(`.bar-cell-input[data-si="${si}"][data-bi="${bi+1}"]`)?.focus();
       }
     });
   });
@@ -487,26 +617,25 @@ function renderSections(ed, draft) {
   });
   area.querySelectorAll('.remove-bar-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const si = +btn.dataset.si;
-      const bars = draft.sections[si].bars;
+      const si = +btn.dataset.si, bars = draft.sections[si].bars;
       if (bars.length <= 1) return;
-      draft.sections[si].bars = bars.slice(0, bars.length - 1);
+      draft.sections[si].bars = bars.slice(0, -1);
       renderSections(ed, draft); renderPreview(ed, draft);
     });
   });
   area.querySelectorAll('.clear-bars-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const si = +btn.dataset.si;
-      draft.sections[si].bars.forEach(b => b.chords = '');
+      draft.sections[+btn.dataset.si].bars.forEach(b => b.chords = '');
       renderSections(ed, draft); renderPreview(ed, draft);
     });
   });
+
+  // 메모
   area.querySelectorAll('.memo-input').forEach(inp => {
     inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].memo = inp.value; renderPreview(ed, draft); });
   });
-  area.querySelectorAll('.del-sec').forEach(btn => {
-    btn.addEventListener('click', () => { draft.sections.splice(+btn.dataset.si, 1); renderSections(ed, draft); renderPreview(ed, draft); });
-  });
+
+  // 악보 기호
   area.querySelectorAll('.chk-repeat-start').forEach(chk => {
     chk.addEventListener('change', () => { draft.sections[+chk.dataset.si].repeatStart = chk.checked; renderPreview(ed, draft); });
   });
@@ -522,13 +651,26 @@ function renderSections(ed, draft) {
   area.querySelectorAll('.sel-end-mark').forEach(sel => {
     sel.addEventListener('change', () => { draft.sections[+sel.dataset.si].endMark = sel.value; renderPreview(ed, draft); });
   });
-  // 마디/행 버튼 (barsPerRow만 변경, bars 배열 유지)
+
+  // 마디/행 수 변경
   function setBpr(si, val) {
     draft.sections[si].barsPerRow = val;
-    area.querySelector(`.inp-bpr[data-si="${si}"]`).value = val;
+    const inp = area.querySelector(`.inp-bpr[data-si="${si}"]`);
+    if (inp) inp.value = val;
     area.querySelectorAll(`.sec-bpr-btn[data-si="${si}"]`).forEach(b => {
       b.className = `btn sec-bpr-btn ${+b.dataset.val===val?'btn-primary':'btn-secondary'}`;
-      b.style.fontSize = '0.72rem'; b.style.padding = '3px 8px';
+      b.style.cssText += 'font-size:0.72rem;padding:3px 8px';
+    });
+    // 그리드만 갱신 (bars 배열 유지)
+    const grid = area.querySelector(`.bar-grid[data-si="${si}"]`);
+    if (grid) grid.innerHTML = renderBarGridHtml(draft.sections[si], si, draft);
+    // 새로 생긴 셀에 이벤트 재등록
+    area.querySelectorAll(`.bar-cell-input[data-si="${si}"]`).forEach(inp2 => {
+      inp2.addEventListener('input', () => {
+        const bar = draft.sections[si].bars[+inp2.dataset.bi];
+        draft.sections[si].bars[+inp2.dataset.bi] = { chords: inp2.value, numChords: bar?.numChords };
+        renderPreview(ed, draft);
+      });
     });
     renderPreview(ed, draft);
   }
@@ -536,10 +678,7 @@ function renderSections(ed, draft) {
     btn.addEventListener('click', () => setBpr(+btn.dataset.si, +btn.dataset.val));
   });
   area.querySelectorAll('.inp-bpr').forEach(inp => {
-    inp.addEventListener('input', () => {
-      const val = Math.max(1, Math.min(16, +inp.value || 4));
-      setBpr(+inp.dataset.si, val);
-    });
+    inp.addEventListener('input', () => setBpr(+inp.dataset.si, Math.max(1, Math.min(16, +inp.value || 4))));
   });
 }
 
@@ -573,8 +712,8 @@ export function buildChartHtml(draft, opts = {}) {
       const flexStyle = isPickup ? pickupStyle : normalStyle;
       // 공백 구분으로 최대 4개 코드 파싱
       const rawChords = (b.chords || '').trim().split(/\s+/).filter(Boolean);
-      // 4 슬롯에 균등 배치: 1코드→슬롯1, 2코드→슬롯1,3, 3코드→슬롯1,2,3, 4코드→슬롯1,2,3,4
-      const slotMap = { 1:[0], 2:[0,2], 3:[0,1,2], 4:[0,1,2,3] };
+      // 4 슬롯 배치: 1코드→1번, 2코드→1,3번, 3코드→1,3,4번, 4코드→전부
+      const slotMap = { 1:[0], 2:[0,2], 3:[0,2,3], 4:[0,1,2,3] };
       const slots = ['','','',''];
       const positions = slotMap[Math.min(rawChords.length, 4)] || [0];
       rawChords.slice(0,4).forEach((c, i) => { slots[positions[i]] = c; });
