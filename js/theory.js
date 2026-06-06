@@ -187,6 +187,14 @@ export function render(panel) {
 
   // 이전 분석 결과 복원
   if (AppState.currentAnalysis.diatonic.length) showResult(panel, AppState.currentAnalysis);
+
+  // AI 분석 결과 수신 (sheets.js의 runAiAnalysis에서 goTo(1, {progression}) 호출 시)
+  on('route-payload', payload => {
+    if (payload?.progression) {
+      panel.querySelector('#prog-input').value = payload.progression;
+      runAnalysis(panel);
+    }
+  });
 }
 
 function runAnalysis(panel) {

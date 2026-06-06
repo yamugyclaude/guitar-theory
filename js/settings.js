@@ -65,6 +65,28 @@ export function render(panel) {
     </div>
 
     <div class="card">
+      <div class="section-label">🤖 AI 악보 분석 (Gemini)</div>
+      <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 12px">
+        악보 이미지를 업로드하면 곡명·키·BPM·코드진행을 자동으로 분석합니다.<br>
+        <strong>무료</strong> — <a href="https://aistudio.google.com" target="_blank" style="color:var(--link)">Google AI Studio</a>에서 API 키 발급 (Google 계정 필요, 신용카드 불필요)<br>
+        하루 1,500회 무료 · 키는 이 기기에만 저장됩니다.
+      </p>
+      <div class="label">Gemini API Key</div>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="gemini-key-input" placeholder="AIza..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
+        <button class="btn btn-secondary" id="gemini-toggle-btn" style="flex-shrink:0;font-size:0.75rem;padding:6px 10px">보기</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn btn-primary" id="gemini-save-btn">저장</button>
+        <button class="btn btn-secondary" id="gemini-test-btn">연결 테스트</button>
+        <button class="btn btn-secondary" id="gemini-clear-btn">삭제</button>
+      </div>
+      <div id="gemini-status" style="font-size:0.82rem;margin-top:6px;color:var(--text2)">
+        ${localStorage.getItem('gta_gemini_key') ? '✅ API 키 저장됨' : '키 미설정'}
+      </div>
+    </div>
+
+    <div class="card">
       <div class="section-label">☁️ 클라우드 동기화 (Supabase)</div>
       <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 4px">
         모든 기기에서 같은 악보를 공유할 수 있습니다. <strong>무료</strong>이며 URL + Key 2개만 입력하면 됩니다.<br>
@@ -141,6 +163,41 @@ create policy "allow_all" on gta_sheets
   // 가져오기
   panel.querySelector('#import-btn').addEventListener('click', () => panel.querySelector('#import-file').click());
   panel.querySelector('#import-file').addEventListener('change', e => importData(e.target.files[0]));
+
+  // Gemini API 키 관리
+  const geminiInput = panel.querySelector('#gemini-key-input');
+  const geminiStatus = panel.querySelector('#gemini-status');
+
+  panel.querySelector('#gemini-toggle-btn').addEventListener('click', () => {
+    geminiInput.type = geminiInput.type === 'password' ? 'text' : 'password';
+  });
+  panel.querySelector('#gemini-save-btn').addEventListener('click', () => {
+    const key = geminiInput.value.trim();
+    if (!key) { geminiStatus.textContent = '⚠️ 키를 입력해주세요.'; return; }
+    localStorage.setItem('gta_gemini_key', key);
+    geminiStatus.textContent = '✅ 저장됐습니다.';
+  });
+  panel.querySelector('#gemini-test-btn').addEventListener('click', async () => {
+    const key = geminiInput.value.trim();
+    if (!key) { geminiStatus.textContent = '⚠️ 키를 입력해주세요.'; return; }
+    localStorage.setItem('gta_gemini_key', key);
+    geminiStatus.textContent = '🔄 테스트 중...';
+    try {
+      const { analyzeSheet } = await import('./gemini-analysis.js');
+      // 1×1 흰색 픽셀로 연결 테스트
+      const testBlob = await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==').then(r=>r.blob());
+      await analyzeSheet(testBlob);
+      geminiStatus.textContent = '✅ 연결 성공! AI 분석 기능을 사용할 수 있습니다.';
+    } catch (e) {
+      geminiStatus.textContent = `❌ 실패: ${e.message}`;
+    }
+  });
+  panel.querySelector('#gemini-clear-btn').addEventListener('click', () => {
+    if (!confirm('Gemini API 키를 삭제하시겠습니까?')) return;
+    localStorage.removeItem('gta_gemini_key');
+    geminiInput.value = '';
+    geminiStatus.textContent = '키가 삭제됐습니다.';
+  });
 
   // Supabase 설정 저장 + 연결 테스트
   panel.querySelector('#sb-save-btn').addEventListener('click', async () => {

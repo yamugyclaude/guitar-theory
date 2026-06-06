@@ -390,6 +390,7 @@ async function openSheet(panel, id) {
           ${meta.folder ? `<div style="font-size:0.8rem;color:var(--accent);margin-top:2px">📁 ${meta.folder}</div>` : ''}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="ai-analyze-btn">🤖 AI 자동 분석</button>
           <button class="btn btn-link" id="extract-btn">🎵 코드 추출 → 라이브차트</button>
           <button class="btn btn-link" id="to-chart-btn">코드차트 만들기 →</button>
           <button class="btn btn-link" id="to-live-btn">라이브 모드에 추가 →</button>
@@ -452,6 +453,9 @@ async function openSheet(panel, id) {
         `<div style="font-size:0.8rem;color:var(--accent);margin-top:2px">📁 ${newFolder}</div>`);
     }
   });
+
+  viewer.querySelector('#ai-analyze-btn').addEventListener('click', () =>
+    runAiAnalysis(meta, record, viewer, panel));
 
   viewer.querySelector('#extract-btn').addEventListener('click', () =>
     extractAndCreateLiveChart(meta, record, viewer));
@@ -592,7 +596,11 @@ function renderExtractResult(meta, sections, container) {
   });
 
   container.querySelector('#edit-before-save').addEventListener('click', () => {
-    const { goTo } = saveLiveChartAndGetId(meta, sections);
+    const draft = buildDraft(meta, sections);
+    const drafts = JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]');
+    drafts.unshift(draft);
+    localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+    goTo(7); // 곡(코드)진행 탭으로 이동
   });
 }
 
@@ -674,5 +682,179 @@ async function syncFromCloud(panel) {
     syncBtn.disabled = false;
     syncBtn.textContent = orig;
   }
+}
+
+// ===== AI 자동 분석 (Gemini Vision) =====
+async function runAiAnalysis(meta, record, viewer, panel) {
+  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js');
+  if (!isConfigured()) {
+    alert('⚙️ 설정 탭에서 Gemini API 키를 먼저 입력해주세요.\n(Google AI Studio에서 무료 발급)');
+    return;
+  }
+
+  // 분석용 이미지 준비 (PDF면 첫 페이지 이미지 사용)
+  let imageBlob = null;
+  if (record.type === 'image') {
+    imageBlob = record.file;
+  } else if (record.pages?.length) {
+    imageBlob = record.pages[0]; // 업로드 시 변환된 JPEG
+  } else {
+    alert('분석할 이미지를 준비할 수 없습니다. 파일을 다시 업로드해주세요.');
+    return;
+  }
+
+  // 분석 진행 UI
+  let resultArea = viewer.querySelector('#ai-result-area');
+  if (!resultArea) {
+    resultArea = document.createElement('div');
+    resultArea.id = 'ai-result-area';
+    viewer.querySelector('.card').appendChild(resultArea);
+  }
+  resultArea.innerHTML = `<hr class="divider"><div style="color:var(--text2);padding:12px 0">🤖 AI 분석 중... (5~15초 소요)</div>`;
+
+  try {
+    const result = await analyzeSheet(imageBlob);
+    renderAnalysisReview(result, meta, resultArea, panel);
+  } catch (e) {
+    resultArea.innerHTML = `<hr class="divider"><div style="color:var(--danger);padding:8px 0">❌ 분석 실패: ${e.message}</div>`;
+  }
+}
+
+function renderAnalysisReview(result, meta, container, panel) {
+  // 섹션 편집용 상태
+  let editResult = JSON.parse(JSON.stringify(result)); // 깊은 복사
+
+  function buildSectionRows() {
+    return (editResult.sections || []).map((sec, si) => `
+      <div style="background:var(--bg3);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <input class="rev-sec-type" data-si="${si}" value="${sec.type || ''}"
+            placeholder="섹션 이름"
+            style="flex:1;font-weight:700;color:var(--accent);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px">
+          <button class="btn btn-secondary rev-del-sec" data-si="${si}" style="font-size:0.7rem;padding:3px 7px">×</button>
+        </div>
+        <input class="rev-sec-chords" data-si="${si}" value="${(sec.chords||[]).join(', ')}"
+          placeholder="코드 (쉼표 구분)"
+          style="width:100%;margin-bottom:4px">
+        <input class="rev-sec-memo" data-si="${si}" value="${sec.memo||''}"
+          placeholder="메모 (선택)"
+          style="width:100%;font-size:0.8rem">
+      </div>
+    `).join('');
+  }
+
+  container.innerHTML = `
+    <hr class="divider">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:12px">🤖 AI 분석 결과 — 검토 후 적용</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div><div class="label">곡명</div><input id="rev-title" value="${result.title||meta.title||''}"></div>
+      <div><div class="label">아티스트</div><input id="rev-artist" value="${result.artist||meta.artist||''}"></div>
+      <div><div class="label">키</div><input id="rev-key" value="${result.key||meta.key||''}"></div>
+      <div><div class="label">BPM</div><input id="rev-bpm" value="${result.bpm||meta.bpm||''}"></div>
+      <div><div class="label">박자</div><input id="rev-time" value="${result.time||'4/4'}"></div>
+      <div><div class="label">태그</div><input id="rev-tags" value="${(result.tags||[]).join(', ')}"></div>
+    </div>
+
+    ${result.notes ? `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:12px;padding:8px;background:var(--bg3);border-radius:var(--radius)">💡 ${result.notes}</div>` : ''}
+
+    <div class="section-label">코드 진행 (섹션별 편집 가능)</div>
+    <div id="rev-sections">${buildSectionRows()}</div>
+    <button class="btn btn-secondary" id="rev-add-sec" style="font-size:0.78rem;margin-bottom:12px">+ 섹션 추가</button>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="rev-apply-btn">✅ 전체 적용 (저장 + 라이브 + 이론분석)</button>
+      <button class="btn btn-secondary" id="rev-cancel-btn">취소</button>
+    </div>
+  `;
+
+  // 섹션 이벤트
+  function bindSectionEvents() {
+    container.querySelectorAll('.rev-sec-type').forEach(inp => {
+      inp.addEventListener('input', () => { editResult.sections[+inp.dataset.si].type = inp.value; });
+    });
+    container.querySelectorAll('.rev-sec-chords').forEach(inp => {
+      inp.addEventListener('input', () => {
+        editResult.sections[+inp.dataset.si].chords = inp.value.split(',').map(s=>s.trim()).filter(Boolean);
+      });
+    });
+    container.querySelectorAll('.rev-sec-memo').forEach(inp => {
+      inp.addEventListener('input', () => { editResult.sections[+inp.dataset.si].memo = inp.value; });
+    });
+    container.querySelectorAll('.rev-del-sec').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editResult.sections.splice(+btn.dataset.si, 1);
+        container.querySelector('#rev-sections').innerHTML = buildSectionRows();
+        bindSectionEvents();
+      });
+    });
+  }
+  bindSectionEvents();
+
+  container.querySelector('#rev-add-sec').addEventListener('click', () => {
+    editResult.sections.push({ type: '', chords: [], memo: '' });
+    container.querySelector('#rev-sections').innerHTML = buildSectionRows();
+    bindSectionEvents();
+  });
+
+  container.querySelector('#rev-cancel-btn').addEventListener('click', () => {
+    container.innerHTML = '';
+  });
+
+  container.querySelector('#rev-apply-btn').addEventListener('click', async () => {
+    // 1. 메타데이터 업데이트
+    const newMeta = {
+      title:  container.querySelector('#rev-title').value.trim()  || meta.title,
+      artist: container.querySelector('#rev-artist').value.trim() || meta.artist,
+      key:    container.querySelector('#rev-key').value.trim()    || meta.key,
+      bpm:    container.querySelector('#rev-bpm').value.trim()    || meta.bpm,
+      time:   container.querySelector('#rev-time').value.trim()   || '4/4',
+      tags:   container.querySelector('#rev-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+    };
+    const allMeta = getMeta();
+    const idx = allMeta.findIndex(m => m.id === meta.id);
+    if (idx >= 0) Object.assign(allMeta[idx], newMeta);
+    setMeta(allMeta);
+
+    // 2. 코드차트 생성 + 라이브 셋리스트 추가
+    const draftId = uuid();
+    const draft = {
+      id: draftId,
+      title: newMeta.title,
+      artist: newMeta.artist,
+      key: newMeta.key,
+      bpm: newMeta.bpm,
+      time: newMeta.time,
+      sections: editResult.sections.map(sec => ({
+        type: sec.type,
+        bars: (sec.chords||[]).map(c => ({ chords: c })),
+        memo: sec.memo || ''
+      }))
+    };
+    const drafts = JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]');
+    drafts.unshift(draft);
+    localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+
+    const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+    if (!setlists.find(s => s.id === draftId)) {
+      setlists.push({ id: draftId, title: newMeta.title, type: 'chart' });
+      localStorage.setItem('gta_setlists', JSON.stringify(setlists));
+    }
+
+    // 3. 이론 분석 탭에 코드 진행 전달
+    const allChords = editResult.sections.flatMap(s => s.chords || []);
+    goTo(1, { progression: allChords.join(' - ') });
+
+    container.innerHTML = `
+      <hr class="divider">
+      <div style="color:var(--accent);padding:8px 0;font-size:0.85rem">
+        ✅ 적용 완료!<br>
+        <span style="color:var(--text2);font-size:0.8rem">
+          메타정보 업데이트 · 코드차트 생성 · 라이브 셋리스트 추가 · 이론 분석 탭 연동
+        </span>
+      </div>
+    `;
+    loadList(panel);
+  });
 }
 

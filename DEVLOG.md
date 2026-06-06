@@ -307,3 +307,46 @@ on('route-payload', payload => {
 | PDF 코드 추출 | 텍스트 레이어 없는 스캔 PDF는 자동 추출 불가 → 수동 입력 fallback |
 | 구 업로드 파일 | `record.pages` 없음 → 라이브에서 PDF.js 폴백 사용 (2장 보기 불안정 가능) |
 | Cross-origin | Supabase Storage public URL은 fetch로 직접 다운로드 가능 |
+
+---
+
+## Gemini Vision AI 자동 분석 (2026-06)
+
+### 도입 배경
+악보 업로드 시 곡명·아티스트·키·BPM·코드 진행을 자동 추출하는 기능.
+
+### 평가한 방법
+| 방법 | 결론 |
+|---|---|
+| Oemer OMR | Python 전용, 코드 기호 미지원 → 탈락 |
+| Claude vision (수동) | 100회 제한으로 실용성 부족 → 탈락 |
+| **Gemini 1.5 Flash API** | 무료 1500회/일, 코드+가사 인식 가능 → 채택 |
+
+### 구현 파일
+- `js/gemini-analysis.js` (신규)
+  - `analyzeSheet(imageBlob)` → Gemini 1.5 Flash 호출 → JSON 반환
+  - API 키는 `localStorage('gta_gemini_key')`에만 저장 (코드/DEVLOG에 절대 기록 금지)
+  - 응답 파싱: ` ```json ``` ` 래핑 자동 제거
+
+### 보안 원칙
+- **API 키는 앱 설정 UI에서만 입력** → localStorage 저장
+- 코드 파일, DEVLOG, git 히스토리에 키 노출 금지
+- 설정 탭: 별표 마스킹 입력 + 보기/숨기기 토글 + 연결 테스트 버튼
+
+### AI 분석 → 전체 적용 흐름
+```
+악보 이미지 → Gemini Vision → JSON (title/artist/key/bpm/tags/sections)
+  ↓
+검토 UI (수정 가능)
+  ↓ "전체 적용" 클릭
+  ├─ localStorage gta_sheet_meta 업데이트
+  ├─ gta_chart_drafts에 코드차트 생성
+  ├─ gta_setlists에 라이브 항목 추가
+  └─ 이론 분석 탭 자동 이동 + 코드 진행 입력
+```
+
+### Gemini API 설정 방법
+1. https://aistudio.google.com → Get API Key
+2. 앱 설정 탭 → "Gemini API 키" 입력 → 저장
+3. 악보 탭 → 파일 열기 → "🤖 AI 자동 분석" 버튼
+
