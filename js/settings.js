@@ -65,26 +65,43 @@ export function render(panel) {
     </div>
 
     <div class="card">
-      <div class="section-label">☁️ 클라우드 동기화 (Firebase)</div>
-      <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 12px">
-        모든 기기에서 같은 악보를 공유하려면 Firebase 무료 프로젝트를 연결하세요.<br>
-        <strong>설정 방법:</strong><br>
-        1. <a href="https://console.firebase.google.com" target="_blank" style="color:var(--link)">Firebase Console</a> → 새 프로젝트 생성<br>
-        2. 프로젝트 설정 → 앱 추가(웹) → 아래 JSON 복사하여 붙여넣기<br>
-        3. Firestore Database 생성 (테스트 모드)<br>
-        4. Storage 생성 (테스트 모드)<br>
-        5. 동기화 키: 같은 키를 쓰는 기기끼리 데이터를 공유합니다
+      <div class="section-label">☁️ 클라우드 동기화 (Supabase)</div>
+      <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 4px">
+        모든 기기에서 같은 악보를 공유할 수 있습니다. <strong>무료</strong>이며 URL + Key 2개만 입력하면 됩니다.<br>
+        ⚠️ 무료 플랜은 1주일 미사용 시 일시정지 (접속하면 즉시 재개됨)
       </p>
-      <div class="label">Firebase 설정 JSON</div>
-      <textarea id="fb-config" rows="5" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'
-        style="font-size:0.75rem;font-family:monospace;resize:vertical">${fbCfgStr}</textarea>
-      <div class="label" style="margin-top:10px">동기화 키 (비밀번호처럼 사용 — 같은 키 = 같은 데이터)</div>
-      <input type="text" id="sync-key" placeholder="예: myband2024" value="${syncKey}" style="max-width:300px">
+      <details style="margin-bottom:12px">
+        <summary style="cursor:pointer;font-size:0.82rem;color:var(--link);padding:6px 0">📋 설정 방법 펼치기</summary>
+        <div style="font-size:0.8rem;line-height:1.9;padding:10px;background:var(--bg3);border-radius:var(--radius);margin-top:6px">
+          <strong>① <a href="https://supabase.com" target="_blank" style="color:var(--link)">supabase.com</a></strong> → 무료 가입 → New Project<br>
+          <strong>② Settings → API</strong> → Project URL과 anon public key 복사<br>
+          <strong>③ SQL Editor</strong> → 아래 SQL 복사 후 실행:<br>
+          <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.72rem;overflow-x:auto;margin:6px 0">create table if not exists gta_sheets (
+  id text primary key,
+  sync_key text not null,
+  title text, artist text, key text,
+  bpm text, tags jsonb default '[]',
+  folder text default '', type text,
+  file_url text, pages_urls jsonb default '[]',
+  created_at bigint, synced_at bigint
+);
+alter table gta_sheets enable row level security;
+create policy "allow_all" on gta_sheets
+  for all using (true) with check (true);</pre>
+          <strong>④ Storage</strong> → New bucket → 이름: <code>gta-sheets</code> → <strong>Public 체크</strong> → Create
+        </div>
+      </details>
+      <div class="label">Project URL</div>
+      <input type="text" id="sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co" value="${JSON.parse(localStorage.getItem('gta_supabase_cfg')||'{}').url||''}">
+      <div class="label" style="margin-top:8px">anon public key</div>
+      <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="${JSON.parse(localStorage.getItem('gta_supabase_cfg')||'{}').anonKey||''}" style="font-size:0.72rem">
+      <div class="label" style="margin-top:8px">동기화 키 (같은 키를 입력한 기기끼리 데이터 공유)</div>
+      <input type="text" id="sync-key" placeholder="예: myband2024" value="${syncKey}" style="max-width:260px">
       <div class="btn-row" style="margin-top:10px">
-        <button class="btn btn-primary" id="fb-save-btn">저장 및 연결 테스트</button>
-        <button class="btn btn-secondary" id="fb-clear-btn">연동 해제</button>
+        <button class="btn btn-primary" id="sb-save-btn">저장 및 연결 테스트</button>
+        <button class="btn btn-secondary" id="sb-clear-btn">연동 해제</button>
       </div>
-      <div id="fb-status" style="font-size:0.82rem;margin-top:8px;color:var(--text2)"></div>
+      <div id="sb-status" style="font-size:0.82rem;margin-top:8px;color:var(--text2)"></div>
     </div>
 
     <div class="card" style="border-color:var(--danger)">
@@ -125,28 +142,33 @@ export function render(panel) {
   panel.querySelector('#import-btn').addEventListener('click', () => panel.querySelector('#import-file').click());
   panel.querySelector('#import-file').addEventListener('change', e => importData(e.target.files[0]));
 
-  // Firebase 설정 저장 + 연결 테스트
-  panel.querySelector('#fb-save-btn').addEventListener('click', async () => {
-    const cfgStr = panel.querySelector('#fb-config').value.trim();
-    const key = panel.querySelector('#sync-key').value.trim();
-    const status = panel.querySelector('#fb-status');
-    if (!cfgStr || !key) { status.textContent = '⚠️ Firebase 설정과 동기화 키를 모두 입력해주세요.'; return; }
-    try { JSON.parse(cfgStr); } catch { status.textContent = '⚠️ 올바른 JSON 형식이 아닙니다.'; return; }
-    const { saveConfig, connect } = await import('./firebase-sync.js');
-    saveConfig(cfgStr);
-    const s = getSettings(); s.syncKey = key; saveSettings(s);
+  // Supabase 설정 저장 + 연결 테스트
+  panel.querySelector('#sb-save-btn').addEventListener('click', async () => {
+    const url = panel.querySelector('#sb-url').value.trim();
+    const anonKey = panel.querySelector('#sb-key').value.trim();
+    const syncKey = panel.querySelector('#sync-key').value.trim();
+    const status = panel.querySelector('#sb-status');
+    if (!url || !anonKey || !syncKey) {
+      status.textContent = '⚠️ URL, Key, 동기화 키를 모두 입력해주세요.'; return;
+    }
+    const { saveConfig, connect } = await import('./supabase-sync.js');
+    saveConfig(url, anonKey);
+    const s = getSettings(); s.syncKey = syncKey; saveSettings(s);
     status.textContent = '🔄 연결 중...';
     const res = await connect();
-    status.textContent = res.ok ? '✅ 연결 성공! 악보 탭에서 동기화 버튼을 사용하세요.' : `❌ 연결 실패: ${res.error}`;
+    status.textContent = res.ok
+      ? '✅ 연결 성공! 악보 탭 → ☁️ 동기화 버튼으로 다른 기기와 동기화하세요.'
+      : `❌ 연결 실패: ${res.error}`;
   });
 
-  panel.querySelector('#fb-clear-btn').addEventListener('click', () => {
-    if (!confirm('Firebase 연동을 해제하시겠습니까?')) return;
-    localStorage.removeItem('gta_firebase_cfg');
+  panel.querySelector('#sb-clear-btn').addEventListener('click', () => {
+    if (!confirm('Supabase 연동을 해제하시겠습니까?')) return;
+    localStorage.removeItem('gta_supabase_cfg');
     const s = getSettings(); delete s.syncKey; saveSettings(s);
-    panel.querySelector('#fb-config').value = '';
+    panel.querySelector('#sb-url').value = '';
+    panel.querySelector('#sb-key').value = '';
     panel.querySelector('#sync-key').value = '';
-    panel.querySelector('#fb-status').textContent = '연동이 해제되었습니다.';
+    panel.querySelector('#sb-status').textContent = '연동이 해제되었습니다.';
   });
 
   // 초기화

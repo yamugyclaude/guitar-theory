@@ -214,7 +214,7 @@ async function uploadSheet(panel) {
   const commonTags   = panel.querySelector('#meta-tags').value.split(',').map(t => t.trim()).filter(Boolean);
   const commonFolder = panel.querySelector('#meta-folder').value;
 
-  const { isReady, connect, pushSheet: fbPush } = await import('./firebase-sync.js');
+  const { isReady, connect, pushSheet: fbPush } = await import('./supabase-sync.js');
   let fbReady = isReady();
   if (!fbReady && localStorage.getItem('gta_firebase_cfg')) {
     const res = await connect();
@@ -436,7 +436,7 @@ async function openSheet(panel, id) {
     viewer.innerHTML = '';
     loadList(panel);
     // Firebase에서도 삭제
-    const { isReady, removeSheet: fbRemove } = await import('./firebase-sync.js');
+    const { isReady, removeSheet: fbRemove } = await import('./supabase-sync.js');
     if (isReady()) fbRemove(id).catch(() => {});
   });
 
@@ -630,7 +630,7 @@ async function syncFromCloud(panel) {
   syncBtn.textContent = '☁️ 연결 중...';
 
   try {
-    const { isReady, connect, pullAll, fetchBlob } = await import('./firebase-sync.js');
+    const { isReady, connect, pullAll, fetchBlob } = await import('./supabase-sync.js');
     let ready = isReady();
     if (!ready) {
       const res = await connect();
