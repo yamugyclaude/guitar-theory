@@ -686,7 +686,7 @@ async function syncFromCloud(panel) {
 
 // ===== AI 자동 분석 (Gemini Vision) =====
 async function runAiAnalysis(meta, record, viewer, panel) {
-  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js?v=4');
+  const { isConfigured, analyzeSheet } = await import('./gemini-analysis.js?v=5');
   if (!isConfigured()) {
     alert('⚙️ 설정 탭에서 Gemini API 키를 먼저 입력해주세요.\n(Google AI Studio에서 무료 발급)');
     return;

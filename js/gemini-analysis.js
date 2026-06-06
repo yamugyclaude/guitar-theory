@@ -1,4 +1,4 @@
-// Gemini Vision API 악보 분석 모듈
+// AI 악보 분석 모듈 (OpenRouter - 무료, 카드 불필요)
 // 키는 localStorage('gta_gemini_key')에만 저장 — 코드에 하드코딩 금지
 
 export function getApiKey() {
@@ -50,30 +50,35 @@ const ANALYSIS_PROMPT = `이 악보 이미지를 분석해서 아래 JSON 형식
 - 오선보라면 각 마디의 주요 코드를 추론해서 채워주세요
 - TAB 악보라면 프렛 위치로 코드를 분석해주세요`;
 
-// 메인 분석 함수
+// 메인 분석 함수 (OpenRouter API 사용)
 export async function analyzeSheet(imageBlob) {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error('Gemini API 키가 설정되지 않았습니다.');
+  if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');
 
   const mimeType = imageBlob.type || 'image/jpeg';
   const base64 = await blobToBase64(imageBlob);
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: ANALYSIS_PROMPT },
-            { inline_data: { mime_type: mimeType, data: base64 } }
-          ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
-      })
-    }
-  );
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://yamugyclaude.github.io/guitar-theory/',
+      'X-Title': 'Guitar Theory App'
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.0-flash-exp:free',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: ANALYSIS_PROMPT },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } }
+        ]
+      }],
+      temperature: 0.1,
+      max_tokens: 2048
+    })
+  });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
@@ -81,7 +86,7 @@ export async function analyzeSheet(imageBlob) {
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const text = data.choices?.[0]?.message?.content || '';
 
   // JSON 파싱 (```json ... ``` 래핑 제거 포함)
   const jsonStr = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();

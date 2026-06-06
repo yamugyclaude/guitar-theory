@@ -65,15 +65,17 @@ export function render(panel) {
     </div>
 
     <div class="card">
-      <div class="section-label">🤖 AI 악보 분석 (Gemini)</div>
+      <div class="section-label">🤖 AI 악보 분석</div>
       <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 12px">
         악보 이미지를 업로드하면 곡명·키·BPM·코드진행을 자동으로 분석합니다.<br>
-        <strong>무료</strong> — <a href="https://aistudio.google.com" target="_blank" style="color:var(--link)">Google AI Studio</a>에서 API 키 발급 (Google 계정 필요, 신용카드 불필요)<br>
-        하루 1,500회 무료 · 키는 이 기기에만 저장됩니다.
+        <strong>완전 무료 · 카드 불필요</strong> —
+        <a href="https://openrouter.ai" target="_blank" style="color:var(--link)">openrouter.ai</a>
+        회원가입 → Keys → Create Key → 복사<br>
+        키는 이 기기에만 저장됩니다.
       </p>
-      <div class="label">Gemini API Key</div>
+      <div class="label">OpenRouter API Key</div>
       <div style="display:flex;gap:8px">
-        <input type="password" id="gemini-key-input" placeholder="AIza..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
+        <input type="password" id="gemini-key-input" placeholder="sk-or-..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
         <button class="btn btn-secondary" id="gemini-toggle-btn" style="flex-shrink:0;font-size:0.75rem;padding:6px 10px">보기</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
@@ -183,7 +185,7 @@ create policy "allow_all" on gta_sheets
     localStorage.setItem('gta_gemini_key', key);
     geminiStatus.textContent = '🔄 테스트 중...';
     try {
-      const { analyzeSheet } = await import('./gemini-analysis.js?v=4');
+      const { analyzeSheet } = await import('./gemini-analysis.js?v=5');
       // 1×1 흰색 픽셀로 연결 테스트
       const testBlob = await fetch('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==').then(r=>r.blob());
       await analyzeSheet(testBlob);
