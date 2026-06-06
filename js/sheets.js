@@ -90,7 +90,6 @@ export async function render(panel) {
     <!-- 검색 + 목록 -->
     <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
       <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)" style="flex:1">
-      <button class="btn btn-secondary" id="select-mode-btn" style="font-size:0.75rem;padding:6px 10px;white-space:nowrap">☑ 선택</button>
     </div>
     <div id="sheet-list"></div>
     <div id="sheet-viewer"></div>
@@ -102,11 +101,6 @@ export async function render(panel) {
 
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
-  panel.querySelector('#select-mode-btn').addEventListener('click', () => {
-    // 목록의 선택 모드 진입 함수 호출 (filterList가 렌더 후 등록)
-    const evt = new CustomEvent('enter-batch-mode');
-    panel.querySelector('#sheet-list').dispatchEvent(evt);
-  });
   panel.querySelector('#new-folder-btn').addEventListener('click', () => {
     const name = prompt('새 폴더 이름:');
     if (!name?.trim()) return;
@@ -355,89 +349,78 @@ function filterList(panel, query) {
   }
 
   list.innerHTML = `
-    <div id="batch-toolbar" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);align-items:center;gap:8px;flex-wrap:wrap">
-      <span id="batch-count" style="font-size:0.85rem;color:var(--text2)">0장 선택됨</span>
-      <button class="btn btn-primary" id="batch-ai-btn" style="font-size:0.8rem">🤖 일괄 AI 분석</button>
-      <button class="btn btn-secondary" id="batch-cancel-btn" style="font-size:0.8rem">취소</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px">
+    <div style="display:flex;flex-direction:column;gap:2px">
       ${meta.map(m => `
-        <div class="card sheet-card" style="cursor:pointer;padding:10px;position:relative" data-id="${m.id}">
-          <label class="batch-chk-wrap" style="position:absolute;top:6px;left:6px;z-index:2;display:none;pointer-events:none">
-            <input type="checkbox" class="batch-chk" data-id="${m.id}" style="width:18px;height:18px;cursor:pointer;pointer-events:auto">
-          </label>
-          ${m.thumbnail
-            ? `<img src="${m.thumbnail}" style="width:100%;border-radius:4px;margin-bottom:6px;aspect-ratio:3/4;object-fit:cover">`
-            : `<div style="width:100%;aspect-ratio:3/4;background:var(--bg3);border-radius:4px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;font-size:2rem">${m.type==='pdf'?'📄':'🖼️'}</div>`
-          }
-          <div style="font-size:0.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.title}</div>
-          <div style="font-size:0.72rem;color:var(--text2)">${m.artist || ''}</div>
-          ${m.folder ? `<div style="font-size:0.68rem;color:var(--accent);margin-top:2px">📁 ${folderLabel(m.folder)}</div>` : ''}
-          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px">${(m.tags||[]).map(t=>`<span class="badge" style="font-size:0.65rem">${t}</span>`).join('')}</div>
+        <div class="sheet-item" data-id="${m.id}"
+          style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:background 0.12s">
+          <span style="font-size:1.2rem;flex-shrink:0">${m.type==='pdf'?'📄':'🖼️'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.title}</div>
+            <div style="font-size:0.72rem;color:var(--text2);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:1px">
+              ${m.artist ? `<span>${m.artist}</span>` : ''}
+              ${m.key ? `<span>🎵 ${m.key}</span>` : ''}
+              ${m.folder ? `<span style="color:var(--accent)">📁 ${folderLabel(m.folder)}</span>` : ''}
+              ${(m.tags||[]).map(t=>`<span class="badge" style="font-size:0.62rem">${t}</span>`).join('')}
+            </div>
+          </div>
+          <button class="sheet-del-btn btn btn-secondary" data-id="${m.id}"
+            style="flex-shrink:0;font-size:0.72rem;padding:4px 8px;color:var(--danger);opacity:0.7">🗑</button>
         </div>
       `).join('')}
     </div>
-    <div style="margin-top:10px;font-size:0.78rem;color:var(--text2)">💡 <strong>☑ 선택</strong> 버튼 또는 카드 길게 누르기로 선택 모드 진입</div>
   `;
 
-  let batchMode = false;
-  const toolbar = list.querySelector('#batch-toolbar');
-  const batchCount = list.querySelector('#batch-count');
+  // 호버 미리보기 팝업 (PC)
+  const preview = document.createElement('div');
+  preview.style.cssText = 'position:fixed;z-index:9990;pointer-events:none;display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:200px';
+  document.body.appendChild(preview);
 
-  function enterBatchMode() {
-    batchMode = true;
-    toolbar.style.display = 'flex';
-    list.querySelectorAll('.batch-chk-wrap').forEach(w => w.style.display = 'block');
-  }
-  function exitBatchMode() {
-    batchMode = false;
-    toolbar.style.display = 'none';
-    list.querySelectorAll('.batch-chk-wrap').forEach(w => w.style.display = 'none');
-    list.querySelectorAll('.batch-chk').forEach(c => c.checked = false);
-    batchCount.textContent = '0장 선택됨';
-  }
-  function updateBatchCount() {
-    const n = list.querySelectorAll('.batch-chk:checked').length;
-    batchCount.textContent = `${n}장 선택됨`;
-  }
-
-  list.querySelectorAll('.sheet-card').forEach(el => {
-    let pressTimer;
-    el.addEventListener('pointerdown', () => {
-      pressTimer = setTimeout(() => {
-        enterBatchMode();
-        el.querySelector('.batch-chk').checked = true;
-        updateBatchCount();
-      }, 600);
+  list.querySelectorAll('.sheet-item').forEach(el => {
+    el.addEventListener('mouseenter', e => {
+      const m = meta.find(x => x.id === el.dataset.id);
+      if (!m?.thumbnail) return;
+      preview.innerHTML = `<img src="${m.thumbnail}" style="width:180px;border-radius:4px;display:block">
+        <div style="font-size:0.75rem;font-weight:600;margin-top:5px;padding:0 2px">${m.title}</div>`;
+      preview.style.display = 'block';
     });
-    el.addEventListener('pointerup', () => clearTimeout(pressTimer));
-    el.addEventListener('pointerleave', () => clearTimeout(pressTimer));
+    el.addEventListener('mousemove', e => {
+      let left = e.clientX + 16, top = e.clientY - 20;
+      if (left + 210 > window.innerWidth) left = e.clientX - 210;
+      if (top + 260 > window.innerHeight) top = window.innerHeight - 270;
+      preview.style.left = left + 'px';
+      preview.style.top = top + 'px';
+    });
+    el.addEventListener('mouseleave', () => { preview.style.display = 'none'; });
+    el.addEventListener('mouseenter', () => { el.style.background = 'var(--bg2)'; });
+    el.addEventListener('mouseleave', () => { el.style.background = ''; preview.style.display = 'none'; });
     el.addEventListener('click', e => {
-      if (batchMode) {
-        const chk = el.querySelector('.batch-chk');
-        chk.checked = !chk.checked;
-        updateBatchCount();
-      } else {
-        openSheet(panel, el.dataset.id);
-      }
+      if (e.target.closest('.sheet-del-btn')) return;
+      openSheet(panel, el.dataset.id);
     });
   });
 
-  list.querySelectorAll('.batch-chk').forEach(chk => {
-    chk.addEventListener('click', e => e.stopPropagation());
-    chk.addEventListener('change', updateBatchCount);
+  // 삭제 버튼
+  list.querySelectorAll('.sheet-del-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const m = meta.find(x => x.id === id);
+      if (!confirm(`"${m?.title || id}" 을 삭제하시겠습니까?`)) return;
+      await deleteSheetItem(id, panel);
+    });
   });
 
-  // 외부(선택 버튼)에서 선택 모드 진입 가능하도록
-  list.addEventListener('enter-batch-mode', enterBatchMode);
+  // 패널 닫힐 때 preview 정리
+  const cleanupPreview = () => preview.remove();
+  panel.addEventListener('panel-hide', cleanupPreview, { once: true });
+}
 
-  list.querySelector('#batch-cancel-btn').addEventListener('click', exitBatchMode);
-  list.querySelector('#batch-ai-btn').addEventListener('click', async () => {
-    const ids = [...list.querySelectorAll('.batch-chk:checked')].map(c => c.dataset.id);
-    if (ids.length < 2) { alert('2장 이상 선택해주세요.'); return; }
-    exitBatchMode();
-    await runBatchAiAnalysis(ids, panel);
-  });
+async function deleteSheetItem(id, panel) {
+  await deleteSheet(id);
+  setMeta(getMeta().filter(m => m.id !== id));
+  loadList(panel);
+  const { isReady, removeSheet: fbRemove } = await import('./supabase-sync.js');
+  if (isReady()) fbRemove(id).catch(() => {});
 }
 
 async function openSheet(panel, id) {
