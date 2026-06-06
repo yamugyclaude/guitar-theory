@@ -557,7 +557,7 @@ function barCellHtml(sec, si, bi, barNum) {
     style="flex:1;min-width:0;background:var(--bg3);${borderLeft}${borderRight}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
     ${leftMarkHtml(lm)}
     ${rightMarkHtml(rm)}
-    ${barNum != null ? `<span style="position:absolute;top:2px;left:3px;font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
+    ${barNum != null ? `<span style="position:absolute;top:2px;${lm==='||:'?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
     <div class="bar-display" style="display:flex;flex:1;min-height:2.6em;align-items:stretch;pointer-events:none">${slotsHtml}</div>
     ${barMemo ? `<div class="bar-memo-display" style="font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none">${escHtml(barMemo)}</div>` : ''}
     <input class="bar-edit-input" data-si="${si}" data-bi="${bi}" value="${chord}"
@@ -640,28 +640,33 @@ function sectionRowsHtml(sec, si, barOffset) {
       }
     });
 
-    // ─── 위 기호 행 ───
-    const topRow = `<div style="display:flex;gap:3px;height:22px;align-items:stretch">
+    // ─── 위 기호 행 (층 구조: 위=세뇨/코다, 아래=볼타 괄호) ───
+    // 세뇨/코다 있는 마디가 있으면 topRow를 2층으로 (34px), 없으면 1층 (18px)
+    const hasSymIcon = idxs.some(bi => { const lm = bars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
+    const hasVolta   = idxs.some(bi => bars[bi].volta);
+    const topH = (hasSymIcon && hasVolta) ? 34 : (hasSymIcon || hasVolta) ? 22 : 14;
+    // 볼타 괄호 상단 위치: 세뇨/코다가 위층을 쓰면 아래로 밀림
+    const voltaTop = hasSymIcon ? 16 : 4;
+
+    const topRow = `<div style="display:flex;gap:3px;height:${topH}px;align-items:stretch">
       ${idxs.map((bi, pos) => {
         const b = bars[bi];
-        const isPickup = sec.pickup && bi === 0;
-        const barNum = barOffset + bi + 1;
         const lm = b.leftMark || '';
         const vs = voltaSpanMap[pos];
         let inner = '';
+        // 볼타 괄호 — 하단층
         if (vs) {
           const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
           const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
-          inner += `<div style="position:absolute;inset:6px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
-          if (vs.isFirst) inner += `<span style="position:absolute;top:7px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
+          inner += `<div style="position:absolute;top:${voltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
+          if (vs.isFirst) inner += `<span style="position:absolute;top:${voltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
-        // 세뇨/코다: 왼쪽 정위치
+        // 세뇨/코다 — 상단층 왼쪽
         if (lm === 'segno' || lm === 'coda') {
           const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-          inner += `<div style="position:absolute;top:50%;left:2px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
+          inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 14)}</div>`;
         }
-        // 번호는 셀 안으로 이동 — topRow에서는 표시 안 함
-        return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
+        return `<div style="flex:1;min-width:0;position:relative;height:${topH}px">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
@@ -673,7 +678,13 @@ function sectionRowsHtml(sec, si, barOffset) {
     </div>`;
 
     // ─── 아래 기호 행 ───
-    const botRow = `<div style="display:flex;gap:3px;height:16px;align-items:flex-start">
+    // botRow 높이: bottomMark + expr 둘 다 있으면 2줄
+    const hasBothBot = idxs.some(bi => {
+      const b = bars[bi]; const rm = b.rightMark||'';
+      return (rm && rm!==':||' && rm!==':||:') && b.expr;
+    });
+    const botH = hasBothBot ? 28 : 16;
+    const botRow = `<div style="display:flex;gap:3px;min-height:${botH}px;align-items:flex-start">
       ${idxs.map(bi => {
         const b = bars[bi];
         const rm = b.rightMark || '';
@@ -681,9 +692,9 @@ function sectionRowsHtml(sec, si, barOffset) {
         const bottomMark = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
         const color = RIGHT_MARK_OPTIONS.find(o => o.value === bottomMark)?.color || 'var(--accent)';
         let inner = '';
-        if (bottomMark) inner += `<span style="position:absolute;top:1px;right:4px;font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1">${bottomMark}</span>`;
-        if (expr)       inner += `<span style="position:absolute;top:1px;left:4px;font-size:0.6rem;font-style:italic;color:#aaa;line-height:1">${expr}</span>`;
-        return `<div style="flex:1;min-width:0;position:relative;height:16px">${inner}</div>`;
+        if (bottomMark) inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${bottomMark}</div>`;
+        if (expr)       inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${expr}</div>`;
+        return `<div style="flex:1;min-width:0;overflow:hidden">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
@@ -1052,27 +1063,29 @@ export function buildChartHtml(draft, opts = {}) {
         for (let p = vs.start; p <= vs.end; p++) vsMap[p] = { isFirst: p===vs.start, isLast: p===vs.end, label: vs.label };
       });
 
-      // 위 기호 행
-      const topRow = `<div style="display:flex;gap:3px;height:22px;align-items:stretch">
+      // 위 기호 행 — 세뇨/코다와 볼타가 겹치면 2층으로
+      const rHasSymIcon = rowIdxs.some(bi => { const lm=allBars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
+      const rHasVolta   = rowIdxs.some(bi => allBars[bi].volta);
+      const rTopH = (rHasSymIcon && rHasVolta) ? 34 : (rHasSymIcon || rHasVolta) ? 22 : 14;
+      const rVoltaTop = rHasSymIcon ? 16 : 4;
+
+      const topRow = `<div style="display:flex;gap:3px;height:${rTopH}px;align-items:stretch">
         ${rowIdxs.map((bi, pos) => {
           const b = allBars[bi];
-          const barNum = startNum + bi;
-          const isPickup = sec.pickup && bi === 0;
           const lm = b.leftMark || '';
           const vs = vsMap[pos];
           let inner = '';
           if (vs) {
             const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
             const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
-            inner += `<div style="position:absolute;inset:6px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0"></div>`;
-            if (vs.isFirst) inner += `<span style="position:absolute;top:7px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
+            inner += `<div style="position:absolute;top:${rVoltaTop}px;left:0;right:0;bottom:0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0"></div>`;
+            if (vs.isFirst) inner += `<span style="position:absolute;top:${rVoltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
           }
           if (lm === 'segno' || lm === 'coda') {
             const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-            inner += `<div style="position:absolute;top:50%;left:2px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
+            inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 14)}</div>`;
           }
-          // 번호는 셀 안으로 이동
-          return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
+          return `<div style="flex:1;min-width:0;position:relative;height:${rTopH}px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
 
@@ -1099,7 +1112,7 @@ export function buildChartHtml(draft, opts = {}) {
           const bMemo = b.memo || '';
           return `<div style="flex:1;min-width:0;background:var(--bg3);${borderL}${borderR}border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
             ${leftMarkHtml(lm)}${rightMarkHtml(rm)}
-            ${showNums ? `<span style="position:absolute;top:2px;left:3px;font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
+            ${showNums ? `<span style="position:absolute;top:2px;${lm==='||:'?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
             <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch">${slotsHtml}</div>
             ${bMemo ? `<div style="font-size:0.62rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3">${escHtml(bMemo)}</div>` : ''}
           </div>`;
@@ -1108,7 +1121,7 @@ export function buildChartHtml(draft, opts = {}) {
       </div>`;
 
       // 아래 기호 행
-      const botRow = `<div style="display:flex;gap:3px;height:16px;align-items:flex-start">
+      const botRow = `<div style="display:flex;gap:3px;align-items:flex-start">
         ${rowIdxs.map(bi => {
           const b = allBars[bi];
           const rm = b.rightMark || '';
@@ -1116,9 +1129,9 @@ export function buildChartHtml(draft, opts = {}) {
           const bm = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
           const color = RIGHT_MARK_OPTIONS.find(o => o.value === bm)?.color || 'var(--accent)';
           let inner = '';
-          if (bm) inner += `<span style="position:absolute;top:1px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${color};line-height:1">${bm}</span>`;
-          if (ex) inner += `<span style="position:absolute;top:1px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${ex}</span>`;
-          return `<div style="flex:1;min-width:0;position:relative;height:16px">${inner}</div>`;
+          if (bm) inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${bm}</div>`;
+          if (ex) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${ex}</div>`;
+          return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
 
