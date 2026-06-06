@@ -651,6 +651,9 @@ function barMarkToolbarHtml(si, bi, bar) {
 
   return `<div class="bar-mark-toolbar" data-si="${si}" data-bi="${bi}"
     style="position:absolute;left:0;top:calc(100% + 4px);z-index:20;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,0.45);min-width:320px;width:max-content;max-width:420px">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+      <button class="bar-toolbar-close" style="background:none;border:none;color:var(--text2);font-size:1rem;cursor:pointer;padding:0 2px;line-height:1;opacity:0.6">✕</button>
+    </div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">← 왼쪽 (복수 선택 가능)</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${rsBtn}${lmBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">→ 오른쪽 반복</div>
@@ -913,6 +916,13 @@ function renderSections(ed, draft) {
     const toolbarEl = toolbar.firstElementChild;
     cell.style.position = 'relative';
     cell.appendChild(toolbarEl);
+
+    // 닫기 버튼
+    const closeBtn = toolbarEl.querySelector('.bar-toolbar-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('mousedown', e => e.preventDefault());
+      closeBtn.addEventListener('click', () => { renderSections(ed, draft); });
+    }
 
     // 기호 버튼 — mousedown으로 blur 방지, click으로 토글
     toolbarEl.querySelectorAll('.bar-mark-btn').forEach(btn => {
