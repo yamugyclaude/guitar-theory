@@ -640,7 +640,7 @@ function sectionRowsHtml(sec, si, barOffset) {
     });
 
     // ─── 위 기호 행 ───
-    const topRow = `<div style="display:flex;gap:3px;height:20px;align-items:flex-end">
+    const topRow = `<div style="display:flex;gap:3px;height:22px;align-items:stretch">
       ${idxs.map((bi, pos) => {
         const b = bars[bi];
         const isPickup = sec.pickup && bi === 0;
@@ -651,16 +651,17 @@ function sectionRowsHtml(sec, si, barOffset) {
         if (vs) {
           const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
           const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
-          inner += `<div style="position:absolute;inset:4px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
-          if (vs.isFirst) inner += `<span style="position:absolute;top:5px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
+          inner += `<div style="position:absolute;inset:6px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
+          if (vs.isFirst) inner += `<span style="position:absolute;top:7px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
+        // 세뇨/코다: 셀 우측에 아이콘, 번호와 겹치지 않게
         if (lm === 'segno' || lm === 'coda') {
           const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-          inner += `<div style="position:absolute;top:1px;left:50%;transform:translateX(-50%)">${markIconHtml(lm, lmColor, 14)}</div>`;
+          inner += `<div style="position:absolute;top:50%;right:3px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
         }
         const numColor = isPickup ? '#888' : 'var(--text2)';
-        inner += `<span style="position:absolute;bottom:2px;left:4px;font-size:0.52rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
-        return `<div style="flex:1;min-width:0;position:relative;height:20px">${inner}</div>`;
+        inner += `<span style="position:absolute;bottom:2px;left:3px;font-size:0.52rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
+        return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
@@ -1052,7 +1053,7 @@ export function buildChartHtml(draft, opts = {}) {
       });
 
       // 위 기호 행
-      const topRow = `<div style="display:flex;gap:3px;height:20px;align-items:flex-end">
+      const topRow = `<div style="display:flex;gap:3px;height:22px;align-items:stretch">
         ${rowIdxs.map((bi, pos) => {
           const b = allBars[bi];
           const barNum = startNum + bi;
@@ -1063,12 +1064,15 @@ export function buildChartHtml(draft, opts = {}) {
           if (vs) {
             const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
             const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
-            inner += `<div style="position:absolute;inset:4px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0"></div>`;
-            if (vs.isFirst) inner += `<span style="position:absolute;top:5px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
+            inner += `<div style="position:absolute;inset:6px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0"></div>`;
+            if (vs.isFirst) inner += `<span style="position:absolute;top:7px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
           }
-          if (lm === '𝄋' || lm === '𝄌') inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.9rem;line-height:1">${lm}</span>`;
-          if (showNums) inner += `<span style="position:absolute;bottom:2px;left:4px;font-size:0.52rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
-          return `<div style="flex:1;min-width:0;position:relative;height:20px">${inner}</div>`;
+          if (lm === 'segno' || lm === 'coda') {
+            const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
+            inner += `<div style="position:absolute;top:50%;right:3px;transform:translateY(-50%)">${markIconHtml(lm, lmColor, 16)}</div>`;
+          }
+          if (showNums) inner += `<span style="position:absolute;bottom:2px;left:3px;font-size:0.52rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
+          return `<div style="flex:1;min-width:0;position:relative;height:22px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
 
