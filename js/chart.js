@@ -1060,6 +1060,10 @@ function renderSections(ed, draft) {
       // 이미 입력 중인 input 있으면 무시
       if (slotDiv.querySelector('.slot-input')) return;
 
+      // 툴바도 함께 열기
+      const cell = slotDiv.closest('.bar-cell');
+      if (cell) openBarCell(cell);
+
       const bar = draft.sections[si].bars[bi];
       normalizeBar(bar);
       const currentVal = Array.isArray(bar.chords) ? (bar.chords[slotIdx] || '') : '';
