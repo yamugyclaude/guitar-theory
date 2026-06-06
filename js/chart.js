@@ -570,6 +570,7 @@ function barMarkToolbarHtml(si, bi, bar) {
 function sectionRowsHtml(sec, si, barOffset) {
   const bpr = sec.barsPerRow || 4;
   const bars = sec.bars;
+  const rowMemos = sec.rowMemos || {};
   const rowGroups = [];
   const start = sec.pickup && bars.length > 0 ? 1 : 0;
   if (sec.pickup && bars.length > 0) rowGroups.push([0]);
@@ -577,41 +578,66 @@ function sectionRowsHtml(sec, si, barOffset) {
     rowGroups.push(Array.from({ length: Math.min(bpr, bars.length - i) }, (_, k) => i + k));
   }
 
-  return rowGroups.map(idxs => {
+  return rowGroups.map((idxs, rowIdx) => {
     const missing = bpr - idxs.length;
     const spacerUnit = `<div style="flex:1;min-width:0"></div>`;
     const spacers = missing > 0 ? Array(missing).fill(spacerUnit).join('') : '';
 
-    // ─── 위 기호 행 (마디 번호 + 볼타 괄호 + 왼쪽 기호) ───
-    const topRow = `<div style="display:flex;gap:3px;height:18px;align-items:flex-end">
-      ${idxs.map(bi => {
+    // ─── 볼타 그룹 계산: 연속된 같은 volta 값 → 첫 마디만 border-left, 전체 border-top ───
+    // volta가 있는 연속 구간을 찾아 span 처리
+    const voltaSpans = []; // { start, end, label }
+    let vStart = null, vLabel = null;
+    idxs.forEach((bi, pos) => {
+      const v = bars[bi].volta || '';
+      if (v && v !== vLabel) {
+        if (vStart !== null) voltaSpans.push({ start: vStart, end: pos - 1, label: vLabel });
+        vStart = pos; vLabel = v;
+      } else if (!v && vStart !== null) {
+        voltaSpans.push({ start: vStart, end: pos - 1, label: vLabel });
+        vStart = null; vLabel = null;
+      }
+    });
+    if (vStart !== null) voltaSpans.push({ start: vStart, end: idxs.length - 1, label: vLabel });
+    // pos→span 매핑
+    const voltaSpanMap = {}; // pos → { isFirst, isLast, label }
+    voltaSpans.forEach(vs => {
+      for (let p = vs.start; p <= vs.end; p++) {
+        voltaSpanMap[p] = { isFirst: p === vs.start, isLast: p === vs.end, label: vs.label };
+      }
+    });
+
+    // ─── 위 기호 행 ───
+    const topRow = `<div style="display:flex;gap:3px;height:20px;align-items:flex-end">
+      ${idxs.map((bi, pos) => {
         const b = bars[bi];
         const isPickup = sec.pickup && bi === 0;
         const barNum = barOffset + bi + 1;
-        const volta = b.volta || '';
         const lm = b.leftMark || '';
+        const vs = voltaSpanMap[pos];
         let inner = '';
-        if (volta) {
-          inner += `<div style="position:absolute;inset:0 0 0 0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0;pointer-events:none"></div>
-            <span style="position:absolute;top:1px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${volta}</span>`;
+        if (vs) {
+          const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
+          const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
+          inner += `<div style="position:absolute;inset:4px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0;pointer-events:none"></div>`;
+          if (vs.isFirst) inner += `<span style="position:absolute;top:5px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
         }
         if (lm === '𝄋' || lm === '𝄌') {
-          inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.85rem;line-height:1">${lm}</span>`;
+          inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.9rem;line-height:1">${lm}</span>`;
         }
-        const numColor = isPickup ? '#aaa' : 'var(--text2)';
-        inner += `<span style="position:absolute;bottom:1px;left:4px;font-size:0.5rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
-        return `<div style="flex:1;min-width:0;position:relative;height:18px">${inner}</div>`;
+        const numColor = isPickup ? '#888' : 'var(--text2)';
+        inner += `<span style="position:absolute;bottom:2px;left:4px;font-size:0.52rem;color:${numColor};line-height:1">${isPickup?'↑':barNum}</span>`;
+        return `<div style="flex:1;min-width:0;position:relative;height:20px">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
 
-    // ─── 마디 셀 행 (코드 슬롯만, 항상 동일 크기) ───
+    // ─── 마디 셀 행 ───
     const cellRow = `<div style="display:flex;gap:3px">
       ${idxs.map(bi => barCellHtml(sec, si, bi)).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.6em"></div>`).join('') : ''}
     </div>`;
 
-    // ─── 아래 기호 행 (Fine / D.C. / expr 등) ───
+    // ─── 아래 기호 행 ───
     const botRow = `<div style="display:flex;gap:3px;height:16px;align-items:flex-start">
       ${idxs.map(bi => {
         const b = bars[bi];
@@ -620,15 +646,31 @@ function sectionRowsHtml(sec, si, barOffset) {
         const bottomMark = (rm && rm !== ':||' && rm !== ':||:') ? rm : '';
         const color = RIGHT_MARK_OPTIONS.find(o => o.value === bottomMark)?.color || 'var(--accent)';
         let inner = '';
-        if (bottomMark) inner += `<span style="position:absolute;top:1px;right:4px;font-size:0.6rem;font-weight:700;font-style:italic;color:${color};line-height:1">${bottomMark}</span>`;
-        if (expr)       inner += `<span style="position:absolute;top:1px;left:4px;font-size:0.58rem;font-style:italic;color:#aaa;line-height:1">${expr}</span>`;
+        if (bottomMark) inner += `<span style="position:absolute;top:1px;right:4px;font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1">${bottomMark}</span>`;
+        if (expr)       inner += `<span style="position:absolute;top:1px;left:4px;font-size:0.6rem;font-style:italic;color:#aaa;line-height:1">${expr}</span>`;
         return `<div style="flex:1;min-width:0;position:relative;height:16px">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
 
-    return `<div style="margin-bottom:12px">${topRow}${cellRow}${botRow}</div>`;
+    // ─── 행 사이 메모 ───
+    const memo = rowMemos[rowIdx] || '';
+    const memoRow = `<div class="row-memo-wrap" data-si="${si}" data-row="${rowIdx}"
+      style="display:flex;align-items:center;gap:4px;min-height:${memo?'auto':'16px'};padding:${memo?'3px':'1px'} 0;cursor:text;border-radius:3px;transition:background 0.15s"
+      title="메모 클릭하여 편집">
+      <span style="font-size:0.6rem;color:var(--text2);opacity:0.4;flex-shrink:0">✎</span>
+      <div class="row-memo-display" style="flex:1;font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;min-height:14px;word-break:break-all">${memo ? escHtml(memo) : '<span style="opacity:0.25">메모...</span>'}</div>
+      <textarea class="row-memo-input" data-si="${si}" data-row="${rowIdx}"
+        placeholder="메모, 가사, 운지법 등..."
+        style="display:none;flex:1;font-size:0.72rem;color:var(--text);background:var(--bg2);border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box">${memo ? escHtml(memo) : ''}</textarea>
+    </div>`;
+
+    return `<div style="margin-bottom:4px">${topRow}${cellRow}${botRow}${memoRow}</div>`;
   }).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderSections(ed, draft) {
@@ -822,6 +864,42 @@ function renderSections(ed, draft) {
     });
   });
 
+  // ─── 행 메모 이벤트 ───
+  area.querySelectorAll('.row-memo-wrap').forEach(wrap => {
+    const si = +wrap.dataset.si;
+    const rowIdx = +wrap.dataset.row;
+    const disp = wrap.querySelector('.row-memo-display');
+    const ta = wrap.querySelector('.row-memo-input');
+
+    wrap.addEventListener('click', () => {
+      if (ta.style.display === 'block') return;
+      disp.style.display = 'none';
+      ta.style.display = 'block';
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
+
+    ta.addEventListener('input', () => {
+      if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
+      draft.sections[si].rowMemos[rowIdx] = ta.value;
+    });
+
+    ta.addEventListener('blur', () => {
+      if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
+      draft.sections[si].rowMemos[rowIdx] = ta.value;
+      // 표시 모드로 전환
+      disp.style.display = 'block';
+      ta.style.display = 'none';
+      disp.innerHTML = ta.value
+        ? escHtml(ta.value).replace(/\n/g, '<br>')
+        : '<span style="opacity:0.25">메모...</span>';
+    });
+
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { ta.blur(); }
+    });
+  });
+
   // 마디 추가/삭제
   area.querySelectorAll('.add-bar-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -888,24 +966,49 @@ export function buildChartHtml(draft, opts = {}) {
       rowGroups.push(Array.from({ length: Math.min(bpr, allBars.length - i) }, (_, k) => i + k));
     }
 
-    const rowsHtml = rowGroups.map(rowIdxs => {
+    const rowMemos = sec.rowMemos || {};
+    const rowsHtml = rowGroups.map((rowIdxs, rowIdx) => {
       const missing = bpr - rowIdxs.length;
       const spacerU = `<div style="flex:1;min-width:0"></div>`;
       const spacers = missing > 0 ? Array(missing).fill(spacerU).join('') : '';
 
+      // 볼타 span 계산
+      const voltaSpans = [];
+      let vStart2 = null, vLabel2 = null;
+      rowIdxs.forEach((bi, pos) => {
+        const v = allBars[bi].volta || '';
+        if (v && v !== vLabel2) {
+          if (vStart2 !== null) voltaSpans.push({ start: vStart2, end: pos-1, label: vLabel2 });
+          vStart2 = pos; vLabel2 = v;
+        } else if (!v && vStart2 !== null) {
+          voltaSpans.push({ start: vStart2, end: pos-1, label: vLabel2 });
+          vStart2 = null; vLabel2 = null;
+        }
+      });
+      if (vStart2 !== null) voltaSpans.push({ start: vStart2, end: rowIdxs.length-1, label: vLabel2 });
+      const vsMap = {};
+      voltaSpans.forEach(vs => {
+        for (let p = vs.start; p <= vs.end; p++) vsMap[p] = { isFirst: p===vs.start, isLast: p===vs.end, label: vs.label };
+      });
+
       // 위 기호 행
-      const topRow = `<div style="display:flex;gap:3px;height:18px;align-items:flex-end">
-        ${rowIdxs.map(bi => {
+      const topRow = `<div style="display:flex;gap:3px;height:20px;align-items:flex-end">
+        ${rowIdxs.map((bi, pos) => {
           const b = allBars[bi];
           const barNum = startNum + bi;
           const isPickup = sec.pickup && bi === 0;
-          const vt = b.volta || '';
           const lm = b.leftMark || '';
+          const vs = vsMap[pos];
           let inner = '';
-          if (vt) inner += `<div style="position:absolute;inset:0;border-left:2px solid #80c8a0;border-top:2px solid #80c8a0;border-radius:3px 0 0 0"></div><span style="position:absolute;top:1px;left:4px;font-size:0.62rem;font-weight:700;color:#80c8a0;line-height:1">${vt}</span>`;
-          if (lm === '𝄋' || lm === '𝄌') inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.85rem;line-height:1">${lm}</span>`;
-          if (showNums) inner += `<span style="position:absolute;bottom:1px;left:4px;font-size:0.5rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
-          return `<div style="flex:1;min-width:0;position:relative;height:18px">${inner}</div>`;
+          if (vs) {
+            const bl = vs.isFirst ? 'border-left:2px solid #80c8a0;' : '';
+            const br = vs.isLast  ? 'border-right:2px solid #80c8a0;' : '';
+            inner += `<div style="position:absolute;inset:4px 0 0 0;${bl}${br}border-top:2px solid #80c8a0;border-radius:${vs.isFirst?'3px':0} ${vs.isLast?'3px':0} 0 0"></div>`;
+            if (vs.isFirst) inner += `<span style="position:absolute;top:5px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
+          }
+          if (lm === '𝄋' || lm === '𝄌') inner += `<span style="position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:0.9rem;line-height:1">${lm}</span>`;
+          if (showNums) inner += `<span style="position:absolute;bottom:2px;left:4px;font-size:0.52rem;color:var(--text2);line-height:1">${isPickup?'↑':barNum}</span>`;
+          return `<div style="flex:1;min-width:0;position:relative;height:20px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
 
@@ -952,7 +1055,13 @@ export function buildChartHtml(draft, opts = {}) {
         }).join('')}${spacers}
       </div>`;
 
-      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}</div>`;
+      // 메모 (읽기 전용)
+      const memo = rowMemos[rowIdx] || '';
+      const memoHtmlRow = memo
+        ? `<div style="font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 4px;white-space:pre-wrap;line-height:1.3">${escHtml(memo)}</div>`
+        : '';
+
+      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}${memoHtmlRow}</div>`;
     }).join('');
 
     // 앞 기호
