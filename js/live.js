@@ -161,7 +161,7 @@ async function renderContent(container, record, startPage, ppv) {
 }
 
 function renderChartInContainer(container, draft) {
-  container.innerHTML = buildChartHtml(draft, { fontSize: '1rem' });
+  container.innerHTML = buildChartHtml(draft, { fontSize: '1rem', showBarNumbers: true });
 }
 
 function renderChartView(container, draft) {
