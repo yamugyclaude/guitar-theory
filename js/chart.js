@@ -1093,7 +1093,7 @@ export function buildChartHtml(draft, opts = {}) {
   const showNums = opts.showBarNumbers !== false;
   let globalBarCount = 0; // 전체 마디 번호 누적
 
-  const sections = (draft.sections || []).map(sec => {
+  const sections = (draft.sections || []).map((sec, si) => {
     const bpr = sec.barsPerRow || draft.defaultBarsPerRow || 4;
     const allBars = sec.bars || [];
     if (!allBars.length && !sec.type) return '';
