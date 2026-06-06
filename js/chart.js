@@ -526,78 +526,60 @@ function renderSections(ed, draft) {
     });
   });
 
-  // 마디 셀 클릭 → 편집 인풋 표시
+  // ── 마디 셀 인라인 편집 ──────────────────────────────────────────
+  // 셀 클릭 → 인풋 열기
   area.querySelectorAll('.bar-cell').forEach(cell => {
-    cell.addEventListener('click', () => {
-      const inp = cell.querySelector('.bar-edit-input');
-      const disp = cell.querySelector('.bar-display');
-      if (inp.style.display !== 'none') return;
-      inp.style.display = 'block';
-      disp.style.display = 'none';
-      inp.focus();
-      inp.select();
-    });
+    cell.addEventListener('click', () => openBarCell(cell));
   });
 
-  // 마디 편집 인풋 이벤트
-  area.querySelectorAll('.bar-edit-input').forEach(inp => {
-    const si = +inp.dataset.si, bi = +inp.dataset.bi;
+  function openBarCell(cell) {
+    // 이미 편집 중인 다른 셀이 있으면 먼저 닫기 (blur가 처리)
+    const inp = cell.querySelector('.bar-edit-input');
+    const disp = cell.querySelector('.bar-display');
+    if (!inp || inp.style.display === 'block') return;
+    inp.style.display = 'block';
+    disp.style.visibility = 'hidden'; // 자리 유지하면서 숨김
+    inp.focus();
+    inp.select();
+  }
 
-    // 입력 중 실시간으로 슬롯 갱신
+  area.querySelectorAll('.bar-edit-input').forEach(inp => {
+    const si = +inp.dataset.si;
+    const bi = +inp.dataset.bi;
+
+    // 타이핑 중 draft 동기화
     inp.addEventListener('input', () => {
       draft.sections[si].bars[bi].chords = inp.value;
     });
 
-    // 포커스 잃을 때 → 표시 모드로 전환, 슬롯 업데이트
-    const commitAndHide = () => {
+    // blur → 전체 재렌더 (슬롯 업데이트 포함)
+    inp.addEventListener('blur', () => {
       draft.sections[si].bars[bi].chords = inp.value;
-      // 해당 셀만 슬롯 재렌더
-      const cell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${bi}"]`);
-      if (cell) {
-        let off = 0;
-        for (let i = 0; i < si; i++) off += draft.sections[i].bars.length;
-        const newCell = document.createElement('div');
-        newCell.innerHTML = barCellHtml(draft.sections[si], si, bi, off + bi + 1);
-        const replacement = newCell.firstElementChild;
-        cell.replaceWith(replacement);
-        // 새 셀에도 이벤트 등록
-        replacement.addEventListener('click', () => {
-          const ni = replacement.querySelector('.bar-edit-input');
-          const nd = replacement.querySelector('.bar-display');
-          if (ni.style.display !== 'none') return;
-          ni.style.display = 'block'; nd.style.display = 'none';
-          ni.focus(); ni.select();
-        });
-        replacement.querySelector('.bar-edit-input').addEventListener('input', () => {
-          draft.sections[si].bars[bi].chords = replacement.querySelector('.bar-edit-input').value;
-        });
-        replacement.querySelector('.bar-edit-input').addEventListener('blur', commitAndHide);
-        replacement.querySelector('.bar-edit-input').addEventListener('keydown', handleKey);
-      }
-    };
+      renderSections(ed, draft);
+    });
 
-    const handleKey = e => {
-      if (e.key === 'Escape') { inp.value = draft.sections[si].bars[bi].chords; inp.blur(); return; }
-      if (e.key === 'Enter' || e.key === 'Tab') {
+    // 키보드 네비게이션
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        inp.value = draft.sections[si].bars[bi].chords; // 원래값 복원
+        inp.blur();
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
         e.preventDefault();
-        inp.blur(); // commit 먼저
-        // 다음 셀로 이동
-        const nextBi = bi + 1;
-        const nextCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${nextBi}"]`);
-        if (nextCell) {
-          nextCell.click();
-        } else if (e.key === 'Enter') {
-          // 마지막 셀 Enter → 마디 추가
+        draft.sections[si].bars[bi].chords = inp.value; // 먼저 저장
+        const nextSi = si, nextBi = bi + 1;
+        const isLast = nextBi >= draft.sections[si].bars.length;
+        if (isLast && e.key === 'Enter') {
+          // 마지막 셀 Enter → 마디 추가 후 이동
           draft.sections[si].bars.push({ chords: '' });
-          renderSections(ed, draft);
-          const newCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${nextBi}"]`);
-          if (newCell) newCell.click();
         }
+        // blur 없이 재렌더 후 다음 셀 열기
+        renderSections(ed, draft);
+        const nextCell = area.querySelector(`.bar-cell[data-si="${nextSi}"][data-bi="${nextBi}"]`);
+        if (nextCell) openBarCell(nextCell);
       }
-    };
-
-    inp.addEventListener('blur', commitAndHide);
-    inp.addEventListener('keydown', handleKey);
+    });
   });
 
   // 마디 추가/삭제
@@ -628,12 +610,14 @@ function renderSections(ed, draft) {
   area.querySelectorAll('.memo-input').forEach(inp => inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].memo = inp.value; }));
 
   // 마디/행 변경
-  function setBpr(si, val) {
-    draft.sections[si].barsPerRow = val;
+  area.querySelectorAll('.sec-bpr-btn').forEach(btn => btn.addEventListener('click', () => {
+    draft.sections[+btn.dataset.si].barsPerRow = +btn.dataset.val;
     renderSections(ed, draft);
-  }
-  area.querySelectorAll('.sec-bpr-btn').forEach(btn => btn.addEventListener('click', () => setBpr(+btn.dataset.si, +btn.dataset.val)));
-  area.querySelectorAll('.inp-bpr').forEach(inp => inp.addEventListener('input', () => setBpr(+inp.dataset.si, Math.max(1, Math.min(16, +inp.value || 4)))));
+  }));
+  area.querySelectorAll('.inp-bpr').forEach(inp => inp.addEventListener('input', () => {
+    draft.sections[+inp.dataset.si].barsPerRow = Math.max(1, Math.min(16, +inp.value || 4));
+    renderSections(ed, draft);
+  }));
 }
 
 // (구버전 호환용 stub — 더 이상 사용하지 않음)
