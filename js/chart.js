@@ -122,9 +122,12 @@ function renderEditor(panel, draft) {
   ed.querySelector('#add-section-btn').addEventListener('click', () => {
     const name = secNameInput.value.trim() || 'Section';
     syncDraft();
+    const bpr = draft.defaultBarsPerRow || 4;
     draft.sections.push({
-      type: name, bars: [{ chords: '' }], memo: '',
-      barsPerRow: draft.defaultBarsPerRow || 4,
+      type: name,
+      bars: Array.from({ length: bpr }, () => ({ chords: '' })),
+      memo: '',
+      barsPerRow: bpr,
       pickup: false, repeatStart: false, repeatEnd: false,
       startMark: '', endMark: ''
     });
@@ -227,12 +230,26 @@ function renderSections(ed, draft) {
           title="커스텀 마디/행">
       </div>
 
-      <!-- 코드 입력 -->
-      <div class="label">마디별 코드 <span style="font-size:0.75rem;color:var(--text2)">(쉼표 구분 · 한 마디 안에 여러 코드는 공백으로: "Am G")</span></div>
-      <input type="text" class="bar-input" data-si="${si}"
-        value="${sec.bars.map(b=>b.chords).join(', ')}"
-        placeholder="예: Am7, D7, Gmaj7, Em · 또는 Am7 D7, Gmaj7, Em (한 마디 2코드)">
-      <div class="label" style="margin-top:8px">메모 / 연주 지시어</div>
+      <!-- 마디 그리드 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px">
+        <div class="label" style="margin:0">마디 그리드 <span style="font-size:0.72rem;color:var(--text2)">(셀 클릭 → 코드 입력 · 한 마디 2코드: "Am G")</span></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-secondary add-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">+ 마디</button>
+          <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px">− 마디</button>
+          <button class="btn btn-secondary clear-bars-btn" data-si="${si}" style="font-size:0.72rem;padding:3px 8px;color:var(--danger)">비우기</button>
+        </div>
+      </div>
+      <div class="bar-grid" data-si="${si}" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+        ${sec.bars.map((b, bi) => `
+          <input type="text" class="bar-cell-input"
+            data-si="${si}" data-bi="${bi}"
+            value="${b.chords}"
+            placeholder="${bi+1}"
+            style="width:58px;min-width:58px;text-align:center;font-weight:700;font-size:0.82rem;padding:6px 4px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;"
+          >
+        `).join('')}
+      </div>
+      <div class="label" style="margin-top:4px">메모 / 연주 지시어</div>
       <input type="text" class="memo-input" data-si="${si}" value="${sec.memo}" placeholder="예: 카포 2, 느리게, 8비트...">
     </div>
   `}).join('');
@@ -241,10 +258,55 @@ function renderSections(ed, draft) {
   area.querySelectorAll('.sec-type-input').forEach(inp => {
     inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; renderPreview(ed, draft); });
   });
-  area.querySelectorAll('.bar-input').forEach(inp => {
+  // 마디 셀 입력
+  area.querySelectorAll('.bar-cell-input').forEach(inp => {
     inp.addEventListener('input', () => {
-      draft.sections[+inp.dataset.si].bars = inp.value.split(',').map(s => ({ chords: s.trim() }));
+      draft.sections[+inp.dataset.si].bars[+inp.dataset.bi] = { chords: inp.value };
       renderPreview(ed, draft);
+    });
+    // Tab으로 다음 셀 이동
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const si = +inp.dataset.si, bi = +inp.dataset.bi;
+        const next = area.querySelector(`.bar-cell-input[data-si="${si}"][data-bi="${bi+1}"]`);
+        if (next) next.focus();
+        else {
+          // 마지막 셀에서 Enter → 마디 추가 후 포커스
+          draft.sections[si].bars.push({ chords: '' });
+          renderSections(ed, draft); renderPreview(ed, draft);
+          const newCell = area.querySelector(`.bar-cell-input[data-si="${si}"][data-bi="${bi+1}"]`);
+          if (newCell) newCell.focus();
+        }
+      }
+    });
+  });
+
+  // 마디 추가/삭제/비우기
+  area.querySelectorAll('.add-bar-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const si = +btn.dataset.si;
+      const bpr = draft.sections[si].barsPerRow || draft.defaultBarsPerRow || 4;
+      // 행 단위로 추가
+      for (let i = 0; i < bpr; i++) draft.sections[si].bars.push({ chords: '' });
+      renderSections(ed, draft); renderPreview(ed, draft);
+    });
+  });
+  area.querySelectorAll('.remove-bar-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const si = +btn.dataset.si;
+      const bpr = draft.sections[si].barsPerRow || draft.defaultBarsPerRow || 4;
+      const bars = draft.sections[si].bars;
+      if (bars.length <= bpr) return; // 최소 1행
+      draft.sections[si].bars = bars.slice(0, bars.length - bpr);
+      renderSections(ed, draft); renderPreview(ed, draft);
+    });
+  });
+  area.querySelectorAll('.clear-bars-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const si = +btn.dataset.si;
+      draft.sections[si].bars.forEach(b => b.chords = '');
+      renderSections(ed, draft); renderPreview(ed, draft);
     });
   });
   area.querySelectorAll('.memo-input').forEach(inp => {
@@ -268,30 +330,23 @@ function renderSections(ed, draft) {
   area.querySelectorAll('.sel-end-mark').forEach(sel => {
     sel.addEventListener('change', () => { draft.sections[+sel.dataset.si].endMark = sel.value; renderPreview(ed, draft); });
   });
-  // 마디/행 버튼
-  area.querySelectorAll('.sec-bpr-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const si = +btn.dataset.si;
-      const val = +btn.dataset.val;
-      draft.sections[si].barsPerRow = val;
-      area.querySelector(`.inp-bpr[data-si="${si}"]`).value = val;
-      area.querySelectorAll(`.sec-bpr-btn[data-si="${si}"]`).forEach(b => {
-        b.className = `btn sec-bpr-btn ${+b.dataset.val===val?'btn-primary':'btn-secondary'}`;
-        b.style.fontSize = '0.72rem'; b.style.padding = '3px 8px';
-      });
-      renderPreview(ed, draft);
+  // 마디/행 버튼 (barsPerRow만 변경, bars 배열 유지)
+  function setBpr(si, val) {
+    draft.sections[si].barsPerRow = val;
+    area.querySelector(`.inp-bpr[data-si="${si}"]`).value = val;
+    area.querySelectorAll(`.sec-bpr-btn[data-si="${si}"]`).forEach(b => {
+      b.className = `btn sec-bpr-btn ${+b.dataset.val===val?'btn-primary':'btn-secondary'}`;
+      b.style.fontSize = '0.72rem'; b.style.padding = '3px 8px';
     });
+    renderPreview(ed, draft);
+  }
+  area.querySelectorAll('.sec-bpr-btn').forEach(btn => {
+    btn.addEventListener('click', () => setBpr(+btn.dataset.si, +btn.dataset.val));
   });
   area.querySelectorAll('.inp-bpr').forEach(inp => {
     inp.addEventListener('input', () => {
-      const si = +inp.dataset.si;
       const val = Math.max(1, Math.min(16, +inp.value || 4));
-      draft.sections[si].barsPerRow = val;
-      area.querySelectorAll(`.sec-bpr-btn[data-si="${si}"]`).forEach(b => {
-        b.className = `btn sec-bpr-btn ${+b.dataset.val===val?'btn-primary':'btn-secondary'}`;
-        b.style.fontSize = '0.72rem'; b.style.padding = '3px 8px';
-      });
-      renderPreview(ed, draft);
+      setBpr(+inp.dataset.si, val);
     });
   });
 }
