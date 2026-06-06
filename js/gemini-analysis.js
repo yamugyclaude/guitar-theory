@@ -67,7 +67,7 @@ export async function analyzeSheet(imageBlob) {
       'X-Title': 'Guitar Theory App'
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-3.2-11b-vision-instruct:free',
+      model: 'google/gemma-4-31b-it:free',
       messages: [{
         role: 'user',
         content: [
