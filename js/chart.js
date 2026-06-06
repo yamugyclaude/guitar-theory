@@ -1163,6 +1163,7 @@ export function buildChartHtml(draft, opts = {}) {
             </div>`
           ).join('');
           normalizeBar(b);
+          const barNum = startNum + bi;
           const rs2 = b.repeatStart || false;
           const re2 = b.repeatEnd   || '';
           const bMemo = b.memo || '';
