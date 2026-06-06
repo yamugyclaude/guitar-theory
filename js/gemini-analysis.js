@@ -56,7 +56,7 @@ const VISION_MODELS = [
 ];
 
 async function callOpenRouter(apiKey, imageParts, promptText) {
-  let lastError = '';
+  const errors = [];
   for (const model of VISION_MODELS) {
     try {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -75,13 +75,17 @@ async function callOpenRouter(apiKey, imageParts, promptText) {
         })
       });
       const data = await res.json();
-      if (!res.ok) { lastError = data?.error?.message || `오류 ${res.status}`; continue; }
+      if (!res.ok) {
+        const msg = data?.error?.message || JSON.stringify(data?.error) || `HTTP ${res.status}`;
+        errors.push(`[${model}] ${msg}`);
+        continue;
+      }
       const text = data.choices?.[0]?.message?.content || '';
-      if (!text) { lastError = '빈 응답'; continue; }
+      if (!text) { errors.push(`[${model}] 빈 응답`); continue; }
       return text;
-    } catch (e) { lastError = e.message; }
+    } catch (e) { errors.push(`[${model}] ${e.message}`); }
   }
-  throw new Error(`분석 실패. 마지막 오류: ${lastError}`);
+  throw new Error('모든 모델 실패:\n' + errors.join('\n'));
 }
 
 function parseJson(text) {

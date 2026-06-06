@@ -963,6 +963,6 @@ async function runBatchAiAnalysis(ids, panel) {
     const firstMeta = getMeta().find(m => m.id === ids[0]) || { id: ids[0], title: '' };
     renderAnalysisReview(result, firstMeta, viewer.querySelector('.card'), panel);
   } catch (e) {
-    statusEl.textContent = `❌ 분석 실패: ${e.message}`;
+    statusEl.innerHTML = `<div style="color:var(--danger);white-space:pre-wrap;font-size:0.78rem">❌ ${e.message}</div>`;
   }
 }
