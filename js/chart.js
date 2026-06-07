@@ -837,7 +837,7 @@ function sectionRowsHtml(sec, si, barOffset) {
     const memoRow = `<div class="row-memo-wrap" data-si="${si}" data-row="${rowIdx}"
       style="display:flex;align-items:center;gap:4px;min-height:${memo?'auto':'16px'};padding:${memo?'3px':'1px'} 0;cursor:text;border-radius:3px;transition:background 0.15s"
       title="메모 클릭하여 편집">
-      <span style="font-size:0.6rem;color:var(--text2);opacity:0.5;flex-shrink:0">📝</span>
+      <span style="font-size:0.6rem;color:#ff3333;flex-shrink:0">✱</span>
       <div class="row-memo-display" style="flex:1;font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;min-height:14px;word-break:break-all">${memo ? escHtml(memo) : '<span style="opacity:0.25">메모...</span>'}</div>
       <textarea class="row-memo-input" data-si="${si}" data-row="${rowIdx}"
         placeholder="메모 (운지법, 지시어, 참고사항...)"
