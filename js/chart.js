@@ -14,18 +14,18 @@ function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 function segnoSvg(size = 16, color = 'currentColor') {
   // 세뇨: S자 + 대각선(/) + 점 두 개 (대각선 기준 좌·우 동서)
   return `<svg width="${size}" height="${Math.round(size*1.2)}" viewBox="0 0 16 19" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
-    <line x1="12" y1="2" x2="4" y2="17" stroke="${color}" stroke-width="1.3" stroke-linecap="round"/>
-    <path d="M11.5 5 Q11.5 2.5 8 2.5 Q4.5 2.5 4.5 5 Q4.5 7.5 8 8 Q11.5 8.5 11.5 11 Q11.5 13.5 8 13.5 Q4.5 13.5 4.5 11" stroke="${color}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-    <circle cx="2.5" cy="9"  r="1.3" fill="${color}"/>
-    <circle cx="13.5" cy="9" r="1.3" fill="${color}"/>
+    <line x1="12" y1="2" x2="4" y2="17" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M11.5 5 Q11.5 2.5 8 2.5 Q4.5 2.5 4.5 5 Q4.5 7.5 8 8 Q11.5 8.5 11.5 11 Q11.5 13.5 8 13.5 Q4.5 13.5 4.5 11" stroke="${color}" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <circle cx="2.5" cy="9"  r="1.8" fill="${color}"/>
+    <circle cx="13.5" cy="9" r="1.8" fill="${color}"/>
   </svg>`;
 }
 function codaSvg(size = 16, color = 'currentColor') {
   return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;display:inline-block">
-    <circle cx="8" cy="8" r="5" stroke="${color}" stroke-width="1.5"/>
-    <circle cx="8" cy="8" r="1.5" fill="${color}"/>
-    <line x1="8" y1="1" x2="8" y2="15" stroke="${color}" stroke-width="1.3"/>
-    <line x1="1" y1="8" x2="15" y2="8" stroke="${color}" stroke-width="1.3"/>
+    <circle cx="8" cy="8" r="5" stroke="${color}" stroke-width="2.2"/>
+    <circle cx="8" cy="8" r="2" fill="${color}"/>
+    <line x1="8" y1="1" x2="8" y2="15" stroke="${color}" stroke-width="2.0"/>
+    <line x1="1" y1="8" x2="15" y2="8" stroke="${color}" stroke-width="2.0"/>
   </svg>`;
 }
 function fermataSvg(size = 14, color = 'currentColor') {
@@ -41,7 +41,7 @@ function fermataSvg(size = 14, color = 'currentColor') {
 const LEFT_MARK_OPTIONS = [
   { value: '',       label: '없음' },
   { value: '||:',    label: '||:',     desc: '반복 시작', color: 'var(--accent)', bold: true },
-  { value: 'segno',  label: 'Segno',   desc: '세뇨',      color: 'var(--accent)' },
+  { value: 'segno',  label: 'Segno',   desc: '세뇨',      color: '#e8a020' },
   { value: 'coda',   label: 'Coda',    desc: '코다',      color: '#e8a020' },
 ];
 // 마디 오른쪽 기호 (bar의 rightMark 필드)
@@ -91,13 +91,13 @@ const REPEAT_END_OPTIONS = [
 // 텍스트 기호 (rightMark 필드) — Fine / D.C. 등
 const TEXT_MARK_OPTIONS = [
   { value: '',              label: '없음' },
-  { value: 'Fine',          label: 'Fine',         desc: '마침',           color: '#e060a0' },
-  { value: 'D.C.',          label: 'D.C.',          desc: 'Da Capo',        color: '#60a0e0' },
-  { value: 'D.S.',          label: 'D.S.',          desc: 'Dal Segno',      color: '#60a0e0' },
-  { value: 'D.C. al Coda', label: 'D.C. al Coda',  desc: '처음→코다',      color: '#60a0e0' },
-  { value: 'D.S. al Coda', label: 'D.S. al Coda',  desc: '세뇨→코다',      color: '#60a0e0' },
-  { value: 'D.C. al Fine', label: 'D.C. al Fine',  desc: '처음→Fine',      color: '#60a0e0' },
-  { value: 'D.S. al Fine', label: 'D.S. al Fine',  desc: '세뇨→Fine',      color: '#60a0e0' },
+  { value: 'Fine',          label: 'Fine',         desc: '마침',           color: '#e8a020' },
+  { value: 'D.C.',          label: 'D.C.',          desc: 'Da Capo',        color: '#e8a020' },
+  { value: 'D.S.',          label: 'D.S.',          desc: 'Dal Segno',      color: '#e8a020' },
+  { value: 'D.C. al Coda', label: 'D.C. al Coda',  desc: '처음→코다',      color: '#e8a020' },
+  { value: 'D.S. al Coda', label: 'D.S. al Coda',  desc: '세뇨→코다',      color: '#e8a020' },
+  { value: 'D.C. al Fine', label: 'D.C. al Fine',  desc: '처음→Fine',      color: '#e8a020' },
+  { value: 'D.S. al Fine', label: 'D.S. al Fine',  desc: '세뇨→Fine',      color: '#e8a020' },
   { value: 'To Coda',      label: 'To Coda',        desc: '코다로 점프',    color: '#e8a020' },
 ];
 
@@ -124,7 +124,7 @@ function normalizeBar(b) {
 
 // 기호값 → 표시 HTML (버튼 라벨용)
 function markDisplayHtml(value, size = 14) {
-  if (value === 'segno')   return segnoSvg(size, 'var(--accent)') + ' Segno';
+  if (value === 'segno')   return segnoSvg(size, '#e8a020') + ' Segno';
   if (value === 'coda')    return codaSvg(size, '#e8a020') + ' Coda';
   if (value === 'fermata') return fermataSvg(size, 'var(--text2)');
   return value;
