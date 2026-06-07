@@ -810,7 +810,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         const bm = bars[bi].memo || '';
         const mc = bars[bi].memoColor || 'var(--text2)';
         const mhl = bars[bi].memoHl || '';
-        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:${hasBarMemo?'auto':'10px'};cursor:text;padding:${bm?'3px 5px':'2px 0'};border-radius:3px;transition:background 0.15s" title="클릭하여 메모">
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:18px;cursor:text;padding:2px 5px;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="클릭하여 메모">
           <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
         </div>`;
       }).join('')}
