@@ -825,7 +825,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         const expr = b.expr || '';
         const color = TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || 'var(--accent)';
         let inner = '';
-        if (rm)   inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
+        if (rm)   inner += `<div style="font-size:0.81rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
         if (expr) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${expr}</div>`;
         return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
       }).join('')}
@@ -1584,7 +1584,7 @@ export function buildChartHtml(draft, opts = {}) {
           const ex = b.expr || '';
           const color = TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || 'var(--accent)';
           let inner = '';
-          if (rm) inner += `<div style="font-size:0.62rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
+          if (rm) inner += `<div style="font-size:0.81rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
           if (ex) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${ex}</div>`;
           return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
         }).join('')}${spacers}
