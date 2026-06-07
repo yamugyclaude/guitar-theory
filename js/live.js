@@ -3,31 +3,37 @@ import { buildChartHtml } from './chart.js';
 
 // ── 데이터 구조 ─────────────────────────────────────────────────────
 // gta_setlists: [{id, name, songs:[{title,type,id}]}]
-// (구버전: [{title,type,id}] → 자동 마이그레이션)
 
 function getFolders() {
-  const raw = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-  if (!raw.length) return [];
-  // 구버전 마이그레이션: 최상위 아이템에 type 필드가 있으면 flat list
-  if (raw[0]?.type !== undefined && !raw[0]?.songs) {
-    const folder = { id: 'folder_' + Date.now(), name: '셋리스트', songs: raw };
-    saveFolders([folder]);
-    return [folder];
+  try {
+    const raw = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+    if (!Array.isArray(raw)) return [];
+    if (!raw.length) return [];
+    // 구버전 마이그레이션: 최상위 아이템이 songs 배열 없이 type 필드만 있는 경우
+    if (raw[0] && raw[0].type !== undefined && !Array.isArray(raw[0].songs)) {
+      const folder = { id: 'folder_' + Date.now(), name: '셋리스트', songs: raw };
+      _saveFolders([folder]);
+      return [folder];
+    }
+    // 유효성 검사: songs 필드 없는 폴더 보정
+    return raw.map(f => ({ ...f, songs: Array.isArray(f.songs) ? f.songs : [] }));
+  } catch(e) {
+    console.error('getFolders error:', e);
+    return [];
   }
-  return raw;
 }
-function saveFolders(d) { localStorage.setItem('gta_setlists', JSON.stringify(d)); }
-function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); }
-function getSheetMeta() { return JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]'); }
 
-// 외부(chart.js, library.js)에서 셋리스트에 곡 추가할 때 사용
-export function addToSetlist(item) {
-  const folders = getFolders();
-  if (!folders.length) {
-    folders.push({ id: 'folder_' + Date.now(), name: '셋리스트', songs: [] });
-  }
-  folders[0].songs.push(item);
-  saveFolders(folders);
+function _saveFolders(d) {
+  localStorage.setItem('gta_setlists', JSON.stringify(d));
+}
+
+function getDrafts() {
+  try { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); }
+  catch { return []; }
+}
+function getSheetMeta() {
+  try { return JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]'); }
+  catch { return []; }
 }
 
 // ── 라이브 테마 ──────────────────────────────────────────────────────
@@ -73,53 +79,43 @@ function liveImgH() {
   if (_contentEl) return Math.max(200, _contentEl.clientHeight - 16) + 'px';
   return 'calc(100dvh - 140px)';
 }
-
 function makeImg(url, ppv, isBlob = false) {
   const img = document.createElement('img');
-  img.src = url;
-  img.className = 'live-img';
-  applyImgStyle(img, ppv);
+  img.src = url; img.className = 'live-img';
+  const h = liveImgH();
+  img.style.cssText = `height:${h};width:auto;max-width:${ppv===2?'calc(50vw - 16px)':'100%'};object-fit:contain;display:block;border-radius:4px;flex-shrink:0;`;
   if (isBlob) img.onload = () => URL.revokeObjectURL(url);
   return img;
 }
-
-function applyImgStyle(img, ppv) {
-  const h = liveImgH();
-  img.style.cssText = `height:${h};width:auto;max-width:${ppv===2?'calc(50vw - 16px)':'100%'};object-fit:contain;display:block;border-radius:4px;flex-shrink:0;`;
-}
-
 function applyZoom() {
-  const base = liveImgH();
   document.querySelectorAll('.live-img').forEach(img => {
     const ppv = img.dataset.ppv ? +img.dataset.ppv : pagesPerView;
-    if (liveZoom === 1.0) { img.style.height = base; }
+    if (liveZoom === 1.0) { img.style.height = liveImgH(); }
     else {
       const px = Math.max(200, (_contentEl?.clientHeight || 500) - 16);
       img.style.height = Math.round(px * liveZoom) + 'px';
     }
   });
 }
-
 async function renderContent(container, record, startPage, ppv) {
   container.innerHTML = '';
   if (record.type === 'image') {
-    const url = URL.createObjectURL(record.file);
-    const img = makeImg(url, ppv, true); img.dataset.ppv = ppv;
-    container.appendChild(img); return { totalPages: 1 };
+    const img = makeImg(URL.createObjectURL(record.file), ppv, true);
+    img.dataset.ppv = ppv; container.appendChild(img); return { totalPages: 1 };
   }
   if (record.pages?.length > 0) {
     const totalPages = record.pages.length;
     for (let p = startPage; p <= Math.min(startPage + ppv - 1, totalPages); p++) {
       const blob = record.pages[p - 1]; if (!blob) continue;
-      const img = makeImg(URL.createObjectURL(blob), ppv, true); img.dataset.ppv = ppv;
-      container.appendChild(img);
+      const img = makeImg(URL.createObjectURL(blob), ppv, true);
+      img.dataset.ppv = ppv; container.appendChild(img);
     }
     return { totalPages };
   }
-  container.innerHTML = `<div style="color:var(--text2);padding:20px;text-align:center">PDF 로딩 중...</div>`;
+  container.innerHTML = `<div style="color:var(--text2);padding:20px;text-align:center">로딩 중...</div>`;
   try {
     const pdfjsLib = window.pdfjsLib;
-    if (!pdfjsLib) throw new Error('PDF.js를 불러올 수 없습니다.');
+    if (!pdfjsLib) throw new Error('PDF.js 없음');
     const url = URL.createObjectURL(record.file);
     const pdf = await pdfjsLib.getDocument(url).promise;
     const totalPages = pdf.numPages; container.innerHTML = '';
@@ -127,8 +123,7 @@ async function renderContent(container, record, startPage, ppv) {
       const page = await pdf.getPage(p);
       const targetH = (_contentEl?.clientHeight || window.innerHeight) - 16;
       const baseVP = page.getViewport({ scale: 1 });
-      const scale = targetH / baseVP.height;
-      const viewport = page.getViewport({ scale });
+      const viewport = page.getViewport({ scale: targetH / baseVP.height });
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width; canvas.height = viewport.height;
       canvas.className = 'live-img'; canvas.dataset.ppv = ppv;
@@ -137,22 +132,26 @@ async function renderContent(container, record, startPage, ppv) {
       container.appendChild(canvas);
     }
     URL.revokeObjectURL(url); return { totalPages };
-  } catch (e) {
-    container.innerHTML = `<div class="empty-state">PDF 렌더링 실패: ${e.message}</div>`;
+  } catch(e) {
+    container.innerHTML = `<div class="empty-state">PDF 오류: ${e.message}</div>`;
     return { totalPages: 1 };
   }
 }
 
-// ── 곡 정보 읽기 ─────────────────────────────────────────────────────
 function getSongInfo(item) {
+  if (!item) return {};
   if (item.type === 'chart') {
-    const draft = getDrafts().find(d => d.id === item.id);
-    if (draft) return { key: draft.key, time: draft.time, bpm: draft.bpm };
+    const d = getDrafts().find(d => d.id === item.id);
+    if (d) return { key: d.key, time: d.time, bpm: d.bpm };
   } else {
-    const meta = getSheetMeta().find(m => m.id === item.id);
-    if (meta) return { key: meta.key, time: meta.time, bpm: meta.bpm };
+    const m = getSheetMeta().find(m => m.id === item.id);
+    if (m) return { key: m.key, time: m.time, bpm: m.bpm };
   }
   return {};
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── 메인 렌더 ────────────────────────────────────────────────────────
@@ -160,48 +159,129 @@ export function render(panel) {
   panel.innerHTML = `
     <h1 class="page-title">🎬 라이브 모드</h1>
     <div id="folder-area"></div>
-    <div id="viewer-area"></div>
+    <div id="viewer-area" style="margin-top:0"></div>
   `;
   renderFolders(panel);
 }
 
+// 접기 상태 기억 (fi별)
+const _collapsed = new Set();
+
 function renderFolders(panel) {
   const folders = getFolders();
   const area = panel.querySelector('#folder-area');
+  if (!area) return;
 
-  area.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <button class="btn btn-primary" id="new-folder-btn" style="font-size:0.8rem;padding:6px 12px">＋ 새 폴더</button>
-    </div>
-    ${!folders.length ? `<div class="empty-state card">폴더를 만들고 악보/코드차트를 추가하세요.<br><span style="font-size:0.8rem;color:var(--text2)">악보 보관함 또는 곡진행 탭에서 🎬 버튼으로 추가</span></div>` : ''}
-    <div id="folder-list">
-      ${folders.map((folder, fi) => renderFolderHtml(folder, fi, folders.length)).join('')}
-    </div>
+  area.innerHTML = '';
+
+  // 상단: 새 폴더 추가
+  const topBar = document.createElement('div');
+  topBar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
+  topBar.innerHTML = `
+    <button class="btn btn-primary" id="new-folder-btn" style="font-size:0.8rem;padding:6px 14px">＋ 새 폴더</button>
   `;
+  area.appendChild(topBar);
 
+  // 빈 상태
+  if (!folders.length) {
+    const empty = document.createElement('div');
+    empty.className = 'card empty-state';
+    empty.innerHTML = `폴더를 만들고 악보나 곡진행 탭에서 🎬 버튼으로 곡을 추가하세요.`;
+    area.appendChild(empty);
+  }
+
+  // 폴더 목록
+  folders.forEach((folder, fi) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'margin-bottom:10px;padding:10px 12px;';
+
+    const isCollapsed = _collapsed.has(fi);
+    const songs = folder.songs || [];
+
+    // 헤더
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
+        <button class="folder-toggle-btn btn btn-secondary" data-fi="${fi}"
+          style="font-size:0.7rem;padding:3px 7px;min-width:28px;flex-shrink:0">${isCollapsed ? '▶' : '▼'}</button>
+        <span class="folder-name-disp" data-fi="${fi}"
+          style="flex:1;font-weight:700;font-size:0.9rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0"
+          title="탭하여 이름 변경">${esc(folder.name)}</span>
+        <span style="font-size:0.72rem;color:var(--text2);flex-shrink:0">${songs.length}곡</span>
+        <button class="move-folder-up-btn btn btn-secondary" data-fi="${fi}"
+          style="font-size:0.65rem;padding:2px 6px;flex-shrink:0" ${fi===0?'disabled':''}>↑</button>
+        <button class="move-folder-down-btn btn btn-secondary" data-fi="${fi}"
+          style="font-size:0.65rem;padding:2px 6px;flex-shrink:0" ${fi===folders.length-1?'disabled':''}>↓</button>
+        <button class="fs-folder-btn btn btn-primary" data-fi="${fi}"
+          style="font-size:0.72rem;padding:4px 10px;flex-shrink:0" ${!songs.length?'disabled':''}>🎬</button>
+        <button class="del-folder-btn btn btn-secondary" data-fi="${fi}"
+          style="font-size:0.72rem;padding:4px 8px;color:var(--danger);flex-shrink:0">🗑</button>
+      </div>
+    `;
+
+    // 바디
+    const body = document.createElement('div');
+    body.className = 'folder-body';
+    body.dataset.fi = fi;
+    body.style.display = isCollapsed ? 'none' : 'block';
+    body.style.marginTop = songs.length ? '6px' : '0';
+
+    if (!songs.length) {
+      body.innerHTML = `<div style="font-size:0.8rem;color:var(--text2);padding:4px 4px 0">
+        곡이 없습니다. 악보/곡진행 탭에서 🎬 버튼으로 추가하세요.
+      </div>`;
+    } else {
+      songs.forEach((song, si) => {
+        const row = document.createElement('div');
+        row.style.cssText = `display:flex;align-items:center;gap:4px;padding:6px 4px;
+          ${si < songs.length-1 ? 'border-bottom:1px solid var(--border);' : ''}`;
+        row.innerHTML = `
+          <span style="font-size:0.72rem;color:var(--text2);min-width:18px;text-align:right;flex-shrink:0">${si+1}</span>
+          <span style="flex:1;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(song.title || '(제목 없음)')}</span>
+          <span class="badge" style="font-size:0.6rem;flex-shrink:0">${song.type==='chart'?'차트':'악보'}</span>
+          <button class="move-up-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.6rem;padding:2px 5px;flex-shrink:0" ${si===0?'disabled':''}>↑</button>
+          <button class="move-down-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.6rem;padding:2px 5px;flex-shrink:0" ${si===songs.length-1?'disabled':''}>↓</button>
+          <button class="open-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.68rem;padding:4px 8px;flex-shrink:0">열기</button>
+          <button class="fs-song-btn btn btn-primary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.68rem;padding:4px 8px;flex-shrink:0">🎬</button>
+          <button class="del-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.68rem;padding:4px 6px;color:var(--danger);flex-shrink:0">×</button>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    card.appendChild(body);
+    area.appendChild(card);
+  });
+
+  // ── 이벤트 연결 ──────────────────────────────────────────────────
+
+  // 새 폴더
   area.querySelector('#new-folder-btn').addEventListener('click', () => {
-    const name = prompt('폴더 이름을 입력하세요', '새 폴더');
-    if (!name) return;
+    const name = prompt('폴더 이름', '새 폴더');
+    if (name == null) return;
+    const trimmed = name.trim() || '새 폴더';
     const fs = getFolders();
-    fs.push({ id: 'folder_' + Date.now(), name, songs: [] });
-    saveFolders(fs); renderFolders(panel);
+    fs.push({ id: 'folder_' + Date.now(), name: trimmed, songs: [] });
+    _saveFolders(fs);
+    renderFolders(panel);
   });
 
-  // 폴더 이름 편집
-  area.querySelectorAll('.folder-name-inp').forEach(inp => {
-    inp.addEventListener('change', () => {
-      const fi = +inp.dataset.fi;
-      const fs = getFolders(); fs[fi].name = inp.value; saveFolders(fs);
-    });
-  });
-
-  // 폴더 삭제
-  area.querySelectorAll('.del-folder-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi;
+  // 폴더 이름 클릭 편집
+  area.querySelectorAll('.folder-name-disp').forEach(span => {
+    span.addEventListener('click', () => {
+      const fi = +span.dataset.fi;
       const fs = getFolders();
-      if (fs[fi].songs.length && !confirm(`"${fs[fi].name}" 폴더를 삭제하시겠습니까? (${fs[fi].songs.length}곡 포함)`)) return;
-      fs.splice(fi, 1); saveFolders(fs); renderFolders(panel);
+      const current = fs[fi]?.name || '';
+      const newName = prompt('폴더 이름 변경', current);
+      if (newName == null) return;
+      fs[fi].name = newName.trim() || current;
+      _saveFolders(fs);
+      span.textContent = fs[fi].name;
     });
   });
 
@@ -210,18 +290,65 @@ function renderFolders(panel) {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi;
       const body = area.querySelector(`.folder-body[data-fi="${fi}"]`);
+      if (!body) return;
       const isOpen = body.style.display !== 'none';
-      body.style.display = isOpen ? 'none' : 'block';
-      btn.textContent = isOpen ? '▶' : '▼';
+      if (isOpen) { _collapsed.add(fi); body.style.display = 'none'; btn.textContent = '▶'; }
+      else { _collapsed.delete(fi); body.style.display = 'block'; btn.textContent = '▼'; }
     });
   });
 
-  // 곡 열기
+  // 폴더 전체 재생
+  area.querySelectorAll('.fs-folder-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fi = +btn.dataset.fi;
+      const fs = getFolders();
+      const songs = fs[fi]?.songs || [];
+      if (!songs.length) return;
+      startFullscreen(songs, 0);
+    });
+  });
+
+  // 폴더 삭제
+  area.querySelectorAll('.del-folder-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fi = +btn.dataset.fi;
+      const fs = getFolders();
+      const name = fs[fi]?.name || '';
+      const count = fs[fi]?.songs?.length || 0;
+      const msg = count > 0 ? `"${name}" 폴더를 삭제할까요? (${count}곡 포함)` : `"${name}" 폴더를 삭제할까요?`;
+      if (!confirm(msg)) return;
+      fs.splice(fi, 1);
+      _collapsed.delete(fi);
+      _saveFolders(fs);
+      renderFolders(panel);
+    });
+  });
+
+  // 폴더 순서
+  area.querySelectorAll('.move-folder-up-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fi = +btn.dataset.fi; if (fi === 0) return;
+      const fs = getFolders();
+      [fs[fi-1], fs[fi]] = [fs[fi], fs[fi-1]];
+      _saveFolders(fs); renderFolders(panel);
+    });
+  });
+  area.querySelectorAll('.move-folder-down-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fi = +btn.dataset.fi;
+      const fs = getFolders(); if (fi >= fs.length-1) return;
+      [fs[fi], fs[fi+1]] = [fs[fi+1], fs[fi]];
+      _saveFolders(fs); renderFolders(panel);
+    });
+  });
+
+  // 곡 열기 (인라인)
   area.querySelectorAll('.open-song-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const folders = getFolders();
-      openItem(panel, folders[fi].songs[si]);
+      const fs = getFolders();
+      const song = fs[fi]?.songs?.[si];
+      if (song) openItem(panel, song);
     });
   });
 
@@ -229,18 +356,10 @@ function renderFolders(panel) {
   area.querySelectorAll('.fs-song-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const folders = getFolders();
-      startFullscreen(folders[fi].songs, si);
-    });
-  });
-
-  // 폴더 전체 풀스크린
-  area.querySelectorAll('.fs-folder-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi;
-      const folders = getFolders();
-      if (!folders[fi].songs.length) return;
-      startFullscreen(folders[fi].songs, 0);
+      const fs = getFolders();
+      const songs = fs[fi]?.songs || [];
+      if (!songs.length) return;
+      startFullscreen(songs, si);
     });
   });
 
@@ -248,111 +367,65 @@ function renderFolders(panel) {
   area.querySelectorAll('.del-song-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const fs = getFolders(); fs[fi].songs.splice(si, 1); saveFolders(fs); renderFolders(panel);
+      const fs = getFolders();
+      fs[fi]?.songs?.splice(si, 1);
+      _saveFolders(fs); renderFolders(panel);
     });
   });
 
-  // 순서 이동 (위/아래)
+  // 곡 순서
   area.querySelectorAll('.move-up-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      if (si === 0) return;
-      const fs = getFolders(); const songs = fs[fi].songs;
+      const fi = +btn.dataset.fi, si = +btn.dataset.si; if (si === 0) return;
+      const fs = getFolders(); const songs = fs[fi]?.songs || [];
       [songs[si-1], songs[si]] = [songs[si], songs[si-1]];
-      saveFolders(fs); renderFolders(panel);
+      _saveFolders(fs); renderFolders(panel);
     });
   });
   area.querySelectorAll('.move-down-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const fs = getFolders(); const songs = fs[fi].songs;
-      if (si >= songs.length - 1) return;
+      const fs = getFolders(); const songs = fs[fi]?.songs || [];
+      if (si >= songs.length-1) return;
       [songs[si], songs[si+1]] = [songs[si+1], songs[si]];
-      saveFolders(fs); renderFolders(panel);
-    });
-  });
-
-  // 폴더 순서 이동
-  area.querySelectorAll('.move-folder-up-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi; if (fi === 0) return;
-      const fs = getFolders(); [fs[fi-1], fs[fi]] = [fs[fi], fs[fi-1]];
-      saveFolders(fs); renderFolders(panel);
-    });
-  });
-  area.querySelectorAll('.move-folder-down-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi;
-      const fs = getFolders(); if (fi >= fs.length - 1) return;
-      [fs[fi], fs[fi+1]] = [fs[fi+1], fs[fi]];
-      saveFolders(fs); renderFolders(panel);
+      _saveFolders(fs); renderFolders(panel);
     });
   });
 }
 
-function renderFolderHtml(folder, fi, totalFolders) {
-  const songs = folder.songs || [];
-  return `
-    <div class="card" style="margin-bottom:10px;padding:10px 12px">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-        <button class="folder-toggle-btn btn btn-secondary" data-fi="${fi}" style="font-size:0.7rem;padding:3px 7px;min-width:28px">▼</button>
-        <input class="folder-name-inp" data-fi="${fi}" value="${esc(folder.name)}"
-          style="flex:1;font-weight:700;font-size:0.9rem;background:transparent;border:none;border-bottom:1px dashed var(--border);padding:2px 4px;color:var(--text);outline:none;min-width:0">
-        <span style="font-size:0.72rem;color:var(--text2);flex-shrink:0">${songs.length}곡</span>
-        <button class="move-folder-up-btn btn btn-secondary" data-fi="${fi}" style="font-size:0.65rem;padding:2px 6px" ${fi===0?'disabled':''}>↑</button>
-        <button class="move-folder-down-btn btn btn-secondary" data-fi="${fi}" style="font-size:0.65rem;padding:2px 6px" ${fi===totalFolders-1?'disabled':''}>↓</button>
-        <button class="fs-folder-btn btn btn-primary" data-fi="${fi}" style="font-size:0.72rem;padding:4px 9px" ${!songs.length?'disabled':''}>🎬 재생</button>
-        <button class="del-folder-btn btn btn-secondary" data-fi="${fi}" style="font-size:0.72rem;padding:4px 8px;color:var(--danger)">🗑</button>
-      </div>
-      <div class="folder-body" data-fi="${fi}">
-        ${!songs.length ? `<div style="font-size:0.8rem;color:var(--text2);padding:8px 4px">곡이 없습니다. 악보/곡진행 탭에서 🎬 버튼으로 추가하세요.</div>` : ''}
-        ${songs.map((song, si) => `
-          <div style="display:flex;align-items:center;gap:4px;padding:6px 4px;border-bottom:1px solid var(--border);${si===songs.length-1?'border-bottom:none':''}">
-            <span style="font-size:0.72rem;color:var(--text2);min-width:18px;text-align:right;flex-shrink:0">${si+1}</span>
-            <span style="flex:1;font-size:0.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(song.title)}</span>
-            <span class="badge" style="font-size:0.6rem;flex-shrink:0">${song.type==='chart'?'차트':'악보'}</span>
-            <div style="display:flex;gap:2px;flex-shrink:0">
-              <button class="move-up-btn btn btn-secondary" data-fi="${fi}" data-si="${si}" style="font-size:0.6rem;padding:2px 5px" ${si===0?'disabled':''}>↑</button>
-              <button class="move-down-btn btn btn-secondary" data-fi="${fi}" data-si="${si}" style="font-size:0.6rem;padding:2px 5px" ${si===songs.length-1?'disabled':''}>↓</button>
-              <button class="open-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}" style="font-size:0.68rem;padding:4px 8px">열기</button>
-              <button class="fs-song-btn btn btn-primary" data-fi="${fi}" data-si="${si}" style="font-size:0.68rem;padding:4px 8px">🎬</button>
-              <button class="del-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}" style="font-size:0.68rem;padding:4px 6px;color:var(--danger)">×</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
+// ── 인라인 뷰어 ──────────────────────────────────────────────────────
 async function openItem(panel, item) {
   const viewer = panel.querySelector('#viewer-area');
-  if (item.type === 'chart') {
-    const draft = getDrafts().find(d => d.id === item.id);
-    if (!draft) { viewer.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>'; return; }
-    viewer.innerHTML = '';
-    const card = document.createElement('div'); card.className = 'card'; card.style.marginTop = '12px';
-    viewer.appendChild(card);
-    try { card.innerHTML = buildChartHtml(draft, { fontSize: '1rem', showBarNumbers: true }); }
-    catch(e) { card.innerHTML = `<div style="color:var(--danger)">오류: ${e.message}</div>`; }
-  } else {
-    const record = await getSheet(item.id);
-    if (!record) { viewer.innerHTML = '<div class="empty-state">악보를 찾을 수 없습니다.</div>'; return; }
-    viewer.innerHTML = `<div class="card" style="margin-top:12px"><div style="font-weight:700;margin-bottom:8px">${esc(item.title)}</div><div id="inline-content"></div></div>`;
-    await renderContent(viewer.querySelector('#inline-content'), record, 1, 1);
-  }
+  if (!viewer) return;
+  viewer.innerHTML = `<div style="text-align:center;color:var(--text2);padding:20px">불러오는 중...</div>`;
   viewer.scrollIntoView({ behavior: 'smooth' });
+  try {
+    if (item.type === 'chart') {
+      const draft = getDrafts().find(d => d.id === item.id);
+      if (!draft) { viewer.innerHTML = '<div class="empty-state card">차트를 찾을 수 없습니다.</div>'; return; }
+      const card = document.createElement('div');
+      card.className = 'card'; card.style.marginTop = '12px';
+      card.innerHTML = buildChartHtml(draft, { fontSize: '1rem', showBarNumbers: true });
+      viewer.innerHTML = ''; viewer.appendChild(card);
+    } else {
+      const record = await getSheet(item.id);
+      if (!record) { viewer.innerHTML = '<div class="empty-state card">악보를 찾을 수 없습니다.</div>'; return; }
+      viewer.innerHTML = `<div class="card" style="margin-top:12px">
+        <div style="font-weight:700;margin-bottom:8px">${esc(item.title)}</div>
+        <div id="inline-content"></div>
+      </div>`;
+      await renderContent(viewer.querySelector('#inline-content'), record, 1, 1);
+    }
+  } catch(e) {
+    viewer.innerHTML = `<div class="empty-state card">오류: ${e.message}</div>`;
+  }
 }
 
 // ── 풀스크린 ─────────────────────────────────────────────────────────
 async function startFullscreen(songs, startIdx = 0) {
-  if (!songs.length) return;
+  if (!songs || !songs.length) return;
 
-  let currentIdx = Math.min(startIdx, songs.length - 1);
+  let currentIdx = Math.max(0, Math.min(startIdx, songs.length - 1));
   let currentPage = 1;
   let totalPages = 1;
 
@@ -364,44 +437,39 @@ async function startFullscreen(songs, startIdx = 0) {
   overlay.id = 'live-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;overflow:hidden;';
 
-  // ── 헤더 ──
+  // ── 헤더: 3단 그리드 (이전 | 제목 | 정보+다음+닫기) ──
   const header = document.createElement('div');
-  header.style.cssText = 'flex-shrink:0;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;transition:opacity 0.3s;min-height:44px;';
+  header.style.cssText = 'flex-shrink:0;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;transition:opacity 0.3s;min-height:46px;';
   header.innerHTML = `
-    <!-- 왼쪽: 이전곡 + 카운터 -->
-    <div style="display:flex;align-items:center;gap:6px">
-      <button id="song-prev" class="btn btn-secondary" style="font-size:0.78rem;padding:5px 10px">◀ 이전</button>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button id="song-prev" class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px;white-space:nowrap">◀ 이전</button>
       <span id="live-counter" style="font-size:0.72rem;color:var(--text2);white-space:nowrap"></span>
     </div>
-    <!-- 가운데: 곡 제목 -->
-    <div id="live-title" style="font-weight:700;font-size:0.95rem;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
-    <!-- 오른쪽: 정보 + 다음곡 + 닫기 -->
-    <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
-      <span id="live-info" style="font-size:0.72rem;color:var(--text2);white-space:nowrap;text-align:right"></span>
-      <button id="song-next" class="btn btn-secondary" style="font-size:0.78rem;padding:5px 10px">다음 ▶</button>
-      <button id="live-close" class="btn btn-secondary" style="font-size:0.78rem;padding:5px 10px">✕</button>
+    <div id="live-title" style="font-weight:700;font-size:1rem;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px;"></div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+      <span id="live-info" style="font-size:0.72rem;color:var(--text2);white-space:nowrap;text-align:right;overflow:hidden;text-overflow:ellipsis;max-width:160px"></span>
+      <button id="song-next" class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px;white-space:nowrap">다음 ▶</button>
+      <button id="live-close" class="btn btn-secondary" style="font-size:0.8rem;padding:6px 12px">✕</button>
     </div>
   `;
 
-  // ── 콘텐츠 ──
   const content = document.createElement('div');
   content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
   _contentEl = content;
 
-  // ── 하단 컨트롤 ──
   const nav = document.createElement('div');
   nav.style.cssText = 'flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border);padding:6px 10px;display:flex;flex-direction:column;gap:6px;';
   nav.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:center;gap:4px">
-      <button id="page-prev" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">◀</button>
+      <button id="page-prev" class="btn btn-secondary" style="padding:10px 14px;font-size:0.9rem">◀</button>
       <span id="page-label" style="font-size:0.72rem;color:var(--text2);min-width:40px;text-align:center"></span>
-      <button id="page-next" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">▶</button>
+      <button id="page-next" class="btn btn-secondary" style="padding:10px 14px;font-size:0.9rem">▶</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap">
       <button id="zoom-out" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">−</button>
       <span id="zoom-label" style="font-size:0.78rem;color:var(--text2);min-width:44px;text-align:center"></span>
       <button id="zoom-in" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">+</button>
-      <span style="font-size:0.7rem;color:var(--text2);margin-left:8px">색상:</span>
+      <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">색상:</span>
       ${LIVE_THEMES.map(t =>
         `<button class="live-theme-btn btn btn-secondary" data-theme="${t.id}"
           style="font-size:0.68rem;padding:4px 8px;${t.bg?`background:${t.bg};color:${t.text};`:''}">${t.label}</button>`
@@ -416,13 +484,6 @@ async function startFullscreen(songs, startIdx = 0) {
   const ZOOM_STEPS = [0.6,0.7,0.8,0.9,1.0,1.1,1.25,1.5,1.75,2.0];
   function updateZoomLabel() { nav.querySelector('#zoom-label').textContent = Math.round(liveZoom*100)+'%'; }
   updateZoomLabel();
-  function reloadWithZoom() {
-    const item = songs[currentIdx];
-    if (item?.type === 'chart') {
-      const draft = getDrafts().find(d => d.id === item.id);
-      if (draft) renderChart(content, draft);
-    } else { applyZoom(); }
-  }
   nav.querySelector('#zoom-out').addEventListener('click', () => {
     const s = ZOOM_STEPS.filter(z => z < liveZoom);
     if (s.length) { saveZoom(s[s.length-1]); updateZoomLabel(); reloadWithZoom(); }
@@ -431,11 +492,18 @@ async function startFullscreen(songs, startIdx = 0) {
     const s = ZOOM_STEPS.filter(z => z > liveZoom);
     if (s.length) { saveZoom(s[0]); updateZoomLabel(); reloadWithZoom(); }
   });
+  function reloadWithZoom() {
+    const item = songs[currentIdx];
+    if (item?.type === 'chart') {
+      const draft = getDrafts().find(d => d.id === item.id);
+      if (draft) renderChart(content, draft);
+    } else applyZoom();
+  }
 
   // 테마
   function updateThemeBtns() {
-    nav.querySelectorAll('.live-theme-btn').forEach(btn => {
-      btn.style.outline = btn.dataset.theme === liveThemeId ? '2px solid var(--accent)' : 'none';
+    nav.querySelectorAll('.live-theme-btn').forEach(b => {
+      b.style.outline = b.dataset.theme === liveThemeId ? '2px solid var(--accent)' : 'none';
     });
   }
   updateThemeBtns();
@@ -445,20 +513,20 @@ async function startFullscreen(songs, startIdx = 0) {
     });
   });
 
-  const resizeObs = new ResizeObserver(() => { applyZoom(); });
+  const resizeObs = new ResizeObserver(() => applyZoom());
   resizeObs.observe(content);
 
   // 헤더 자동 숨김
   let hideTimer;
   function showHeader() {
     header.style.opacity = '1'; clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => { header.style.opacity = '0'; }, 3000);
+    hideTimer = setTimeout(() => { header.style.opacity = '0'; }, 4000);
   }
   overlay.addEventListener('touchstart', showHeader, { passive: true });
   overlay.addEventListener('mousemove', showHeader);
   showHeader();
 
-  // 스와이프 (곡 이동)
+  // 스와이프
   let touchStartX = 0, touchStartY = 0;
   overlay.addEventListener('touchstart', e => {
     touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY;
@@ -469,16 +537,14 @@ async function startFullscreen(songs, startIdx = 0) {
     if (Math.abs(dx) > 60 && dy < 40) navigateSong(dx < 0 ? 1 : -1);
   }, { passive: true });
 
-  // 헤더 업데이트
   function updateHeader() {
     const item = songs[currentIdx];
-    header.querySelector('#live-title').textContent = item.title;
+    if (!item) return;
+    header.querySelector('#live-title').textContent = item.title || '(제목 없음)';
     header.querySelector('#live-counter').textContent = `${currentIdx+1} / ${songs.length}`;
-    // 키·박자·BPM
     const info = getSongInfo(item);
-    const parts = [info.key, info.time, info.bpm ? info.bpm+'BPM' : ''].filter(Boolean);
+    const parts = [info.key, info.time, info.bpm ? info.bpm + 'BPM' : ''].filter(Boolean);
     header.querySelector('#live-info').textContent = parts.join(' · ');
-    // 버튼 활성화
     header.querySelector('#song-prev').disabled = currentIdx === 0;
     header.querySelector('#song-next').disabled = currentIdx === songs.length - 1;
   }
@@ -486,22 +552,27 @@ async function startFullscreen(songs, startIdx = 0) {
   async function loadCurrent() {
     updateHeader();
     const item = songs[currentIdx];
+    if (!item) return;
     content.innerHTML = `<div style="text-align:center;color:var(--text2);padding:40px">불러오는 중...</div>`;
     currentPage = 1;
-    if (item.type === 'chart') {
-      content.style.cssText = 'flex:1;overflow-y:auto;display:block;min-height:0;';
-      totalPages = 1;
-      const draft = getDrafts().find(d => d.id === item.id);
-      if (draft) renderChart(content, draft);
-      else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
-    } else {
-      content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
-      const record = await getSheet(item.id);
-      if (!record) { content.innerHTML = '<div class="empty-state">악보를 찾을 수 없습니다.</div>'; return; }
-      await new Promise(r => requestAnimationFrame(r));
-      const result = await renderContent(content, record, currentPage, pagesPerView);
-      totalPages = result?.totalPages || 1;
-      applyZoom();
+    try {
+      if (item.type === 'chart') {
+        content.style.cssText = 'flex:1;overflow-y:auto;display:block;min-height:0;';
+        totalPages = 1;
+        const draft = getDrafts().find(d => d.id === item.id);
+        if (draft) renderChart(content, draft);
+        else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
+      } else {
+        content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
+        const record = await getSheet(item.id);
+        if (!record) { content.innerHTML = '<div class="empty-state">악보를 찾을 수 없습니다.</div>'; return; }
+        await new Promise(r => requestAnimationFrame(r));
+        const result = await renderContent(content, record, currentPage, pagesPerView);
+        totalPages = result?.totalPages || 1;
+        applyZoom();
+      }
+    } catch(e) {
+      content.innerHTML = `<div class="empty-state">오류: ${e.message}</div>`;
     }
     updatePageBtns();
     content.scrollTop = 0;
@@ -512,22 +583,22 @@ async function startFullscreen(songs, startIdx = 0) {
     if (next < 1 || next > totalPages) return;
     currentPage = next;
     const item = songs[currentIdx];
+    if (!item || item.type === 'chart') return;
     const record = await getSheet(item.id);
-    if (record) {
-      const result = await renderContent(content, record, currentPage, pagesPerView);
-      totalPages = result?.totalPages || totalPages;
-      applyZoom();
-    }
+    if (record) { const r = await renderContent(content, record, currentPage, pagesPerView); totalPages = r?.totalPages || totalPages; applyZoom(); }
     updatePageBtns(); content.scrollTop = 0;
   }
 
   function updatePageBtns() {
-    nav.querySelector('#page-prev').disabled = currentPage <= 1;
-    nav.querySelector('#page-next').disabled = currentPage + pagesPerView - 1 >= totalPages;
+    const prevBtn = nav.querySelector('#page-prev');
+    const nextBtn = nav.querySelector('#page-next');
+    const label = nav.querySelector('#page-label');
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = currentPage + pagesPerView - 1 >= totalPages;
     const show = totalPages > 1;
-    nav.querySelector('#page-prev').style.visibility = show ? '' : 'hidden';
-    nav.querySelector('#page-next').style.visibility = show ? '' : 'hidden';
-    nav.querySelector('#page-label').textContent = show ? `${currentPage}/${totalPages}` : '';
+    prevBtn.style.visibility = show ? '' : 'hidden';
+    nextBtn.style.visibility = show ? '' : 'hidden';
+    label.textContent = show ? `${currentPage}/${totalPages}` : '';
   }
 
   function navigateSong(dir) {
