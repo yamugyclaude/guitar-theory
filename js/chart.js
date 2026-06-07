@@ -8,6 +8,12 @@ function saveDraft(draft) {
   if (idx >= 0) drafts[idx] = draft; else drafts.push(draft);
   saveDrafts(drafts);
 }
+// 디바운스 자동저장 (300ms)
+let _autoSaveTimer = null;
+function autoSave(draft) {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => saveDraft(draft), 300);
+}
 function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 
 // ── SVG 기호 (Unicode 미지원 대체) ──────────────────────────────────
@@ -259,6 +265,7 @@ function renderEditor(panel, draft) {
     draft.key   = ed.querySelector('#e-key').value;
     draft.time  = ed.querySelector('#e-time').value;
     draft.bpm   = ed.querySelector('#e-bpm').value;
+    autoSave(draft);
   }
 
   // 기본 마디/행 버튼
@@ -972,7 +979,7 @@ function renderSections(ed, draft) {
 
   // 섹션 이름
   area.querySelectorAll('.sec-type-input').forEach(inp => {
-    inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; });
+    inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; autoSave(draft); });
   });
 
   // 섹션 색상 input (즉시 DOM 업데이트)
@@ -1160,9 +1167,11 @@ function renderSections(ed, draft) {
       memoTa.addEventListener('mousedown', e => e.stopPropagation());
       memoTa.addEventListener('input', () => {
         draft.sections[si].bars[bi].memo = memoTa.value;
+        autoSave(draft);
       });
       memoTa.addEventListener('blur', () => {
         draft.sections[si].bars[bi].memo = memoTa.value;
+        autoSave(draft);
         // 메모 표시 영역 즉시 갱신
         const dispEl = cell.querySelector('.bar-memo-display');
         if (memoTa.value) {
@@ -1365,10 +1374,11 @@ function renderSections(ed, draft) {
         bar.chords[slotIdx] = inp.value.trim();
       };
 
-      inp.addEventListener('input', save);
+      inp.addEventListener('input', () => { save(); autoSave(draft); });
 
       inp.addEventListener('blur', e2 => {
         save();
+        autoSave(draft);
         const rt = e2.relatedTarget;
         if (rt && rt.closest('.bar-mark-toolbar')) return;
         inp.remove();
@@ -1421,11 +1431,13 @@ function renderSections(ed, draft) {
     ta.addEventListener('input', () => {
       if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
       draft.sections[si].rowMemos[rowIdx] = ta.value;
+      autoSave(draft);
     });
 
     ta.addEventListener('blur', () => {
       if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
       draft.sections[si].rowMemos[rowIdx] = ta.value;
+      autoSave(draft);
       // 표시 모드로 전환
       disp.style.display = 'block';
       ta.style.display = 'none';
@@ -1460,7 +1472,7 @@ function renderSections(ed, draft) {
 
   // 섹션 옵션
   area.querySelectorAll('.chk-pickup').forEach(c => c.addEventListener('change', () => { draft.sections[+c.dataset.si].pickup = c.checked; renderSections(ed, draft); }));
-  area.querySelectorAll('.memo-input').forEach(inp => inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].memo = inp.value; }));
+  area.querySelectorAll('.memo-input').forEach(inp => inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].memo = inp.value; autoSave(draft); }));
 
   // 마디/행 변경
   area.querySelectorAll('.sec-bpr-btn').forEach(btn => btn.addEventListener('click', () => {
