@@ -797,7 +797,7 @@ function sectionRowsHtml(sec, si, barOffset) {
       ${idxs.map(bi => {
         const bm = bars[bi].memo || '';
         const mc = bars[bi].memoColor || 'var(--text2)';
-        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:${hasBarMemo?'auto':'10px'};cursor:text;padding:${bm?'3px 5px':'2px 0'};border-radius:3px;transition:background 0.15s" title="클릭하여 메모">
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:${hasBarMemo?'auto':'14px'};cursor:text;padding:${bm?'3px 5px':'2px 5px'};border-radius:3px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="클릭하여 메모">
           <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all">${bm ? escHtml(bm) : (hasBarMemo ? '' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
         </div>`;
       }).join('')}
@@ -1503,7 +1503,7 @@ export function buildChartHtml(draft, opts = {}) {
         ${rowIdxs.map(bi => {
           const bm2 = allBars[bi].memo || '';
           const mc2 = allBars[bi].memoColor || 'var(--text2)';
-          return `<div style="flex:1;min-width:0;padding:${bm2?'3px 5px':'0'}">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4">${escHtml(bm2)}</span>` : ''}</div>`;
+          return `<div style="flex:1;min-width:0;padding:${bm2?'3px 5px':'2px 5px'};border:1px solid var(--border);border-top:none;border-radius:3px">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4">${escHtml(bm2)}</span>` : ''}</div>`;
         }).join('')}${spacers}
       </div>` : '';
 
