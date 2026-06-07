@@ -982,7 +982,7 @@ function renderSections(ed, draft) {
       const tw = toolbarEl.offsetWidth;
       const th = toolbarEl.offsetHeight;
       let left = cellRect.left;
-      let top = cellRect.bottom + 4;
+      let top = cellRect.bottom + 60;
       if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
       if (left < 8) left = 8;
       if (top + th > window.innerHeight - 8) top = cellRect.top - th - 4;
