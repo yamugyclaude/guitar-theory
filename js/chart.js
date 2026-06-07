@@ -1355,13 +1355,16 @@ function renderSections(ed, draft) {
 
       inp.addEventListener('keydown', e2 => {
         if (e2.key === 'Escape') { inp.value = currentVal; inp.blur(); return; }
-        if (e2.key === 'Tab' || e2.key === 'Enter') {
+        if (e2.key === 'Tab') {
           e2.preventDefault();
           save();
           inp.remove();
-          clearOutsideClose(); // 이전 팝업 outsideClose 제거 후 이동
-          if (e2.key === 'Enter') {
-            // Enter: 바로 다음 마디 첫 슬롯으로 이동
+          clearOutsideClose();
+          const nextSlotIdx = slotIdx + 1;
+          if (nextSlotIdx < 4) {
+            const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${bi}"][data-slot="${nextSlotIdx}"]`);
+            if (nextSlot) nextSlot.click();
+          } else {
             const nextBi = bi + 1;
             if (nextBi >= draft.sections[si].bars.length) {
               draft.sections[si].bars.push({ chords: ['','','',''] });
@@ -1369,21 +1372,6 @@ function renderSections(ed, draft) {
             }
             const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${nextBi}"][data-slot="0"]`);
             if (nextSlot) nextSlot.click();
-          } else {
-            // Tab: 다음 슬롯 → 다음 마디
-            const nextSlotIdx = slotIdx + 1;
-            if (nextSlotIdx < 4) {
-              const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${bi}"][data-slot="${nextSlotIdx}"]`);
-              if (nextSlot) nextSlot.click();
-            } else {
-              const nextBi = bi + 1;
-              if (nextBi >= draft.sections[si].bars.length) {
-                draft.sections[si].bars.push({ chords: ['','','',''] });
-                renderSections(ed, draft);
-              }
-              const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${nextBi}"][data-slot="0"]`);
-              if (nextSlot) nextSlot.click();
-            }
           }
         }
       });
