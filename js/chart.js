@@ -2,6 +2,12 @@ import { goTo, on } from './app.js';
 
 function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); }
 function saveDrafts(d) { localStorage.setItem('gta_chart_drafts', JSON.stringify(d)); }
+function saveDraft(draft) {
+  const drafts = getDrafts();
+  const idx = drafts.findIndex(d => d.id === draft.id);
+  if (idx >= 0) drafts[idx] = draft; else drafts.push(draft);
+  saveDrafts(drafts);
+}
 function uuid() { return Date.now().toString(36) + Math.random().toString(36); }
 
 // ── SVG 기호 (Unicode 미지원 대체) ──────────────────────────────────
