@@ -769,9 +769,9 @@ function sectionRowsHtml(sec, si, barOffset) {
     // 세뇨/코다 있는 마디가 있으면 topRow를 2층으로 (34px), 없으면 1층 (18px)
     const hasSymIcon = idxs.some(bi => { normalizeBar(bars[bi]); const lm = bars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
     const hasVolta   = idxs.some(bi => bars[bi].volta);
-    const topH = (hasSymIcon && hasVolta) ? 34 : (hasSymIcon || hasVolta) ? 22 : 14;
+    const topH = (hasSymIcon && hasVolta) ? 38 : (hasSymIcon || hasVolta) ? 26 : 14;
     // 볼타 괄호 상단 위치: 세뇨/코다가 위층을 쓰면 아래로 밀림
-    const voltaTop = hasSymIcon ? 16 : 4;
+    const voltaTop = hasSymIcon ? 20 : 4;
 
     const topRow = `<div style="display:flex;gap:3px;height:${topH}px;align-items:stretch">
       ${idxs.map((bi, pos) => {
@@ -811,7 +811,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         const mc = bars[bi].memoColor || 'var(--text2)';
         const mhl = bars[bi].memoHl || '';
         return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:18px;cursor:text;padding:2px 5px;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="🎵 가사">
-          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;overflow:hidden;display:block;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
         </div>`;
       }).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
@@ -1510,8 +1510,8 @@ export function buildChartHtml(draft, opts = {}) {
       // 위 기호 행 — 세뇨/코다와 볼타가 겹치면 2층으로
       const rHasSymIcon = rowIdxs.some(bi => { normalizeBar(allBars[bi]); const lm=allBars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
       const rHasVolta   = rowIdxs.some(bi => allBars[bi].volta);
-      const rTopH = (rHasSymIcon && rHasVolta) ? 34 : (rHasSymIcon || rHasVolta) ? 22 : 14;
-      const rVoltaTop = rHasSymIcon ? 16 : 4;
+      const rTopH = (rHasSymIcon && rHasVolta) ? 38 : (rHasSymIcon || rHasVolta) ? 26 : 14;
+      const rVoltaTop = rHasSymIcon ? 20 : 4;
 
       const topRow = `<div style="display:flex;gap:3px;height:${rTopH}px;align-items:stretch">
         ${rowIdxs.map((bi, pos) => {
@@ -1572,7 +1572,7 @@ export function buildChartHtml(draft, opts = {}) {
         ${rowIdxs.map(bi => {
           const bm2 = allBars[bi].memo || '';
           const mc2 = allBars[bi].memoColor || 'var(--text2)';
-          return `<div style="flex:1;min-width:0;padding:${bm2?'3px 5px':'0'}">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4">${escHtml(bm2)}</span>` : ''}</div>`;
+          return `<div style="flex:1;min-width:0;overflow:hidden;padding:${bm2?'3px 5px':'0'}">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4;word-break:break-all;display:block">${escHtml(bm2)}</span>` : ''}</div>`;
         }).join('')}${spacers}
       </div>` : '';
 
