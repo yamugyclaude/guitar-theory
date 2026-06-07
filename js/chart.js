@@ -1297,6 +1297,13 @@ function renderSections(ed, draft) {
           else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
         });
         ta.style.background = hl ? hl + '33' : 'var(--bg2)';
+        // blur 순서 문제 방지: disp도 즉시 업데이트
+        disp.style.background = hl ? hl + '66' : '';
+        disp.style.borderRadius = hl ? '2px' : '';
+        // editBox가 이미 닫혔을 경우 disp 표시 보장
+        if (editBox.style.display === 'none') {
+          disp.style.display = 'block';
+        }
         autoSave(draft);
       });
     });
@@ -1451,6 +1458,13 @@ function renderSections(ed, draft) {
           else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
         });
         ta.style.background = hl ? hl + '33' : 'var(--bg2)';
+        // blur 순서 문제 방지: disp도 즉시 업데이트
+        disp.style.background = hl ? hl + '55' : '';
+        disp.style.borderRadius = hl ? '2px' : '';
+        // editBox가 이미 닫혔을 경우 disp 표시 보장
+        if (editBox.style.display === 'none') {
+          disp.style.display = 'block';
+        }
         autoSave(draft);
       });
     });
