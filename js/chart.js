@@ -841,7 +841,7 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
         const mc = bars[bi].memoColor || 'var(--text2)';
         const mhl = bars[bi].memoHl || '';
         return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;transition:background 0.15s">
-          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;overflow:hidden;padding:2px 5px;min-height:18px;${mhl?`background:${mhl}66;border-radius:2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+          <div class="bar-memo-display" style="font-size:0.68rem;font-weight:400;color:${mc};opacity:0.5;white-space:pre-wrap;line-height:1.3;word-break:break-all;overflow:hidden;padding:2px 5px;min-height:16px;${mhl?`background:${mhl}66;border-radius:2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.4;font-size:0.58rem">가사</span>' : '<span style="opacity:0;font-size:0.58rem">·</span>')}</div>
           <div class="bar-memo-edit" style="display:none;padding:2px 3px 4px">
             <textarea class="bar-memo-ta" data-si="${si}" data-bi="${bi}"
               placeholder="가사..."
@@ -885,7 +885,7 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
         const note = (barNotes[bi] || {}).text || '';
         const nhl  = (barNotes[bi] || {}).hl   || '';
         return `<div class="bar-note-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;transition:background 0.15s">
-          <div class="bar-note-display" style="font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;word-break:break-all;padding:2px 5px;min-height:16px;${nhl?`background:${nhl}55;border-radius:2px`:''}">${note ? escHtml(note) : (hasNote ? '<span style="opacity:0.15;font-size:0.6rem">✱</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+          <div class="bar-note-display" style="font-size:0.78rem;font-weight:500;color:var(--text);white-space:pre-wrap;line-height:1.35;word-break:break-all;padding:2px 5px;min-height:16px;${nhl?`background:${nhl}55;border-radius:2px`:''}">${note ? escHtml(note) : (hasNote ? '<span style="opacity:0.15;font-size:0.6rem">✱</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
           <div class="bar-note-edit" style="display:none;padding:2px 3px 4px">
             <textarea class="bar-note-ta" data-si="${si}" data-bi="${bi}"
               placeholder="메모..."
@@ -1296,9 +1296,12 @@ function renderSections(ed, draft) {
       disp.style.borderRadius = hl ? '2px' : '';
       disp.style.padding = hl ? '0 2px' : '';
       disp.style.color = mc2;
+      disp.style.opacity = '0.5';
+      disp.style.fontSize = '0.68rem';
+      disp.style.fontWeight = '400';
       disp.innerHTML = ta.value
         ? escHtml(ta.value)
-        : (hl ? `<span style="opacity:0.4;font-size:0.6rem">🖊</span>` : `<span style="opacity:0.2;font-size:0.6rem">가사</span>`);
+        : (hl ? `<span style="opacity:0.4;font-size:0.58rem">🖊</span>` : `<span style="opacity:0.4;font-size:0.58rem">가사</span>`);
       disp.style.display = 'block';
       editBox.style.display = 'none';
     });
@@ -1321,9 +1324,12 @@ function renderSections(ed, draft) {
         disp.style.background = hl ? hl + 'aa' : '';
         disp.style.borderRadius = hl ? '2px' : '';
         disp.style.padding = hl ? '0 2px' : '';
+        disp.style.opacity = '0.5';
+        disp.style.fontSize = '0.68rem';
+        disp.style.fontWeight = '400';
         disp.innerHTML = txt
           ? escHtml(txt)
-          : (hl ? `<span style="opacity:0.4;font-size:0.6rem">🖊</span>` : `<span style="opacity:0.2;font-size:0.6rem">가사</span>`);
+          : (hl ? `<span style="opacity:0.4;font-size:0.58rem">🖊</span>` : `<span style="opacity:0.4;font-size:0.58rem">가사</span>`);
         disp.style.display = 'block';
         editBox.style.display = 'none';
         autoSave(draft);
@@ -1657,7 +1663,8 @@ export function buildChartHtml(draft, opts = {}) {
         ${rowIdxs.map(bi => {
           const bm2 = allBars[bi].memo || '';
           const mc2 = allBars[bi].memoColor || 'var(--text2)';
-          return `<div style="flex:1;min-width:0;overflow:hidden;padding:${bm2?'3px 5px':'0'}">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4;word-break:break-all;display:block">${escHtml(bm2)}</span>` : ''}</div>`;
+          const mhl2 = allBars[bi].memoHl || '';
+          return `<div style="flex:1;min-width:0;overflow:hidden;padding:${bm2?'2px 5px':'0'}">${bm2 ? `<span style="font-size:0.68rem;font-weight:400;color:${mc2};opacity:0.5;white-space:pre-wrap;line-height:1.3;word-break:break-all;display:block;${mhl2?`background:${mhl2}aa;border-radius:2px`:''}">${escHtml(bm2)}</span>` : ''}</div>`;
         }).join('')}${spacers}
       </div>` : '';
 
@@ -1682,7 +1689,7 @@ export function buildChartHtml(draft, opts = {}) {
         ${rowIdxs.map(bi => {
           const note = (barNotes[bi]||{}).text || '';
           const nhl  = (barNotes[bi]||{}).hl   || '';
-          return `<div style="flex:1;min-width:0;font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 5px;white-space:pre-wrap;line-height:1.3;word-break:break-all;border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;${nhl?`background:${nhl}55`:''}">${note ? escHtml(note) : ''}</div>`;
+          return `<div style="flex:1;min-width:0;font-size:0.8rem;font-weight:500;color:var(--text);padding:2px 5px;white-space:pre-wrap;line-height:1.35;word-break:break-all;${nhl?`background:${nhl}55;border-radius:2px`:''}">${note ? escHtml(note) : ''}</div>`;
         }).join('')}
         ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
       </div>` : '';
