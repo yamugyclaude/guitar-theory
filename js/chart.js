@@ -1052,6 +1052,20 @@ function renderSections(ed, draft) {
     const toolbarEl = toolbar.firstElementChild;
     document.body.appendChild(toolbarEl);
 
+    // 팝업 외부 클릭 시 닫기
+    const outsideClose = (e) => {
+      if (!toolbarEl.contains(e.target) && !cell.contains(e.target)) {
+        saveDraft(draft);
+        renderSections(ed, draft);
+        document.removeEventListener('mousedown', outsideClose, true);
+        document.removeEventListener('touchstart', outsideClose, true);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', outsideClose, true);
+      document.addEventListener('touchstart', outsideClose, true);
+    }, 100);
+
     // 셀 아래에 위치, 뷰포트 경계 보정
     requestAnimationFrame(() => {
       const cellRect = cell.getBoundingClientRect();
@@ -1334,19 +1348,30 @@ function renderSections(ed, draft) {
           e2.preventDefault();
           save();
           inp.remove();
-          // 다음 슬롯 또는 다음 마디 첫 슬롯으로 이동
-          const nextSlotIdx = slotIdx + 1;
-          if (nextSlotIdx < 4) {
-            const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${bi}"][data-slot="${nextSlotIdx}"]`);
-            if (nextSlot) nextSlot.click();
-          } else {
+          if (e2.key === 'Enter') {
+            // Enter: 바로 다음 마디 첫 슬롯으로 이동
             const nextBi = bi + 1;
-            if (e2.key === 'Enter' && nextBi >= draft.sections[si].bars.length) {
+            if (nextBi >= draft.sections[si].bars.length) {
               draft.sections[si].bars.push({ chords: ['','','',''] });
               renderSections(ed, draft);
             }
             const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${nextBi}"][data-slot="0"]`);
             if (nextSlot) nextSlot.click();
+          } else {
+            // Tab: 다음 슬롯 → 다음 마디
+            const nextSlotIdx = slotIdx + 1;
+            if (nextSlotIdx < 4) {
+              const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${bi}"][data-slot="${nextSlotIdx}"]`);
+              if (nextSlot) nextSlot.click();
+            } else {
+              const nextBi = bi + 1;
+              if (nextBi >= draft.sections[si].bars.length) {
+                draft.sections[si].bars.push({ chords: ['','','',''] });
+                renderSections(ed, draft);
+              }
+              const nextSlot = area.querySelector(`.bar-slot[data-si="${si}"][data-bi="${nextBi}"][data-slot="0"]`);
+              if (nextSlot) nextSlot.click();
+            }
           }
         }
       });
