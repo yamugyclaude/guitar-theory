@@ -172,6 +172,19 @@ body {
 }
 .tab-panel.active { display: block; }
 
+/* ===== nav 숨김 (PC/태블릿) ===== */
+@media (min-width: 768px) {
+  body.nav-hidden #tab-nav {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    border-right: none;
+  }
+  body.nav-hidden #nav-toggle {
+    display: block !important;
+  }
+}
+
 /* ===== 모바일 (하단 탭바) ===== */
 @media (max-width: 767px) {
   .slot-text { font-size: 0.62rem !important; }

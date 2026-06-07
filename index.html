@@ -7,9 +7,15 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- 메뉴 숨김 토글 버튼 (PC/태블릿) -->
+  <button id="nav-toggle" title="메뉴 숨기기/보이기" style="position:fixed;top:8px;left:8px;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;font-size:1rem;color:var(--text2);display:none">☰</button>
+
   <!-- 사이드 탭바 (PC) / 하단 탭바 (모바일) -->
   <nav id="tab-nav">
-    <div class="nav-header">🎸 GTA</div>
+    <div class="nav-header" style="display:flex;align-items:center;justify-content:space-between">
+      <span>🎸 GTA</span>
+      <button id="nav-hide-btn" title="메뉴 숨기기" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:0 2px;line-height:1">‹</button>
+    </div>
     <button class="tab-btn active" data-tab="1">🎸<span>이론 분석</span></button>
     <button class="tab-btn" data-tab="2">🎼<span>코드 보이싱</span></button>
     <button class="tab-btn" data-tab="3">🎯<span>솔로 메이킹</span></button>
@@ -19,6 +25,9 @@
     <button class="tab-btn" data-tab="7">📝<span>곡진행</span></button>
     <button class="tab-btn" data-tab="8">🎬<span>라이브</span></button>
     <button class="tab-btn" data-tab="9">⚙️<span>설정</span></button>
+    <div style="margin-top:auto;padding:8px">
+      <button id="hard-refresh-btn" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:0.72rem;padding:6px 4px;text-align:center">🔄 강력 새로고침</button>
+    </div>
   </nav>
 
   <!-- 메인 콘텐츠 -->

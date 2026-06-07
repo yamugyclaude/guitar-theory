@@ -89,6 +89,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // 메뉴 숨김 상태 복원
+  const settings2 = JSON.parse(localStorage.getItem('gta_settings') || '{}');
+  if (settings2.navHidden) document.body.classList.add('nav-hidden');
+
+  // 메뉴 숨기기 버튼
+  document.getElementById('nav-hide-btn').addEventListener('click', () => {
+    document.body.classList.add('nav-hidden');
+    const s = JSON.parse(localStorage.getItem('gta_settings') || '{}');
+    s.navHidden = true;
+    localStorage.setItem('gta_settings', JSON.stringify(s));
+  });
+
+  // 메뉴 토글 버튼 (숨겨진 상태에서 다시 열기)
+  document.getElementById('nav-toggle').addEventListener('click', () => {
+    document.body.classList.remove('nav-hidden');
+    const s = JSON.parse(localStorage.getItem('gta_settings') || '{}');
+    s.navHidden = false;
+    localStorage.setItem('gta_settings', JSON.stringify(s));
+  });
+
+  // 강력 새로고침 (localStorage/IndexedDB 안전)
+  document.getElementById('hard-refresh-btn').addEventListener('click', () => {
+    location.href = location.pathname + '?v=' + Date.now();
+  });
+
   // Supabase 자동 연결 (설정된 경우)
   if (localStorage.getItem('gta_supabase_cfg') && settings.syncKey) {
     try {

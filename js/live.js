@@ -255,14 +255,10 @@ async function startFullscreen(startIdx) {
   const nav = document.createElement('div');
   nav.style.cssText = `flex-shrink:0;background:var(--bg2);border-top:1px solid var(--border);padding:6px 10px;display:flex;flex-direction:column;gap:6px;`;
   nav.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-      <button id="live-prev" class="btn btn-primary" style="flex:1;padding:10px 6px;font-size:0.82rem">← 이전</button>
-      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-        <button id="page-prev" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">◀</button>
-        <span id="page-label" style="font-size:0.72rem;color:var(--text2);min-width:40px;text-align:center"></span>
-        <button id="page-next" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">▶</button>
-      </div>
-      <button id="live-next" class="btn btn-primary" style="flex:1;padding:10px 6px;font-size:0.82rem">다음 →</button>
+    <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+      <button id="page-prev" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">◀</button>
+      <span id="page-label" style="font-size:0.72rem;color:var(--text2);min-width:40px;text-align:center"></span>
+      <button id="page-next" class="btn btn-secondary" style="padding:10px 12px;font-size:0.9rem">▶</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:6px">
       <button id="zoom-out" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">−</button>
@@ -349,8 +345,6 @@ async function startFullscreen(startIdx) {
     const item = setlist[currentIdx];
     header.querySelector('#live-title').textContent = item.title;
     header.querySelector('#live-counter').textContent = `${currentIdx + 1}/${setlist.length}`;
-    nav.querySelector('#live-prev').disabled = currentIdx === 0;
-    nav.querySelector('#live-next').disabled = currentIdx === setlist.length - 1;
     content.innerHTML = `<div style="text-align:center;color:var(--text2);padding:40px">불러오는 중...</div>`;
     currentPage = 1;
 
@@ -404,8 +398,6 @@ async function startFullscreen(startIdx) {
     currentIdx = next; loadCurrent();
   }
 
-  nav.querySelector('#live-prev').addEventListener('click', () => navigateSong(-1));
-  nav.querySelector('#live-next').addEventListener('click', () => navigateSong(1));
   nav.querySelector('#page-prev').addEventListener('click', () => navigatePage(-1));
   nav.querySelector('#page-next').addEventListener('click', () => navigatePage(1));
   header.querySelector('#live-close').addEventListener('click', () => {
