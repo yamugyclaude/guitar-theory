@@ -686,7 +686,19 @@ function barMarkToolbarHtml(si, bi, bar, sec) {
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">마디 메모</div>
     <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
       placeholder="가사, 운지법, 지시어..."
-      style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:6px">${escHtml(bm)}</textarea>
+      style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:2px solid var(--accent);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:4px;outline:none">${escHtml(bm)}</textarea>
+    <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap">
+      <span style="font-size:0.65rem;color:var(--text2)">🖊 에딩펜</span>
+      <span class="bar-hl-btn" data-hl="" style="padding:2px 8px;border-radius:3px;font-size:0.68rem;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--text2);${!bar.memoHl?'outline:2px solid var(--accent)':''}">없음</span>
+      ${[
+        {color:'#ffe066',label:'노랑'},
+        {color:'#66dd88',label:'초록'},
+        {color:'#44ccff',label:'파랑'},
+        {color:'#ff9944',label:'주황'},
+        {color:'#ff6688',label:'핑크'},
+        {color:'#cc88ff',label:'보라'},
+      ].map(h=>`<span class="bar-hl-btn" data-hl="${h.color}" style="padding:2px 8px;border-radius:3px;font-size:0.68rem;cursor:pointer;background:${h.color};color:#111;border:2px solid ${bar.memoHl===h.color?'#fff':'transparent'}">${h.label}</span>`).join('')}
+    </div>
     <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px;border-top:1px solid var(--border);margin-top:4px">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:0.65rem;color:var(--text2);min-width:64px">코드 글자색</span>
@@ -797,8 +809,9 @@ function sectionRowsHtml(sec, si, barOffset) {
       ${idxs.map(bi => {
         const bm = bars[bi].memo || '';
         const mc = bars[bi].memoColor || 'var(--text2)';
-        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:${hasBarMemo?'auto':'14px'};cursor:text;padding:${bm?'3px 5px':'2px 5px'};border-radius:3px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="클릭하여 메모">
-          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all">${bm ? escHtml(bm) : (hasBarMemo ? '' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+        const mhl = bars[bi].memoHl || '';
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:${hasBarMemo?'auto':'10px'};cursor:text;padding:${bm?'3px 5px':'2px 0'};border-radius:3px;transition:background 0.15s" title="클릭하여 메모">
+          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
         </div>`;
       }).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
@@ -1123,6 +1136,37 @@ function renderSections(ed, draft) {
           memoCell.style.padding = memoTa.value ? '3px 5px' : '2px 0';
         }
       });
+
+      // 에딩펜 하이라이트 버튼
+      toolbarEl.querySelectorAll('.bar-hl-btn').forEach(btn => {
+        btn.addEventListener('mousedown', e => e.preventDefault());
+        btn.addEventListener('click', () => {
+          const hl = btn.dataset.hl;
+          if (hl) draft.sections[si].bars[bi].memoHl = hl;
+          else delete draft.sections[si].bars[bi].memoHl;
+          // 버튼 선택 표시 갱신
+          toolbarEl.querySelectorAll('.bar-hl-btn').forEach(b => {
+            const active = b.dataset.hl === hl;
+            if (b.dataset.hl === '') {
+              b.style.outline = active ? '2px solid var(--accent)' : 'none';
+            } else {
+              b.style.border = `2px solid ${active ? '#fff' : 'transparent'}`;
+            }
+          });
+          // textarea 배경 즉시 반영
+          if (memoTa) memoTa.style.background = hl ? hl + '55' : 'var(--bg3)';
+          // 표시 영역 즉시 갱신
+          const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
+          if (memoCell) {
+            const disp = memoCell.querySelector('.bar-memo-display');
+            if (disp) disp.style.background = hl ? hl + '66' : '';
+          }
+          saveDraft(draft);
+        });
+      });
+
+      // 기존 에딩펜 색 textarea에 반영
+      if (memoTa && bar.memoHl) memoTa.style.background = bar.memoHl + '55';
 
       // 메모 색상 버튼
       toolbarEl.querySelectorAll('.bar-memo-color-btn').forEach(btn => {
@@ -1503,7 +1547,7 @@ export function buildChartHtml(draft, opts = {}) {
         ${rowIdxs.map(bi => {
           const bm2 = allBars[bi].memo || '';
           const mc2 = allBars[bi].memoColor || 'var(--text2)';
-          return `<div style="flex:1;min-width:0;padding:${bm2?'3px 5px':'2px 5px'};border:1px solid var(--border);border-top:none;border-radius:3px">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4">${escHtml(bm2)}</span>` : ''}</div>`;
+          return `<div style="flex:1;min-width:0;padding:${bm2?'3px 5px':'0'}">${bm2 ? `<span style="font-size:0.8rem;font-weight:600;color:${mc2};white-space:pre-wrap;line-height:1.4">${escHtml(bm2)}</span>` : ''}</div>`;
         }).join('')}${spacers}
       </div>` : '';
 
