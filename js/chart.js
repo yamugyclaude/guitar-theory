@@ -155,7 +155,8 @@ export function render(panel) {
   panel.querySelector('#new-btn').addEventListener('click', () => openEditor(panel, null));
   renderDraftList(panel);
   on('route-payload', payload => {
-    if (payload?.title || payload?.chord) openEditor(panel, null, payload);
+    if (payload?.openDraftId) openEditor(panel, payload.openDraftId);
+    else if (payload?.title || payload?.chord) openEditor(panel, null, payload);
   });
 }
 
@@ -330,21 +331,28 @@ function renderEditor(panel, draft) {
     const idx = drafts.findIndex(d => d.id === toSave.id);
     if (idx >= 0) drafts[idx] = toSave; else drafts.unshift(toSave);
     saveDrafts(drafts);
-    // 라이브 폴더에 없으면 첫 번째 폴더(없으면 생성)에 추가
-    const folders = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-    // 구버전 flat list 처리
-    if (folders.length && folders[0]?.type !== undefined && !folders[0]?.songs) {
-      const migrated = [{ id: 'folder_' + Date.now(), name: '셋리스트', songs: folders }];
-      const already = migrated[0].songs.find(s => s.id === draft.id);
-      if (!already) migrated[0].songs.push({ id: draft.id, title: draft.title, type: 'chart' });
-      localStorage.setItem('gta_setlists', JSON.stringify(migrated));
-    } else {
-      if (!folders.length) folders.push({ id: 'folder_' + Date.now(), name: '셋리스트', songs: [] });
-      const already = folders.some(f => f.songs?.find(s => s.id === draft.id));
-      if (!already) { folders[0].songs.push({ id: draft.id, title: draft.title, type: 'chart' }); }
+    // gta_setlists 폴더에 없으면 첫 번째 폴더(없으면 생성)에 추가
+    try {
+      const rawFolders = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+      let folders = Array.isArray(rawFolders) ? rawFolders : [];
+      // 구버전 flat list 마이그레이션
+      if (folders.length && folders[0]?.type !== undefined && !Array.isArray(folders[0]?.songs)) {
+        folders = [{ id: 'folder_' + Date.now(), name: '셋리스트', songs: folders }];
+      }
+      if (!folders.some(f => (f.songs||[]).find(s => s.id === draft.id))) {
+        if (!folders.length) folders.push({ id: 'folder_' + Date.now(), name: '셋리스트', songs: [] });
+        folders[0].songs.push({ id: draft.id, title: draft.title, type: 'chart' });
+      } else {
+        // 제목이 변경된 경우 업데이트
+        folders.forEach(f => {
+          const song = (f.songs||[]).find(s => s.id === draft.id);
+          if (song) song.title = draft.title;
+        });
+      }
       localStorage.setItem('gta_setlists', JSON.stringify(folders));
-    }
+    } catch(e) { console.warn('setlists update failed:', e); }
     showToast('저장 완료 ✅');
+    goTo(6); // 악보 탭으로 이동
   });
 
   // PNG

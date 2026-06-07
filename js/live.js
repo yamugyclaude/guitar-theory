@@ -158,97 +158,64 @@ function esc(s) {
 export function render(panel) {
   panel.innerHTML = `
     <h1 class="page-title">🎬 라이브 모드</h1>
+    <p style="font-size:0.82rem;color:var(--text2);margin-bottom:16px">
+      폴더 관리는 <strong>악보 탭</strong>에서 합니다. 여기서는 폴더를 선택해 바로 재생하세요.
+    </p>
     <div id="folder-area"></div>
-    <div id="viewer-area" style="margin-top:0"></div>
   `;
-  renderFolders(panel);
+  renderFolderCards(panel);
 }
 
-// 접기 상태 기억 (fi별)
-const _collapsed = new Set();
-
-function renderFolders(panel) {
+function renderFolderCards(panel) {
   const folders = getFolders();
   const area = panel.querySelector('#folder-area');
   if (!area) return;
 
-  area.innerHTML = '';
-
-  // 상단: 새 폴더 추가
-  const topBar = document.createElement('div');
-  topBar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
-  topBar.innerHTML = `
-    <button class="btn btn-primary" id="new-folder-btn" style="font-size:0.8rem;padding:6px 14px">＋ 새 폴더</button>
-  `;
-  area.appendChild(topBar);
-
-  // 빈 상태
   if (!folders.length) {
-    const empty = document.createElement('div');
-    empty.className = 'card empty-state';
-    empty.innerHTML = `폴더를 만들고 악보나 곡진행 탭에서 🎬 버튼으로 곡을 추가하세요.`;
-    area.appendChild(empty);
+    area.innerHTML = `<div class="card empty-state">
+      악보 탭에서 폴더를 만들고 곡을 추가하면 여기에 표시됩니다.
+    </div>`;
+    return;
   }
 
-  // 폴더 목록
+  area.innerHTML = '';
+
   folders.forEach((folder, fi) => {
+    const songs = folder.songs || [];
     const card = document.createElement('div');
     card.className = 'card';
-    card.style.cssText = 'margin-bottom:10px;padding:10px 12px;';
-
-    const isCollapsed = _collapsed.has(fi);
-    const songs = folder.songs || [];
+    card.style.cssText = 'margin-bottom:10px;padding:12px 14px;';
 
     // 헤더
     card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap">
-        <button class="folder-toggle-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.7rem;padding:3px 7px;min-width:28px;flex-shrink:0">${isCollapsed ? '▶' : '▼'}</button>
-        <span class="folder-name-disp" data-fi="${fi}"
-          style="flex:1;font-weight:700;font-size:0.9rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0"
-          title="탭하여 이름 변경">${esc(folder.name)}</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap">
+        <span style="font-size:1rem;flex-shrink:0">📁</span>
+        <span style="flex:1;font-weight:700;font-size:0.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(folder.name)}</span>
         <span style="font-size:0.72rem;color:var(--text2);flex-shrink:0">${songs.length}곡</span>
-        <button class="move-folder-up-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.65rem;padding:2px 6px;flex-shrink:0" ${fi===0?'disabled':''}>↑</button>
-        <button class="move-folder-down-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.65rem;padding:2px 6px;flex-shrink:0" ${fi===folders.length-1?'disabled':''}>↓</button>
         <button class="fs-folder-btn btn btn-primary" data-fi="${fi}"
-          style="font-size:0.72rem;padding:4px 10px;flex-shrink:0" ${!songs.length?'disabled':''}>🎬</button>
-        <button class="del-folder-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.72rem;padding:4px 8px;color:var(--danger);flex-shrink:0">🗑</button>
+          style="font-size:0.8rem;padding:6px 14px;flex-shrink:0" ${!songs.length?'disabled':''}>🎬 재생</button>
       </div>
     `;
 
-    // 바디
+    // 곡 목록 (항상 표시)
     const body = document.createElement('div');
-    body.className = 'folder-body';
-    body.dataset.fi = fi;
-    body.style.display = isCollapsed ? 'none' : 'block';
-    body.style.marginTop = songs.length ? '6px' : '0';
+    body.style.marginTop = songs.length ? '8px' : '0';
 
     if (!songs.length) {
-      body.innerHTML = `<div style="font-size:0.8rem;color:var(--text2);padding:4px 4px 0">
-        곡이 없습니다. 악보/곡진행 탭에서 🎬 버튼으로 추가하세요.
+      body.innerHTML = `<div style="font-size:0.78rem;color:var(--text2);padding:4px 0">
+        악보 탭에서 곡을 추가하세요.
       </div>`;
     } else {
       songs.forEach((song, si) => {
         const row = document.createElement('div');
-        row.style.cssText = `display:flex;align-items:center;gap:4px;padding:6px 4px;
+        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:5px 4px;
           ${si < songs.length-1 ? 'border-bottom:1px solid var(--border);' : ''}`;
         row.innerHTML = `
-          <span style="font-size:0.72rem;color:var(--text2);min-width:18px;text-align:right;flex-shrink:0">${si+1}</span>
-          <span style="flex:1;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(song.title || '(제목 없음)')}</span>
-          <span class="badge" style="font-size:0.6rem;flex-shrink:0">${song.type==='chart'?'차트':'악보'}</span>
-          <button class="move-up-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
-            style="font-size:0.6rem;padding:2px 5px;flex-shrink:0" ${si===0?'disabled':''}>↑</button>
-          <button class="move-down-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
-            style="font-size:0.6rem;padding:2px 5px;flex-shrink:0" ${si===songs.length-1?'disabled':''}>↓</button>
-          <button class="open-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
-            style="font-size:0.68rem;padding:4px 8px;flex-shrink:0">열기</button>
-          <button class="fs-song-btn btn btn-primary" data-fi="${fi}" data-si="${si}"
-            style="font-size:0.68rem;padding:4px 8px;flex-shrink:0">🎬</button>
-          <button class="del-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
-            style="font-size:0.68rem;padding:4px 6px;color:var(--danger);flex-shrink:0">×</button>
+          <span style="font-size:0.68rem;color:var(--text2);min-width:18px;text-align:right;flex-shrink:0">${si+1}</span>
+          <span style="font-size:0.8rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(song.title||'(제목 없음)')}</span>
+          <span class="badge" style="font-size:0.58rem;flex-shrink:0">${song.type==='chart'?'차트':'악보'}</span>
+          <button class="fs-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.68rem;padding:3px 8px;flex-shrink:0">🎬</button>
         `;
         body.appendChild(row);
       });
@@ -258,137 +225,19 @@ function renderFolders(panel) {
     area.appendChild(card);
   });
 
-  // ── 이벤트 연결 ──────────────────────────────────────────────────
-
-  // 새 폴더
-  area.querySelector('#new-folder-btn').addEventListener('click', () => {
-    const name = prompt('폴더 이름', '새 폴더');
-    if (name == null) return;
-    const trimmed = name.trim() || '새 폴더';
-    const fs = getFolders();
-    fs.push({ id: 'folder_' + Date.now(), name: trimmed, songs: [] });
-    _saveFolders(fs);
-    renderFolders(panel);
-  });
-
-  // 폴더 이름 클릭 편집
-  area.querySelectorAll('.folder-name-disp').forEach(span => {
-    span.addEventListener('click', () => {
-      const fi = +span.dataset.fi;
-      const fs = getFolders();
-      const current = fs[fi]?.name || '';
-      const newName = prompt('폴더 이름 변경', current);
-      if (newName == null) return;
-      fs[fi].name = newName.trim() || current;
-      _saveFolders(fs);
-      span.textContent = fs[fi].name;
-    });
-  });
-
-  // 폴더 접기/펼치기
-  area.querySelectorAll('.folder-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi;
-      const body = area.querySelector(`.folder-body[data-fi="${fi}"]`);
-      if (!body) return;
-      const isOpen = body.style.display !== 'none';
-      if (isOpen) { _collapsed.add(fi); body.style.display = 'none'; btn.textContent = '▶'; }
-      else { _collapsed.delete(fi); body.style.display = 'block'; btn.textContent = '▼'; }
-    });
-  });
-
-  // 폴더 전체 재생
+  // 이벤트 연결
   area.querySelectorAll('.fs-folder-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi;
-      const fs = getFolders();
-      const songs = fs[fi]?.songs || [];
-      if (!songs.length) return;
-      startFullscreen(songs, 0);
+      const songs = getFolders()[fi]?.songs || [];
+      if (songs.length) startFullscreen(songs, 0);
     });
   });
-
-  // 폴더 삭제
-  area.querySelectorAll('.del-folder-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi;
-      const fs = getFolders();
-      const name = fs[fi]?.name || '';
-      const count = fs[fi]?.songs?.length || 0;
-      const msg = count > 0 ? `"${name}" 폴더를 삭제할까요? (${count}곡 포함)` : `"${name}" 폴더를 삭제할까요?`;
-      if (!confirm(msg)) return;
-      fs.splice(fi, 1);
-      _collapsed.delete(fi);
-      _saveFolders(fs);
-      renderFolders(panel);
-    });
-  });
-
-  // 폴더 순서
-  area.querySelectorAll('.move-folder-up-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi; if (fi === 0) return;
-      const fs = getFolders();
-      [fs[fi-1], fs[fi]] = [fs[fi], fs[fi-1]];
-      _saveFolders(fs); renderFolders(panel);
-    });
-  });
-  area.querySelectorAll('.move-folder-down-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi;
-      const fs = getFolders(); if (fi >= fs.length-1) return;
-      [fs[fi], fs[fi+1]] = [fs[fi+1], fs[fi]];
-      _saveFolders(fs); renderFolders(panel);
-    });
-  });
-
-  // 곡 열기 (인라인)
-  area.querySelectorAll('.open-song-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const fs = getFolders();
-      const song = fs[fi]?.songs?.[si];
-      if (song) openItem(panel, song);
-    });
-  });
-
-  // 곡 풀스크린
   area.querySelectorAll('.fs-song-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const fs = getFolders();
-      const songs = fs[fi]?.songs || [];
-      if (!songs.length) return;
-      startFullscreen(songs, si);
-    });
-  });
-
-  // 곡 삭제
-  area.querySelectorAll('.del-song-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const fs = getFolders();
-      fs[fi]?.songs?.splice(si, 1);
-      _saveFolders(fs); renderFolders(panel);
-    });
-  });
-
-  // 곡 순서
-  area.querySelectorAll('.move-up-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi, si = +btn.dataset.si; if (si === 0) return;
-      const fs = getFolders(); const songs = fs[fi]?.songs || [];
-      [songs[si-1], songs[si]] = [songs[si], songs[si-1]];
-      _saveFolders(fs); renderFolders(panel);
-    });
-  });
-  area.querySelectorAll('.move-down-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const fi = +btn.dataset.fi, si = +btn.dataset.si;
-      const fs = getFolders(); const songs = fs[fi]?.songs || [];
-      if (si >= songs.length-1) return;
-      [songs[si], songs[si+1]] = [songs[si+1], songs[si]];
-      _saveFolders(fs); renderFolders(panel);
+      const songs = getFolders()[fi]?.songs || [];
+      if (songs.length) startFullscreen(songs, si);
     });
   });
 }
