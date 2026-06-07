@@ -866,14 +866,29 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
 
     // ─── 행 사이 메모 ───
     const memo = rowMemos[rowIdx] || '';
+    const rowHl = (sec.rowMemoHls || {})[rowIdx] || '';
+    const HL_COLORS = [
+      {color:'#ffe066',label:'노랑'},{color:'#66dd88',label:'초록'},
+      {color:'#44ccff',label:'파랑'},{color:'#ff9944',label:'주황'},
+      {color:'#ff6688',label:'핑크'},{color:'#cc88ff',label:'보라'},
+    ];
     const memoRow = `<div class="row-memo-wrap" data-si="${si}" data-row="${rowIdx}"
-      style="display:flex;align-items:center;gap:4px;min-height:${memo?'auto':'16px'};padding:${memo?'3px':'1px'} 0;cursor:text;border-radius:3px;transition:background 0.15s"
+      style="display:flex;align-items:flex-start;gap:4px;min-height:${memo?'auto':'16px'};padding:${memo?'3px':'1px'} 0;cursor:text;border-radius:3px;transition:background 0.15s"
       title="메모 클릭하여 편집">
-      <span style="font-size:0.6rem;color:#ff3333;flex-shrink:0">✱</span>
-      <div class="row-memo-display" style="flex:1;font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;min-height:14px;word-break:break-all">${memo ? escHtml(memo) : '<span style="opacity:0.25">메모...</span>'}</div>
-      <textarea class="row-memo-input" data-si="${si}" data-row="${rowIdx}"
-        placeholder="메모 (운지법, 지시어, 참고사항...)"
-        style="display:none;flex:1;font-size:0.72rem;color:var(--text);background:var(--bg2);border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box">${memo ? escHtml(memo) : ''}</textarea>
+      <span style="font-size:0.6rem;color:#ff3333;flex-shrink:0;padding-top:2px">✱</span>
+      <div style="flex:1;min-width:0">
+        <div class="row-memo-display" style="font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;min-height:14px;word-break:break-all;${rowHl?`background:${rowHl}55;border-radius:3px;padding:1px 4px`:''}">${memo ? escHtml(memo) : '<span style="opacity:0.25">메모...</span>'}</div>
+        <div class="row-memo-edit" style="display:none">
+          <textarea class="row-memo-input" data-si="${si}" data-row="${rowIdx}"
+            placeholder="메모 (운지법, 지시어, 참고사항...)"
+            style="width:100%;font-size:0.72rem;color:var(--text);background:${rowHl?rowHl+'33':'var(--bg2)'};border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box">${memo ? escHtml(memo) : ''}</textarea>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap">
+            <span style="font-size:0.62rem;color:var(--text2)">🖊</span>
+            <span class="row-hl-btn" data-si="${si}" data-row="${rowIdx}" data-hl="" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--text2);${!rowHl?'outline:2px solid var(--accent)':''}">없음</span>
+            ${HL_COLORS.map(h=>`<span class="row-hl-btn" data-si="${si}" data-row="${rowIdx}" data-hl="${h.color}" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:${h.color};color:#111;border:2px solid ${rowHl===h.color?'#fff':'transparent'}">${h.label}</span>`).join('')}
+          </div>
+        </div>
+      </div>
     </div>`;
 
     return `<div style="margin-bottom:4px">${topRow}${cellRow}${botRow}${barMemoRow}${memoRow}</div>`;
@@ -1418,12 +1433,14 @@ function renderSections(ed, draft) {
     const si = +wrap.dataset.si;
     const rowIdx = +wrap.dataset.row;
     const disp = wrap.querySelector('.row-memo-display');
+    const editBox = wrap.querySelector('.row-memo-edit');
     const ta = wrap.querySelector('.row-memo-input');
 
-    wrap.addEventListener('click', () => {
-      if (ta.style.display === 'block') return;
+    wrap.addEventListener('click', e => {
+      if (e.target.closest('.row-hl-btn')) return;
+      if (editBox.style.display === 'block') return;
       disp.style.display = 'none';
-      ta.style.display = 'block';
+      editBox.style.display = 'block';
       ta.focus();
       ta.setSelectionRange(ta.value.length, ta.value.length);
     });
@@ -1434,13 +1451,15 @@ function renderSections(ed, draft) {
       autoSave(draft);
     });
 
-    ta.addEventListener('blur', () => {
+    ta.addEventListener('blur', e => {
+      if (e.relatedTarget && wrap.contains(e.relatedTarget)) return;
       if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
       draft.sections[si].rowMemos[rowIdx] = ta.value;
       autoSave(draft);
-      // 표시 모드로 전환
+      const hl = (draft.sections[si].rowMemoHls || {})[rowIdx] || '';
+      disp.style.cssText += hl ? `background:${hl}55;border-radius:3px;padding:1px 4px` : 'background:none;padding:0';
       disp.style.display = 'block';
-      ta.style.display = 'none';
+      editBox.style.display = 'none';
       disp.innerHTML = ta.value
         ? escHtml(ta.value).replace(/\n/g, '<br>')
         : '<span style="opacity:0.25">메모...</span>';
@@ -1448,6 +1467,26 @@ function renderSections(ed, draft) {
 
     ta.addEventListener('keydown', e => {
       if (e.key === 'Escape') { ta.blur(); }
+    });
+
+    // 에딩펜 버튼
+    wrap.querySelectorAll('.row-hl-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.preventDefault());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const hl = btn.dataset.hl;
+        if (!draft.sections[si].rowMemoHls) draft.sections[si].rowMemoHls = {};
+        if (hl) draft.sections[si].rowMemoHls[rowIdx] = hl;
+        else delete draft.sections[si].rowMemoHls[rowIdx];
+        // 버튼 선택 표시
+        wrap.querySelectorAll('.row-hl-btn').forEach(b => {
+          if (b.dataset.hl === '') b.style.outline = b === btn ? '2px solid var(--accent)' : 'none';
+          else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
+        });
+        // textarea 배경 즉시 반영
+        ta.style.background = hl ? hl + '33' : 'var(--bg2)';
+        autoSave(draft);
+      });
     });
   });
 
@@ -1520,6 +1559,7 @@ export function buildChartHtml(draft, opts = {}) {
     }
 
     const rowMemos = sec.rowMemos || {};
+    const rowMemoHls = sec.rowMemoHls || {};
     const rowsHtml = rowGroups.map((rowIdxs, rowIdx) => {
       const missing = bpr - rowIdxs.length;
       const spacerU = `<div style="flex:1;min-width:0"></div>`;
@@ -1629,8 +1669,9 @@ export function buildChartHtml(draft, opts = {}) {
 
       // 메모 (읽기 전용)
       const memo = rowMemos[rowIdx] || '';
+      const rowHl = rowMemoHls[rowIdx] || '';
       const memoHtmlRow = memo
-        ? `<div style="font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 4px;white-space:pre-wrap;line-height:1.3">${escHtml(memo)}</div>`
+        ? `<div style="font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 4px;white-space:pre-wrap;line-height:1.3;${rowHl?`background:${rowHl}55;border-radius:3px`:''}">${escHtml(memo)}</div>`
         : '';
 
       return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}${barMemoRow2}${memoHtmlRow}</div>`;
