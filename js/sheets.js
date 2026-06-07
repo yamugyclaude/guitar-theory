@@ -437,22 +437,30 @@ function filterList(panel, query) {
   }
 
   list.innerHTML = `
+    <div style="padding:6px 4px 4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:0.75rem;color:var(--text2)">체크 후 →</span>
+      <button id="merge-live-btn" class="btn btn-primary" style="font-size:0.75rem;padding:4px 10px;display:none">📺 PDF로 합쳐서 라이브 추가</button>
+      <span id="check-count" style="font-size:0.72rem;color:var(--text2);display:none"></span>
+    </div>
     <div style="display:flex;flex-direction:column;gap:2px">
       ${meta.map(m => `
         <div class="sheet-item" data-id="${m.id}"
-          style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:background 0.12s">
-          <span style="font-size:1.2rem;flex-shrink:0">${m.type==='pdf'?'📄':'🖼️'}</span>
+          style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:background 0.12s">
+          <input type="checkbox" class="sheet-chk" data-id="${m.id}" style="width:15px;height:15px;flex-shrink:0;cursor:pointer" onclick="event.stopPropagation()">
+          <span style="font-size:1.1rem;flex-shrink:0">${m.type==='pdf'?'📄':'🖼️'}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.title}</div>
-            <div style="font-size:0.72rem;color:var(--text2);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:1px">
+            <div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.title}</div>
+            <div style="font-size:0.7rem;color:var(--text2);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:1px">
               ${m.artist ? `<span>${m.artist}</span>` : ''}
               ${m.key ? `<span>🎵 ${m.key}</span>` : ''}
               ${m.folder ? `<span style="color:var(--accent)">📁 ${folderLabel(m.folder)}</span>` : ''}
               ${(m.tags||[]).map(t=>`<span class="badge" style="font-size:0.62rem">${t}</span>`).join('')}
             </div>
           </div>
+          <button class="add-live-btn btn btn-secondary" data-id="${m.id}"
+            style="flex-shrink:0;font-size:0.7rem;padding:3px 7px;white-space:nowrap" title="라이브에 추가">📺</button>
           <button class="sheet-del-btn btn btn-secondary" data-id="${m.id}"
-            style="flex-shrink:0;font-size:0.72rem;padding:4px 8px;color:var(--danger);opacity:0.7">🗑</button>
+            style="flex-shrink:0;font-size:0.72rem;padding:3px 7px;color:var(--danger)">🗑</button>
         </div>
       `).join('')}
     </div>
@@ -498,6 +506,67 @@ function filterList(panel, query) {
     });
   });
 
+  // 체크박스 → 합치기 버튼 표시
+  const mergeBtn = list.querySelector('#merge-live-btn');
+  const checkCount = list.querySelector('#check-count');
+  function updateMergeBtn() {
+    const checked = [...list.querySelectorAll('.sheet-chk:checked')];
+    if (checked.length > 0) {
+      mergeBtn.style.display = '';
+      checkCount.style.display = '';
+      checkCount.textContent = `${checked.length}개 선택됨`;
+      mergeBtn.textContent = checked.length === 1 ? '📺 라이브에 추가' : `📺 ${checked.length}장 PDF로 합쳐서 라이브 추가`;
+    } else {
+      mergeBtn.style.display = 'none';
+      checkCount.style.display = 'none';
+    }
+  }
+  list.querySelectorAll('.sheet-chk').forEach(chk => {
+    chk.addEventListener('change', updateMergeBtn);
+  });
+
+  // 합치기 버튼
+  mergeBtn.addEventListener('click', async () => {
+    const ids = [...list.querySelectorAll('.sheet-chk:checked')].map(c => c.dataset.id);
+    if (!ids.length) return;
+    const firstMeta = meta.find(m => m.id === ids[0]);
+    const title = ids.length === 1 ? firstMeta.title : prompt('라이브 셋리스트 제목:', firstMeta?.title || '');
+    if (!title) return;
+    mergeBtn.disabled = true;
+    mergeBtn.textContent = '⏳ 변환 중...';
+    try {
+      const pdfBlob = await sheetsToPdf(ids, title);
+      addPdfToLive(pdfBlob, title, ids[0]);
+      list.querySelectorAll('.sheet-chk').forEach(c => c.checked = false);
+      updateMergeBtn();
+      alert(`✅ "${title}" 을 라이브 셋리스트에 추가했습니다.`);
+    } catch (e) {
+      alert('❌ 변환 실패: ' + e.message);
+    } finally {
+      mergeBtn.disabled = false;
+      updateMergeBtn();
+    }
+  });
+
+  // 개별 라이브 추가 버튼
+  list.querySelectorAll('.add-live-btn').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const m = meta.find(x => x.id === id);
+      btn.disabled = true; btn.textContent = '⏳';
+      try {
+        const pdfBlob = await sheetsToPdf([id], m.title);
+        addPdfToLive(pdfBlob, m.title, id);
+        alert(`✅ "${m.title}" 을 라이브에 추가했습니다.`);
+      } catch (e) {
+        alert('❌ 실패: ' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = '📺';
+      }
+    });
+  });
+
   // 패널 닫힐 때 preview 정리
   const cleanupPreview = () => preview.remove();
   panel.addEventListener('panel-hide', cleanupPreview, { once: true });
@@ -509,6 +578,113 @@ async function deleteSheetItem(id, panel) {
   loadList(panel);
   const { isReady, removeSheet: fbRemove } = await import('./supabase-sync.js');
   if (isReady()) fbRemove(id).catch(() => {});
+}
+
+// ===== 이미지/PDF → 단일 PDF 변환 =====
+async function sheetsToPdf(ids, title) {
+  const jsPDF = window.jspdf?.jsPDF;
+  if (!jsPDF) throw new Error('jsPDF 라이브러리를 불러오지 못했습니다.');
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  let firstPage = true;
+
+  for (const id of ids) {
+    const record = await getSheet(id);
+    if (!record) continue;
+
+    // 이미 렌더된 페이지 이미지(JPEG blob 배열)가 있으면 우선 사용
+    const pageBlobs = record.pages?.length ? record.pages : null;
+
+    if (pageBlobs) {
+      for (const pageBlob of pageBlobs) {
+        if (!firstPage) doc.addPage();
+        firstPage = false;
+        const dataUrl = await blobToDataUrl(pageBlob);
+        const { w, h } = fitToA4(await getImageDimensions(dataUrl));
+        doc.addImage(dataUrl, 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h);
+      }
+    } else if (record.type === 'image') {
+      if (!firstPage) doc.addPage();
+      firstPage = false;
+      const dataUrl = await blobToDataUrl(record.file);
+      const imgType = record.file.type.includes('png') ? 'PNG' : 'JPEG';
+      const { w, h } = fitToA4(await getImageDimensions(dataUrl));
+      doc.addImage(dataUrl, imgType, (210 - w) / 2, (297 - h) / 2, w, h);
+    } else if (record.type === 'pdf') {
+      // PDF → 각 페이지를 canvas로 렌더해서 삽입
+      const pages = await renderPdfToImages(record.file);
+      for (const dataUrl of pages) {
+        if (!firstPage) doc.addPage();
+        firstPage = false;
+        const { w, h } = fitToA4(await getImageDimensions(dataUrl));
+        doc.addImage(dataUrl, 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h);
+      }
+    }
+  }
+
+  return doc.output('blob');
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getImageDimensions(dataUrl) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => res({ width: img.naturalWidth, height: img.naturalHeight });
+    img.src = dataUrl;
+  });
+}
+
+function fitToA4({ width, height }) {
+  const maxW = 200, maxH = 287; // A4 여백 포함
+  const ratio = Math.min(maxW / width, maxH / height);
+  return { w: width * ratio, h: height * ratio };
+}
+
+async function renderPdfToImages(file) {
+  const pdfjsLib = window.pdfjsLib;
+  if (!pdfjsLib) return [];
+  const url = URL.createObjectURL(file);
+  try {
+    const pdf = await pdfjsLib.getDocument(url).promise;
+    const results = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      results.push(canvas.toDataURL('image/jpeg', 0.9));
+    }
+    return results;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+function addPdfToLive(pdfBlob, title, sourceId) {
+  const liveId = 'live_pdf_' + sourceId;
+  // IndexedDB에 저장
+  import('./db.js').then(({ saveSheet, updateSheet }) => {
+    saveSheet({ id: liveId, file: pdfBlob, type: 'pdf', thumbnail: null, createdAt: Date.now() });
+  });
+  // 메타 등록
+  const allMeta = getMeta();
+  if (!allMeta.find(m => m.id === liveId)) {
+    allMeta.unshift({ id: liveId, title, artist: '', key: '', bpm: '', tags: [], folder: '', type: 'pdf', createdAt: Date.now(), isLivePdf: true });
+    setMeta(allMeta);
+  }
+  // 셋리스트 추가
+  const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+  if (!setlists.find(s => s.id === liveId)) {
+    setlists.push({ id: liveId, title, type: 'sheet' });
+    localStorage.setItem('gta_setlists', JSON.stringify(setlists));
+  }
 }
 
 async function openSheet(panel, id) {
