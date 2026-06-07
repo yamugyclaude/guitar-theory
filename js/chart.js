@@ -863,31 +863,33 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
       ${spacers}
     </div>`;
 
-    // ─── 행 사이 메모 ───
-    const memo = rowMemos[rowIdx] || '';
-    const rowHl = (sec.rowMemoHls || {})[rowIdx] || '';
-    const HL_COLORS = [
+    // ─── 행 사이 메모 (마디별) ───
+    const barNotes = sec.barNotes || {};
+    const NOTE_HL_COLORS = [
       {color:'#ffe066',label:'노랑'},{color:'#66dd88',label:'초록'},
       {color:'#44ccff',label:'파랑'},{color:'#ff9944',label:'주황'},
       {color:'#ff6688',label:'핑크'},{color:'#cc88ff',label:'보라'},
     ];
-    const memoRow = `<div class="row-memo-wrap" data-si="${si}" data-row="${rowIdx}"
-      style="display:flex;align-items:flex-start;gap:4px;min-height:${memo?'auto':'16px'};padding:${memo?'3px':'1px'} 0;cursor:text;border-radius:3px;transition:background 0.15s"
-      title="메모 클릭하여 편집">
-      <span style="font-size:0.6rem;color:#ff3333;flex-shrink:0;padding-top:2px">✱</span>
-      <div style="flex:1;min-width:0">
-        <div class="row-memo-display" style="font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;min-height:14px;word-break:break-all;${rowHl?`background:${rowHl}55;border-radius:3px;padding:1px 4px`:''}">${memo ? escHtml(memo) : '<span style="opacity:0.25">메모...</span>'}</div>
-        <div class="row-memo-edit" style="display:none">
-          <textarea class="row-memo-input" data-si="${si}" data-row="${rowIdx}"
-            placeholder="메모 (운지법, 지시어, 참고사항...)"
-            style="width:100%;font-size:0.72rem;color:var(--text);background:${rowHl?rowHl+'33':'var(--bg2)'};border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box">${memo ? escHtml(memo) : ''}</textarea>
-          <div style="display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap">
-            <span style="font-size:0.62rem;color:var(--text2)">🖊</span>
-            <span class="row-hl-btn" data-si="${si}" data-row="${rowIdx}" data-hl="" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--text2);${!rowHl?'outline:2px solid var(--accent)':''}">없음</span>
-            ${HL_COLORS.map(h=>`<span class="row-hl-btn" data-si="${si}" data-row="${rowIdx}" data-hl="${h.color}" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:${h.color};color:#111;border:2px solid ${rowHl===h.color?'#fff':'transparent'}">${h.label}</span>`).join('')}
+    const hasNote = idxs.some(bi => (barNotes[bi]||{}).text);
+    const memoRow = `<div style="display:flex;gap:3px;margin-top:1px">
+      ${idxs.map((bi, pos) => {
+        const note = (barNotes[bi] || {}).text || '';
+        const nhl  = (barNotes[bi] || {}).hl   || '';
+        return `<div class="bar-note-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s">
+          <div class="bar-note-display" style="font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;word-break:break-all;padding:2px 5px;min-height:16px;${nhl?`background:${nhl}55;border-radius:2px`:''}">${note ? escHtml(note) : (hasNote ? '<span style="opacity:0.15;font-size:0.6rem">✱</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+          <div class="bar-note-edit" style="display:none;padding:2px 3px 4px">
+            <textarea class="bar-note-ta" data-si="${si}" data-bi="${bi}"
+              placeholder="메모..."
+              style="width:100%;font-size:0.72rem;color:var(--text);background:${nhl?nhl+'33':'var(--bg2)'};border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box;outline:none">${escHtml(note)}</textarea>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap">
+              <span style="font-size:0.62rem;color:var(--text2)">🖊</span>
+              <span class="bar-note-hl-btn" data-si="${si}" data-bi="${bi}" data-hl="" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--text2);${!nhl?'outline:2px solid var(--accent)':''}">없음</span>
+              ${NOTE_HL_COLORS.map(h=>`<span class="bar-note-hl-btn" data-si="${si}" data-bi="${bi}" data-hl="${h.color}" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:${h.color};color:#111;border:2px solid ${nhl===h.color?'#fff':'transparent'}">${h.label}</span>`).join('')}
+            </div>
           </div>
-        </div>
-      </div>
+        </div>`;
+      }).join('')}
+      ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
     </div>`;
 
     return `<div style="margin-bottom:4px">${topRow}${cellRow}${botRow}${barMemoRow}${memoRow}</div>`;
@@ -1392,62 +1394,62 @@ function renderSections(ed, draft) {
     });
   });
 
-  // ─── 행 메모 이벤트 ───
-  area.querySelectorAll('.row-memo-wrap').forEach(wrap => {
-    const si = +wrap.dataset.si;
-    const rowIdx = +wrap.dataset.row;
-    const disp = wrap.querySelector('.row-memo-display');
-    const editBox = wrap.querySelector('.row-memo-edit');
-    const ta = wrap.querySelector('.row-memo-input');
+  // ─── 행 메모(마디별) 이벤트 ───
+  area.querySelectorAll('.bar-note-cell').forEach(noteCell => {
+    const si = +noteCell.dataset.si;
+    const bi = +noteCell.dataset.bi;
+    const disp = noteCell.querySelector('.bar-note-display');
+    const editBox = noteCell.querySelector('.bar-note-edit');
+    const ta = noteCell.querySelector('.bar-note-ta');
 
-    wrap.addEventListener('click', e => {
-      if (e.target.closest('.row-hl-btn')) return;
+    noteCell.addEventListener('click', e => {
+      if (e.target.closest('.bar-note-hl-btn')) return;
       if (editBox.style.display === 'block') return;
       disp.style.display = 'none';
       editBox.style.display = 'block';
       ta.focus();
       ta.setSelectionRange(ta.value.length, ta.value.length);
     });
+    noteCell.addEventListener('mouseenter', () => noteCell.style.background = 'rgba(128,128,128,0.06)');
+    noteCell.addEventListener('mouseleave', () => noteCell.style.background = '');
 
+    ta.addEventListener('mousedown', e => e.stopPropagation());
     ta.addEventListener('input', () => {
-      if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
-      draft.sections[si].rowMemos[rowIdx] = ta.value;
+      if (!draft.sections[si].barNotes) draft.sections[si].barNotes = {};
+      if (!draft.sections[si].barNotes[bi]) draft.sections[si].barNotes[bi] = {};
+      draft.sections[si].barNotes[bi].text = ta.value;
       autoSave(draft);
     });
 
     ta.addEventListener('blur', e => {
-      if (e.relatedTarget && wrap.contains(e.relatedTarget)) return;
-      if (!draft.sections[si].rowMemos) draft.sections[si].rowMemos = {};
-      draft.sections[si].rowMemos[rowIdx] = ta.value;
+      if (e.relatedTarget && noteCell.contains(e.relatedTarget)) return;
+      if (!draft.sections[si].barNotes) draft.sections[si].barNotes = {};
+      if (!draft.sections[si].barNotes[bi]) draft.sections[si].barNotes[bi] = {};
+      draft.sections[si].barNotes[bi].text = ta.value;
       autoSave(draft);
-      const hl = (draft.sections[si].rowMemoHls || {})[rowIdx] || '';
-      disp.style.cssText += hl ? `background:${hl}55;border-radius:3px;padding:1px 4px` : 'background:none;padding:0';
+      const nhl = (draft.sections[si].barNotes[bi] || {}).hl || '';
+      disp.style.background = nhl ? nhl + '55' : '';
       disp.style.display = 'block';
       editBox.style.display = 'none';
-      disp.innerHTML = ta.value
-        ? escHtml(ta.value).replace(/\n/g, '<br>')
-        : '<span style="opacity:0.25">메모...</span>';
+      disp.innerHTML = ta.value ? escHtml(ta.value) : '<span style="opacity:0;font-size:0.6rem">·</span>';
     });
 
-    ta.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { ta.blur(); }
-    });
+    ta.addEventListener('keydown', e => { if (e.key === 'Escape') ta.blur(); });
 
     // 에딩펜 버튼
-    wrap.querySelectorAll('.row-hl-btn').forEach(btn => {
+    noteCell.querySelectorAll('.bar-note-hl-btn').forEach(btn => {
       btn.addEventListener('mousedown', e => e.preventDefault());
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const hl = btn.dataset.hl;
-        if (!draft.sections[si].rowMemoHls) draft.sections[si].rowMemoHls = {};
-        if (hl) draft.sections[si].rowMemoHls[rowIdx] = hl;
-        else delete draft.sections[si].rowMemoHls[rowIdx];
-        // 버튼 선택 표시
-        wrap.querySelectorAll('.row-hl-btn').forEach(b => {
+        if (!draft.sections[si].barNotes) draft.sections[si].barNotes = {};
+        if (!draft.sections[si].barNotes[bi]) draft.sections[si].barNotes[bi] = {};
+        if (hl) draft.sections[si].barNotes[bi].hl = hl;
+        else delete draft.sections[si].barNotes[bi].hl;
+        noteCell.querySelectorAll('.bar-note-hl-btn').forEach(b => {
           if (b.dataset.hl === '') b.style.outline = b === btn ? '2px solid var(--accent)' : 'none';
           else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
         });
-        // textarea 배경 즉시 반영
         ta.style.background = hl ? hl + '33' : 'var(--bg2)';
         autoSave(draft);
       });
@@ -1631,14 +1633,19 @@ export function buildChartHtml(draft, opts = {}) {
         }).join('')}${spacers}
       </div>`;
 
-      // 메모 (읽기 전용)
-      const memo = rowMemos[rowIdx] || '';
-      const rowHl = rowMemoHls[rowIdx] || '';
-      const memoHtmlRow = memo
-        ? `<div style="font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 4px;white-space:pre-wrap;line-height:1.3;${rowHl?`background:${rowHl}55;border-radius:3px`:''}">${escHtml(memo)}</div>`
-        : '';
+      // 행 메모 (읽기 전용, 마디별)
+      const barNotes = sec.barNotes || {};
+      const hasNote2 = rowIdxs.some(bi => (barNotes[bi]||{}).text);
+      const noteRow = hasNote2 ? `<div style="display:flex;gap:3px;margin-top:1px">
+        ${rowIdxs.map(bi => {
+          const note = (barNotes[bi]||{}).text || '';
+          const nhl  = (barNotes[bi]||{}).hl   || '';
+          return `<div style="flex:1;min-width:0;font-size:0.72rem;color:var(--text2);font-style:italic;padding:2px 5px;white-space:pre-wrap;line-height:1.3;word-break:break-all;border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;${nhl?`background:${nhl}55`:''}">${note ? escHtml(note) : ''}</div>`;
+        }).join('')}
+        ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
+      </div>` : '';
 
-      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}${barMemoRow2}${memoHtmlRow}</div>`;
+      return `<div style="margin-bottom:8px">${topRow}${cellRow}${botRow}${barMemoRow2}${noteRow}</div>`;
     }).join('');
 
     // 앞 기호
