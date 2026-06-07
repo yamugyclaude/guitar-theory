@@ -876,10 +876,20 @@ function renderSections(ed, draft) {
         <!-- 기호 토글 -->
         <button class="btn btn-secondary sec-sym-toggle" data-si="${si}" style="font-size:0.7rem;padding:2px 7px">기호${symOpen?'▴':'▾'}</button>
         <!-- 섹션 색상 (즉시 적용) -->
-        <div style="display:flex;align-items:center;gap:4px;margin-left:4px">
-          <label style="position:relative;width:20px;height:20px;border-radius:50%;background:${sec.color||'var(--bg3)'};border:2px solid ${sec.color?'rgba(255,255,255,0.4)':'var(--border)'};cursor:pointer;flex-shrink:0;overflow:hidden;display:block" title="섹션 색상 변경">
-            <input type="color" class="sec-color-input" data-si="${si}" value="${sec.color||'#6382ff'}" style="position:absolute;opacity:0;width:200%;height:200%;top:-50%;left:-50%;cursor:pointer">
-          </label>
+        <div style="display:flex;align-items:center;gap:4px;margin-left:4px;position:relative">
+          <div class="sec-color-dot" data-si="${si}" style="width:20px;height:20px;border-radius:50%;background:${sec.color||'var(--bg3)'};border:2px solid ${sec.color?'rgba(255,255,255,0.4)':'var(--border)'};cursor:pointer;flex-shrink:0" title="섹션 색상 변경"></div>
+          <!-- 프리셋 팔레트 (숨김) -->
+          <div class="sec-color-palette" data-si="${si}" style="display:none;position:absolute;top:26px;left:0;z-index:500;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4);min-width:200px">
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">
+              ${['#ff5555','#ff9944','#ffe066','#88dd55','#44ccaa','#44aaff','#6382ff','#aa66ff','#ff66aa','#aaaaaa'].map(c=>
+                `<span class="sec-color-preset" data-si="${si}" data-color="${c}" style="width:22px;height:22px;border-radius:5px;background:${c};cursor:pointer;border:2px solid ${sec.color===c?'white':'transparent'};flex-shrink:0;display:inline-block"></span>`
+              ).join('')}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:0.65rem;color:var(--text2)">직접 선택</span>
+              <input type="color" class="sec-color-input" data-si="${si}" value="${sec.color||'#6382ff'}" style="width:28px;height:22px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
+            </div>
+          </div>
           <button class="sec-color-reset btn btn-secondary" data-si="${si}" style="font-size:0.6rem;padding:1px 5px;opacity:0.7" title="색상 초기화">✕</button>
         </div>
         <!-- 삭제 -->
@@ -912,26 +922,63 @@ function renderSections(ed, draft) {
   });
 
   // 섹션 색상 input (즉시 DOM 업데이트)
+  // 섹션 색상 적용 공통 함수
+  function applySecColor(si, color) {
+    draft.sections[si].color = color;
+    // 도트 배경 즉시 갱신
+    const dot = area.querySelector(`.sec-color-dot[data-si="${si}"]`);
+    if (dot) { dot.style.background = color; dot.style.border = `2px solid rgba(255,255,255,0.4)`; }
+    // 해당 섹션의 모든 bar-cell 즉시 색상 갱신
+    area.querySelectorAll(`.bar-cell[data-si="${si}"]`).forEach(cell => {
+      const bi = +cell.dataset.bi;
+      const b = draft.sections[si].bars[bi];
+      if (!b?.bgColor) {
+        cell.style.background = hexToRgba(color, 0.18);
+        cell.style.borderTop = `1px solid ${hexToRgba(color, 0.6)}`;
+        cell.style.borderBottom = `1px solid ${hexToRgba(color, 0.6)}`;
+      }
+    });
+    saveDraft(draft);
+  }
+
+  // 섹션 색상 도트 클릭 → 팔레트 토글
+  area.querySelectorAll('.sec-color-dot').forEach(dot => {
+    dot.addEventListener('click', e => {
+      e.stopPropagation();
+      const si = +dot.dataset.si;
+      const palette = area.querySelector(`.sec-color-palette[data-si="${si}"]`);
+      const isOpen = palette.style.display !== 'none';
+      // 모든 팔레트 닫기
+      area.querySelectorAll('.sec-color-palette').forEach(p => p.style.display = 'none');
+      if (!isOpen) palette.style.display = 'block';
+    });
+  });
+
+  // 프리셋 색상 클릭
+  area.querySelectorAll('.sec-color-preset').forEach(sw => {
+    sw.addEventListener('click', e => {
+      e.stopPropagation();
+      const si = +sw.dataset.si;
+      const color = sw.dataset.color;
+      applySecColor(si, color);
+      // 선택 표시 갱신
+      area.querySelectorAll(`.sec-color-preset[data-si="${si}"]`).forEach(s => {
+        s.style.border = `2px solid ${s.dataset.color === color ? 'white' : 'transparent'}`;
+      });
+      area.querySelector(`.sec-color-input[data-si="${si}"]`).value = color;
+    });
+  });
+
+  // 직접 선택 (컬러피커)
   area.querySelectorAll('.sec-color-input').forEach(inp => {
     inp.addEventListener('input', () => {
-      const si = +inp.dataset.si;
-      const color = inp.value;
-      draft.sections[si].color = color;
-      // label 배경 즉시 갱신
-      inp.parentElement.style.background = color;
-      inp.parentElement.style.border = `2px solid rgba(255,255,255,0.4)`;
-      // 해당 섹션의 모든 bar-cell 즉시 색상 갱신
-      area.querySelectorAll(`.bar-cell[data-si="${si}"]`).forEach(cell => {
-        const bi = +cell.dataset.bi;
-        const b = draft.sections[si].bars[bi];
-        if (!b?.bgColor) {
-          cell.style.background = hexToRgba(color, 0.18);
-          cell.style.borderTop = `1px solid ${hexToRgba(color, 0.6)}`;
-          cell.style.borderBottom = `1px solid ${hexToRgba(color, 0.6)}`;
-        }
-      });
-      saveDraft(draft);
+      applySecColor(+inp.dataset.si, inp.value);
     });
+  });
+
+  // 팔레트 외부 클릭 시 닫기
+  area.querySelectorAll('.sec-color-palette').forEach(palette => {
+    palette.addEventListener('click', e => e.stopPropagation());
   });
   area.querySelectorAll('.sec-color-reset').forEach(btn => {
     btn.addEventListener('click', () => {
