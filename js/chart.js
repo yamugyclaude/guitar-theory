@@ -831,7 +831,7 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
         const bm = bars[bi].memo || '';
         const mc = bars[bi].memoColor || 'var(--text2)';
         const mhl = bars[bi].memoHl || '';
-        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s">
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;transition:background 0.15s">
           <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;overflow:hidden;padding:2px 5px;min-height:18px;${mhl?`background:${mhl}66;border-radius:2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
           <div class="bar-memo-edit" style="display:none;padding:2px 3px 4px">
             <textarea class="bar-memo-ta" data-si="${si}" data-bi="${bi}"
@@ -875,7 +875,7 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
       ${idxs.map((bi, pos) => {
         const note = (barNotes[bi] || {}).text || '';
         const nhl  = (barNotes[bi] || {}).hl   || '';
-        return `<div class="bar-note-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s">
+        return `<div class="bar-note-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;transition:background 0.15s">
           <div class="bar-note-display" style="font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;word-break:break-all;padding:2px 5px;min-height:16px;${nhl?`background:${nhl}55;border-radius:2px`:''}">${note ? escHtml(note) : (hasNote ? '<span style="opacity:0.15;font-size:0.6rem">✱</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
           <div class="bar-note-edit" style="display:none;padding:2px 3px 4px">
             <textarea class="bar-note-ta" data-si="${si}" data-bi="${bi}"
@@ -932,8 +932,9 @@ function renderSections(ed, draft) {
       sec.endMark     || '',
     ].filter(Boolean).join(' ') || '';
 
+    const secBg = sec.color ? hexToRgba(sec.color, 0.07) : '';
     return `
-    <div class="card sec-block" data-si="${si}" style="margin-bottom:8px">
+    <div class="card sec-block" data-si="${si}" style="margin-bottom:8px;${secBg?`background:${secBg};border-color:${hexToRgba(sec.color,0.35)}`:''}">
       <!-- 섹션 헤더 -->
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
         <input type="text" class="sec-type-input" data-si="${si}" value="${sec.type}"
@@ -1005,6 +1006,12 @@ function renderSections(ed, draft) {
     // 도트 배경 즉시 갱신
     const dot = area.querySelector(`.sec-color-dot[data-si="${si}"]`);
     if (dot) { dot.style.background = color; dot.style.border = `2px solid rgba(255,255,255,0.4)`; }
+    // 섹션 카드 배경 즉시 갱신
+    const card = area.querySelector(`.sec-block[data-si="${si}"]`);
+    if (card) {
+      card.style.background = hexToRgba(color, 0.07);
+      card.style.borderColor = hexToRgba(color, 0.35);
+    }
     // 해당 섹션의 모든 bar-cell 즉시 색상 갱신
     area.querySelectorAll(`.bar-cell[data-si="${si}"]`).forEach(cell => {
       const bi = +cell.dataset.bi;
