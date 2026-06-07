@@ -79,6 +79,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settings = JSON.parse(localStorage.getItem('gta_settings') || '{}');
   if (settings.theme) document.documentElement.dataset.theme = settings.theme;
   if (settings.fontSize) document.documentElement.style.fontSize = settings.fontSize + 'px';
+  // 커스텀 테마 복원
+  if (settings.customTheme) {
+    const customThemes = JSON.parse(localStorage.getItem('gta_custom_themes') || '[]');
+    const t = customThemes.find(t => t.name === settings.customTheme);
+    if (t) {
+      const { applyCustomThemeVars } = await import('./settings.js');
+      applyCustomThemeVars(t.vars);
+    }
+  }
 
   // Supabase 자동 연결 (설정된 경우)
   if (localStorage.getItem('gta_supabase_cfg') && settings.syncKey) {

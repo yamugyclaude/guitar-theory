@@ -3,6 +3,56 @@ import { getAllSheets, saveSheet } from './db.js';
 function getSettings() { return JSON.parse(localStorage.getItem('gta_settings') || '{}'); }
 function saveSettings(s) { localStorage.setItem('gta_settings', JSON.stringify(s)); }
 
+// ===== 커스텀 테마 =====
+const THEME_VARS = [
+  { key: 'bg',      label: '배경' },
+  { key: 'bg2',     label: '카드 배경' },
+  { key: 'bg3',     label: '입력 배경' },
+  { key: 'border',  label: '테두리' },
+  { key: 'text',    label: '텍스트' },
+  { key: 'text2',   label: '보조 텍스트' },
+  { key: 'accent',  label: '강조색' },
+  { key: 'accent2', label: '강조색2' },
+  { key: 'danger',  label: '위험색' },
+];
+
+function getCustomThemes() { return JSON.parse(localStorage.getItem('gta_custom_themes') || '[]'); }
+function setCustomThemes(t) { localStorage.setItem('gta_custom_themes', JSON.stringify(t)); }
+
+function getCurrentVars() {
+  const style = getComputedStyle(document.documentElement);
+  const result = {};
+  THEME_VARS.forEach(({ key }) => {
+    const val = style.getPropertyValue(`--${key}`).trim();
+    result[key] = val || '#000000';
+  });
+  return result;
+}
+
+function cssColorToHex(color) {
+  // rgba(r,g,b,...) 또는 #hex 처리
+  if (!color) return '#000000';
+  if (color.startsWith('#')) {
+    if (color.length === 4) return '#' + color[1]+color[1]+color[2]+color[2]+color[3]+color[3];
+    return color.substring(0, 7);
+  }
+  const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (m) return '#' + [m[1],m[2],m[3]].map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+  return '#888888';
+}
+
+export function applyCustomThemeVars(vars) {
+  THEME_VARS.forEach(({ key }) => {
+    if (vars[key]) document.documentElement.style.setProperty(`--${key}`, vars[key]);
+  });
+}
+
+export function clearCustomThemeVars() {
+  THEME_VARS.forEach(({ key }) => {
+    document.documentElement.style.removeProperty(`--${key}`);
+  });
+}
+
 const THEMES = [
   { id: 'dark-pro',     label: '다크 프로' },
   { id: 'light-clean',  label: '라이트 클린' },
@@ -34,6 +84,26 @@ export function render(panel) {
           </button>
         `).join('')}
       </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">커스텀 테마 색상</div>
+      <p style="font-size:0.78rem;color:var(--text2);margin-bottom:10px">색상을 바꾸면 즉시 적용됩니다. 저장하면 이름으로 불러올 수 있습니다.</p>
+      <div id="custom-theme-vars" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px">
+        ${THEME_VARS.map(({ key, label }) => `
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="color" class="custom-var-input" data-key="${key}" value="#000000"
+              style="width:32px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;flex-shrink:0">
+            <span style="font-size:0.78rem">${label}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <button class="btn btn-secondary" id="theme-reset-btn" style="font-size:0.78rem;padding:5px 10px">↩ 기본 복원</button>
+        <input type="text" id="custom-theme-name" placeholder="테마 이름" style="flex:1;min-width:100px;font-size:0.8rem;padding:5px 8px">
+        <button class="btn btn-primary" id="theme-save-btn" style="font-size:0.78rem;padding:5px 10px">💾 저장</button>
+      </div>
+      <div id="saved-themes-list" style="display:flex;flex-wrap:wrap;gap:6px"></div>
     </div>
 
     <div class="card">
@@ -139,11 +209,86 @@ create policy "allow_all" on gta_sheets
     btn.addEventListener('click', () => {
       const theme = btn.dataset.theme;
       document.documentElement.dataset.theme = theme;
-      const s = getSettings(); s.theme = theme; saveSettings(s);
+      clearCustomThemeVars(); // 프리셋 테마 선택 시 커스텀 변수 초기화
+      const s = getSettings(); s.theme = theme; s.customTheme = null; saveSettings(s);
       panel.querySelectorAll('.theme-btn').forEach(b => {
         b.className = `btn ${b.dataset.theme === theme ? 'btn-primary' : 'btn-secondary'} theme-btn`;
       });
+      refreshCustomVarInputs(); // 색상 입력값 갱신
     });
+  });
+
+  // ── 커스텀 테마 ──
+  function refreshCustomVarInputs() {
+    const vars = getCurrentVars();
+    panel.querySelectorAll('.custom-var-input').forEach(inp => {
+      inp.value = cssColorToHex(vars[inp.dataset.key]);
+    });
+  }
+  refreshCustomVarInputs();
+
+  function renderSavedThemes() {
+    const themes = getCustomThemes();
+    const list = panel.querySelector('#saved-themes-list');
+    if (!list) return;
+    list.innerHTML = themes.length ? themes.map((t, i) => `
+      <div style="display:flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 8px">
+        <div style="display:flex;gap:2px;margin-right:2px">
+          ${Object.values(t.vars).slice(0,5).map(c => `<div style="width:8px;height:8px;border-radius:50%;background:${c}"></div>`).join('')}
+        </div>
+        <span style="font-size:0.78rem;font-weight:600;cursor:pointer" class="load-theme-btn" data-idx="${i}">${t.name}</span>
+        <button class="del-theme-btn" data-idx="${i}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:0.8rem;padding:0 2px;margin-left:2px">×</button>
+      </div>
+    `).join('') : '<span style="font-size:0.75rem;color:var(--text2)">저장된 테마 없음</span>';
+
+    list.querySelectorAll('.load-theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = getCustomThemes()[+btn.dataset.idx];
+        if (!t) return;
+        applyCustomThemeVars(t.vars);
+        const s = getSettings(); s.customTheme = t.name; saveSettings(s);
+        refreshCustomVarInputs();
+      });
+    });
+    list.querySelectorAll('.del-theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const themes = getCustomThemes();
+        themes.splice(+btn.dataset.idx, 1);
+        setCustomThemes(themes);
+        renderSavedThemes();
+      });
+    });
+  }
+  renderSavedThemes();
+
+  // 색상 변경 → 즉시 적용
+  panel.querySelectorAll('.custom-var-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      document.documentElement.style.setProperty(`--${inp.dataset.key}`, inp.value);
+    });
+  });
+
+  // 기본 복원
+  panel.querySelector('#theme-reset-btn').addEventListener('click', () => {
+    clearCustomThemeVars();
+    const s = getSettings(); s.customTheme = null; saveSettings(s);
+    refreshCustomVarInputs();
+  });
+
+  // 저장
+  panel.querySelector('#theme-save-btn').addEventListener('click', () => {
+    const name = panel.querySelector('#custom-theme-name').value.trim();
+    if (!name) { alert('테마 이름을 입력해주세요.'); return; }
+    const vars = {};
+    panel.querySelectorAll('.custom-var-input').forEach(inp => { vars[inp.dataset.key] = inp.value; });
+    const themes = getCustomThemes();
+    const existing = themes.findIndex(t => t.name === name);
+    if (existing >= 0) themes[existing] = { name, vars };
+    else themes.push({ name, vars });
+    setCustomThemes(themes);
+    const s = getSettings(); s.customTheme = name; saveSettings(s);
+    panel.querySelector('#custom-theme-name').value = '';
+    renderSavedThemes();
   });
 
   // 폰트

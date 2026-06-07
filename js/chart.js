@@ -521,17 +521,16 @@ const SEC_COLORS = [
   { bg: 'rgba(100,210,210,0.15)',border: 'rgba(100,210,210,0.55)' }, // 청록
 ];
 function secColor(si, sec) {
-  if (sec?.color) {
-    // hex → rgba 변환
-    const h = sec.color.replace('#','');
-    const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
-    return { bg: `rgba(${r},${g},${b},0.18)`, border: `rgba(${r},${g},${b},0.6)` };
-  }
+  if (sec?.color) return { bg: hexToRgba(sec.color, 0.18), border: hexToRgba(sec.color, 0.6) };
   return SEC_COLORS[si % SEC_COLORS.length];
 }
 
-// 색상 팔레트 (섹션/마디 공용)
-const COLOR_PALETTE = ['#6382ff','#50c882','#f08250','#c850c8','#50c8e6','#e6c83c','#e6506e','#64d2d2','#ff6b6b','#ffd93d','#6bcb77','#4d96ff'];
+// hex → rgba 변환 헬퍼
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 // ── 4비트 슬롯 HTML 생성 헬퍼 ─────────────────────────────────────
 const SLOT_MAP = { 1:[0], 2:[0,2], 3:[0,2,3], 4:[0,1,2,3] };
@@ -597,10 +596,11 @@ function barCellHtml(sec, si, bi, barNum) {
   const re = b.repeatEnd   || '';
   const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
 
+  const chordColor = b.chordColor || 'inherit';
   const slotsHtml = slots.map((c, idx) => `
     <div class="bar-slot" data-si="${si}" data-bi="${bi}" data-slot="${idx}"
       style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:visible;padding:1px 2px;cursor:text;position:relative">
-      <span class="slot-text" style="font-size:0.78rem;font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${c?'inherit':'transparent'}">${c||'·'}</span>
+      <span class="slot-text" style="font-size:0.78rem;font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${c?chordColor:'transparent'}">${c||'·'}</span>
     </div>`
   ).join('');
 
@@ -610,9 +610,7 @@ function barCellHtml(sec, si, bi, barNum) {
   const pright = (re===':||'||re===':||:') ? 'padding-right:8px;' : '';
 
   const sc = secColor(si, sec);
-  const barBg = b.bgColor
-    ? (() => { const h=b.bgColor.replace('#',''); const r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),bv=parseInt(h.substring(4,6),16); return `rgba(${r},${g},${bv},0.35)`; })()
-    : sc.bg;
+  const barBg = b.bgColor ? hexToRgba(b.bgColor, 0.35) : sc.bg;
   const barBorder = b.bgColor ? b.bgColor : sc.border;
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
@@ -683,21 +681,19 @@ function barMarkToolbarHtml(si, bi, bar) {
     <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
       placeholder="가사, 운지법, 지시어..."
       style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:6px">${escHtml(bm)}</textarea>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-      <span style="font-size:0.65rem;color:var(--text2)">메모 색상</span>
-      ${['var(--text2)','#e06c75','#61afef','#98c379','#e5c07b','#c678dd','#56b6c2','#ff9f43'].map(col =>
-        `<div class="bar-memo-color-btn" data-si="${si}" data-bi="${bi}" data-color="${col}"
-          style="width:16px;height:16px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(bar.memoColor||'var(--text2)')===col?'white':'transparent'};box-sizing:border-box;flex-shrink:0"></div>`
-      ).join('')}
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:0.65rem;color:var(--text2)">마디 색상</span>
-      <div class="bar-bg-color-btn" data-si="${si}" data-bi="${bi}" data-color=""
-        style="width:16px;height:16px;border-radius:50%;background:var(--bg3);cursor:pointer;border:2px solid ${!bar.bgColor?'white':'transparent'};box-sizing:border-box;flex-shrink:0;font-size:0.55rem;display:flex;align-items:center;justify-content:center;color:var(--text2)" title="기본">✕</div>
-      ${COLOR_PALETTE.map(col =>
-        `<div class="bar-bg-color-btn" data-si="${si}" data-bi="${bi}" data-color="${col}"
-          style="width:16px;height:16px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(bar.bgColor||'')===col?'white':'transparent'};box-sizing:border-box;flex-shrink:0"></div>`
-      ).join('')}
+    <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px;border-top:1px solid var(--border);margin-top:4px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.65rem;color:var(--text2);min-width:64px">코드 글자색</span>
+        <input type="color" class="bar-chord-color-input" data-si="${si}" data-bi="${bi}" value="${bar.chordColor||'#e8e8e8'}"
+          style="width:36px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
+        <button class="bar-chord-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.65rem;padding:2px 7px">기본</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.65rem;color:var(--text2);min-width:64px">마디 배경색</span>
+        <input type="color" class="bar-bg-color-input" data-si="${si}" data-bi="${bi}" value="${bar.bgColor||'#6382ff'}"
+          style="width:36px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
+        <button class="bar-bg-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.65rem;padding:2px 7px">기본</button>
+      </div>
     </div>
   </div>`;
 }
@@ -870,14 +866,12 @@ function renderSections(ed, draft) {
         <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.7rem;padding:2px 7px">−1마디</button>
         <!-- 기호 토글 -->
         <button class="btn btn-secondary sec-sym-toggle" data-si="${si}" style="font-size:0.7rem;padding:2px 7px">기호${symOpen?'▴':'▾'}</button>
-        <!-- 섹션 색상 -->
-        <div style="display:flex;align-items:center;gap:3px;margin-left:4px">
-          <div class="sec-color-btn" data-si="${si}" data-color=""
-            style="width:14px;height:14px;border-radius:50%;background:var(--bg3);cursor:pointer;border:2px solid ${!sec.color?'var(--accent)':'transparent'};flex-shrink:0;font-size:0.5rem;display:flex;align-items:center;justify-content:center;color:var(--text2)" title="기본색">✕</div>
-          ${COLOR_PALETTE.map(col =>
-            `<div class="sec-color-btn" data-si="${si}" data-color="${col}"
-              style="width:14px;height:14px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(sec.color||'')===col?'white':'transparent'};flex-shrink:0"></div>`
-          ).join('')}
+        <!-- 섹션 색상 (즉시 적용) -->
+        <div style="display:flex;align-items:center;gap:4px;margin-left:4px">
+          <label style="position:relative;width:20px;height:20px;border-radius:50%;background:${sec.color||'var(--bg3)'};border:2px solid ${sec.color?'rgba(255,255,255,0.4)':'var(--border)'};cursor:pointer;flex-shrink:0;overflow:hidden;display:block" title="섹션 색상 변경">
+            <input type="color" class="sec-color-input" data-si="${si}" value="${sec.color||'#6382ff'}" style="position:absolute;opacity:0;width:200%;height:200%;top:-50%;left:-50%;cursor:pointer">
+          </label>
+          <button class="sec-color-reset btn btn-secondary" data-si="${si}" style="font-size:0.6rem;padding:1px 5px;opacity:0.7" title="색상 초기화">✕</button>
         </div>
         <!-- 삭제 -->
         <button class="btn btn-secondary del-sec" data-si="${si}" style="font-size:0.7rem;padding:2px 7px;color:var(--danger);margin-left:auto">🗑</button>
@@ -908,11 +902,32 @@ function renderSections(ed, draft) {
     inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; });
   });
 
-  // 섹션 색상
-  area.querySelectorAll('.sec-color-btn').forEach(btn => {
+  // 섹션 색상 input (즉시 DOM 업데이트)
+  area.querySelectorAll('.sec-color-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const si = +inp.dataset.si;
+      const color = inp.value;
+      draft.sections[si].color = color;
+      // label 배경 즉시 갱신
+      inp.parentElement.style.background = color;
+      inp.parentElement.style.border = `2px solid rgba(255,255,255,0.4)`;
+      // 해당 섹션의 모든 bar-cell 즉시 색상 갱신
+      area.querySelectorAll(`.bar-cell[data-si="${si}"]`).forEach(cell => {
+        const bi = +cell.dataset.bi;
+        const b = draft.sections[si].bars[bi];
+        if (!b?.bgColor) {
+          cell.style.background = hexToRgba(color, 0.18);
+          cell.style.borderTop = `1px solid ${hexToRgba(color, 0.6)}`;
+          cell.style.borderBottom = `1px solid ${hexToRgba(color, 0.6)}`;
+        }
+      });
+      saveDraft(draft);
+    });
+  });
+  area.querySelectorAll('.sec-color-reset').forEach(btn => {
     btn.addEventListener('click', () => {
       const si = +btn.dataset.si;
-      draft.sections[si].color = btn.dataset.color || undefined;
+      draft.sections[si].color = undefined;
       saveDraft(draft);
       renderSections(ed, draft);
     });
@@ -1060,18 +1075,46 @@ function renderSections(ed, draft) {
         });
       });
 
-      // 마디 배경 색상 버튼
-      toolbarEl.querySelectorAll('.bar-bg-color-btn').forEach(btn => {
-        btn.addEventListener('mousedown', e => e.preventDefault());
-        btn.addEventListener('click', () => {
-          const color = btn.dataset.color; // '' = 기본
-          draft.sections[si].bars[bi].bgColor = color || undefined;
+      // 코드 글자색
+      const chordColorInput = toolbarEl.querySelector('.bar-chord-color-input');
+      if (chordColorInput) {
+        chordColorInput.addEventListener('input', () => {
+          draft.sections[si].bars[bi].chordColor = chordColorInput.value;
+          // 즉시 DOM 반영
+          cell.querySelectorAll('.slot-text').forEach(span => {
+            if (span.textContent !== '·') span.style.color = chordColorInput.value;
+          });
           saveDraft(draft);
-          renderSections(ed, draft);
-          const updatedCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${bi}"]`);
-          if (updatedCell) openBarCell(updatedCell);
         });
-      });
+        toolbarEl.querySelector('.bar-chord-color-reset')?.addEventListener('click', () => {
+          delete draft.sections[si].bars[bi].chordColor;
+          cell.querySelectorAll('.slot-text').forEach(span => span.style.color = '');
+          chordColorInput.value = '#e8e8e8';
+          saveDraft(draft);
+        });
+      }
+
+      // 마디 배경색
+      const bgColorInput = toolbarEl.querySelector('.bar-bg-color-input');
+      if (bgColorInput) {
+        bgColorInput.addEventListener('input', () => {
+          const color = bgColorInput.value;
+          draft.sections[si].bars[bi].bgColor = color;
+          cell.style.background = hexToRgba(color, 0.35);
+          cell.style.borderTop = `1px solid ${color}`;
+          cell.style.borderBottom = `1px solid ${color}`;
+          saveDraft(draft);
+        });
+        toolbarEl.querySelector('.bar-bg-color-reset')?.addEventListener('click', () => {
+          delete draft.sections[si].bars[bi].bgColor;
+          const sc = secColor(si, draft.sections[si]);
+          cell.style.background = sc.bg;
+          cell.style.borderTop = `1px solid ${sc.border}`;
+          cell.style.borderBottom = `1px solid ${sc.border}`;
+          bgColorInput.value = '#6382ff';
+          saveDraft(draft);
+        });
+      }
     }
   }
 
@@ -1339,9 +1382,10 @@ export function buildChartHtml(draft, opts = {}) {
           const isPickup = sec.pickup && bi === 0;
           normalizeBar(b);
           const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
+          const chordColor2 = b.chordColor || 'inherit';
           const slotsHtml = slots.map((c, si2) =>
             `<div style="flex:1;${si2>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:visible;padding:2px 3px">
-              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%">${c}</span>` : `<span style="display:block;height:1em"></span>`}
+              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2}">${c}</span>` : `<span style="display:block;height:1em"></span>`}
             </div>`
           ).join('');
           const barNum = startNum + bi;
@@ -1349,7 +1393,7 @@ export function buildChartHtml(draft, opts = {}) {
           const re2 = b.repeatEnd   || '';
           const bMemo = b.memo || '';
           const sc2 = secColor(si, sec);
-          const barBg2 = b.bgColor ? (() => { const h=b.bgColor.replace('#',''); const r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),bv=parseInt(h.substring(4,6),16); return `rgba(${r},${g},${bv},0.35)`; })() : sc2.bg;
+          const barBg2 = b.bgColor ? hexToRgba(b.bgColor, 0.35) : sc2.bg;
           const barBd2 = b.bgColor ? b.bgColor : sc2.border;
           const borderL = rs2 ? 'border-left:3px solid var(--accent);'  : `border-left:1px solid ${barBd2};`;
           const borderR = (re2===':||'||re2===':||:') ? 'border-right:3px solid var(--accent);' : `border-right:1px solid ${barBd2};`;
