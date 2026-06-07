@@ -715,22 +715,6 @@ function barMarkToolbarHtml(si, bi, bar, sec) {
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${vBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">다이나믹 / 템포</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${eBtns}</div>
-    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">🎵 가사</div>
-    <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
-      placeholder="가사를 입력하세요..."
-      style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:2px solid var(--accent);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:4px;outline:none">${escHtml(bm)}</textarea>
-    <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap">
-      <span style="font-size:0.65rem;color:var(--text2)">🖊 에딩펜</span>
-      <span class="bar-hl-btn" data-hl="" style="padding:2px 8px;border-radius:3px;font-size:0.68rem;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--text2);${!bar.memoHl?'outline:2px solid var(--accent)':''}">없음</span>
-      ${[
-        {color:'#ffe066',label:'노랑'},
-        {color:'#66dd88',label:'초록'},
-        {color:'#44ccff',label:'파랑'},
-        {color:'#ff9944',label:'주황'},
-        {color:'#ff6688',label:'핑크'},
-        {color:'#cc88ff',label:'보라'},
-      ].map(h=>`<span class="bar-hl-btn" data-hl="${h.color}" style="padding:2px 8px;border-radius:3px;font-size:0.68rem;cursor:pointer;background:${h.color};color:#111;border:2px solid ${bar.memoHl===h.color?'#fff':'transparent'}">${h.label}</span>`).join('')}
-    </div>
     <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px;border-top:1px solid var(--border);margin-top:4px">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:0.65rem;color:var(--text2);min-width:64px">코드 글자색</span>
@@ -837,13 +821,28 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
 
     // ─── 마디별 메모 행 ───
     const hasBarMemo = idxs.some(bi => bars[bi].memo);
-    const barMemoRow = `<div class="bar-memo-row" style="display:flex;gap:3px;margin-top:2px" title="가사 (마디 클릭 후 입력)">
+    const BAR_HL_COLORS = [
+      {color:'#ffe066',label:'노랑'},{color:'#66dd88',label:'초록'},
+      {color:'#44ccff',label:'파랑'},{color:'#ff9944',label:'주황'},
+      {color:'#ff6688',label:'핑크'},{color:'#cc88ff',label:'보라'},
+    ];
+    const barMemoRow = `<div class="bar-memo-row" style="display:flex;gap:3px;margin-top:2px">
       ${idxs.map(bi => {
         const bm = bars[bi].memo || '';
         const mc = bars[bi].memoColor || 'var(--text2)';
         const mhl = bars[bi].memoHl || '';
-        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:18px;cursor:text;padding:2px 5px;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="🎵 가사">
-          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;overflow:hidden;display:block;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;cursor:text;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s">
+          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;overflow:hidden;padding:2px 5px;min-height:18px;${mhl?`background:${mhl}66;border-radius:2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+          <div class="bar-memo-edit" style="display:none;padding:2px 3px 4px">
+            <textarea class="bar-memo-ta" data-si="${si}" data-bi="${bi}"
+              placeholder="가사..."
+              style="width:100%;font-size:0.78rem;color:var(--text);background:${mhl?mhl+'33':'var(--bg2)'};border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:36px;font-family:inherit;line-height:1.4;box-sizing:border-box;outline:none">${escHtml(bm)}</textarea>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap">
+              <span style="font-size:0.62rem;color:var(--text2)">🖊</span>
+              <span class="bar-hl-btn" data-si="${si}" data-bi="${bi}" data-hl="" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:transparent;border:1px solid var(--border);color:var(--text2);${!mhl?'outline:2px solid var(--accent)':''}">없음</span>
+              ${BAR_HL_COLORS.map(h=>`<span class="bar-hl-btn" data-si="${si}" data-bi="${bi}" data-hl="${h.color}" style="padding:1px 6px;border-radius:3px;font-size:0.65rem;cursor:pointer;background:${h.color};color:#111;border:2px solid ${mhl===h.color?'#fff':'transparent'}">${h.label}</span>`).join('')}
+            </div>
+          </div>
         </div>`;
       }).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
@@ -1176,86 +1175,7 @@ function renderSections(ed, draft) {
       });
     });
 
-    // 마디 메모 textarea (툴바 안)
-    const memoTa = toolbarEl.querySelector('.bar-memo-input');
-    if (memoTa) {
-      memoTa.addEventListener('mousedown', e => e.stopPropagation());
-      memoTa.addEventListener('input', () => {
-        draft.sections[si].bars[bi].memo = memoTa.value;
-        autoSave(draft);
-      });
-      memoTa.addEventListener('blur', () => {
-        draft.sections[si].bars[bi].memo = memoTa.value;
-        autoSave(draft);
-        // 메모 표시 영역 즉시 갱신
-        const dispEl = cell.querySelector('.bar-memo-display');
-        if (memoTa.value) {
-          if (dispEl) { dispEl.innerHTML = escHtml(memoTa.value); }
-          else {
-            const d = document.createElement('div');
-            d.className = 'bar-memo-display';
-            d.style.cssText = 'font-size:0.65rem;color:var(--text2);font-style:italic;padding:1px 4px 2px;border-top:1px dashed var(--border);line-height:1.3;white-space:pre-wrap;pointer-events:none';
-            d.innerHTML = escHtml(memoTa.value);
-            cell.querySelector('.bar-display').after(d);
-          }
-        } else {
-          dispEl?.remove();
-        }
-        // 행 메모 셀 표시 갱신
-        const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
-        if (memoCell) {
-          const mc = draft.sections[si].bars[bi].memoColor || 'var(--text2)';
-          memoCell.querySelector('.bar-memo-display').innerHTML = memoTa.value ? escHtml(memoTa.value) : '';
-          memoCell.querySelector('.bar-memo-display').style.color = mc;
-          memoCell.style.padding = memoTa.value ? '3px 5px' : '2px 0';
-        }
-      });
-
-      // 에딩펜 하이라이트 버튼
-      toolbarEl.querySelectorAll('.bar-hl-btn').forEach(btn => {
-        btn.addEventListener('mousedown', e => e.preventDefault());
-        btn.addEventListener('click', () => {
-          const hl = btn.dataset.hl;
-          if (hl) draft.sections[si].bars[bi].memoHl = hl;
-          else delete draft.sections[si].bars[bi].memoHl;
-          // 버튼 선택 표시 갱신
-          toolbarEl.querySelectorAll('.bar-hl-btn').forEach(b => {
-            const active = b.dataset.hl === hl;
-            if (b.dataset.hl === '') {
-              b.style.outline = active ? '2px solid var(--accent)' : 'none';
-            } else {
-              b.style.border = `2px solid ${active ? '#fff' : 'transparent'}`;
-            }
-          });
-          // textarea 배경 즉시 반영
-          if (memoTa) memoTa.style.background = hl ? hl + '55' : 'var(--bg3)';
-          // 표시 영역 즉시 갱신
-          const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
-          if (memoCell) {
-            const disp = memoCell.querySelector('.bar-memo-display');
-            if (disp) disp.style.background = hl ? hl + '66' : '';
-          }
-          saveDraft(draft);
-        });
-      });
-
-      // 기존 에딩펜 색 textarea에 반영
-      if (memoTa && bar.memoHl) memoTa.style.background = bar.memoHl + '55';
-
-      // 메모 색상 버튼
-      toolbarEl.querySelectorAll('.bar-memo-color-btn').forEach(btn => {
-        btn.addEventListener('mousedown', e => e.preventDefault());
-        btn.addEventListener('click', () => {
-          const color = btn.dataset.color;
-          draft.sections[si].bars[bi].memoColor = color;
-          toolbarEl.querySelectorAll('.bar-memo-color-btn').forEach(b2 => {
-            b2.style.border = `2px solid ${b2.dataset.color === color ? 'white' : 'transparent'}`;
-          });
-          const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
-          if (memoCell) memoCell.querySelector('.bar-memo-display').style.color = color;
-        });
-      });
-
+    {
       // 코드 글자색
       const chordColorInput = toolbarEl.querySelector('.bar-chord-color-input');
       if (chordColorInput) {
@@ -1325,15 +1245,59 @@ function renderSections(ed, draft) {
     }
   }
 
-  // bar-memo-cell 클릭 → 해당 bar-cell 열기
-  area.querySelectorAll('.bar-memo-cell').forEach(mc => {
-    mc.addEventListener('click', () => {
-      const si2 = +mc.dataset.si, bi2 = +mc.dataset.bi;
-      const cell = area.querySelector(`.bar-cell[data-si="${si2}"][data-bi="${bi2}"]`);
-      if (cell) openBarCell(cell);
+  // bar-memo-cell 인라인 편집
+  area.querySelectorAll('.bar-memo-cell').forEach(memoCell => {
+    const si2 = +memoCell.dataset.si, bi2 = +memoCell.dataset.bi;
+    const disp = memoCell.querySelector('.bar-memo-display');
+    const editBox = memoCell.querySelector('.bar-memo-edit');
+    const ta = memoCell.querySelector('.bar-memo-ta');
+
+    memoCell.addEventListener('click', e => {
+      if (e.target.closest('.bar-hl-btn')) return;
+      if (editBox.style.display === 'block') return;
+      disp.style.display = 'none';
+      editBox.style.display = 'block';
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
     });
-    mc.addEventListener('mouseenter', () => mc.style.background = 'rgba(128,128,128,0.08)');
-    mc.addEventListener('mouseleave', () => mc.style.background = '');
+    memoCell.addEventListener('mouseenter', () => memoCell.style.background = 'rgba(128,128,128,0.08)');
+    memoCell.addEventListener('mouseleave', () => memoCell.style.background = '');
+
+    ta.addEventListener('mousedown', e => e.stopPropagation());
+    ta.addEventListener('input', () => {
+      draft.sections[si2].bars[bi2].memo = ta.value;
+      autoSave(draft);
+    });
+    ta.addEventListener('blur', e => {
+      if (e.relatedTarget && memoCell.contains(e.relatedTarget)) return;
+      draft.sections[si2].bars[bi2].memo = ta.value;
+      autoSave(draft);
+      const hl = draft.sections[si2].bars[bi2].memoHl || '';
+      const mc2 = draft.sections[si2].bars[bi2].memoColor || 'var(--text2)';
+      disp.innerHTML = ta.value ? escHtml(ta.value) : (draft.sections[si2].bars.some(b=>b.memo) ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>');
+      disp.style.color = mc2;
+      disp.style.background = hl ? hl + '66' : '';
+      disp.style.display = 'block';
+      editBox.style.display = 'none';
+    });
+    ta.addEventListener('keydown', e => { if (e.key === 'Escape') ta.blur(); });
+
+    // 에딩펜 버튼
+    memoCell.querySelectorAll('.bar-hl-btn').forEach(btn => {
+      btn.addEventListener('mousedown', e => e.preventDefault());
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const hl = btn.dataset.hl;
+        if (hl) draft.sections[si2].bars[bi2].memoHl = hl;
+        else delete draft.sections[si2].bars[bi2].memoHl;
+        memoCell.querySelectorAll('.bar-hl-btn').forEach(b => {
+          if (b.dataset.hl === '') b.style.outline = b === btn ? '2px solid var(--accent)' : 'none';
+          else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
+        });
+        ta.style.background = hl ? hl + '33' : 'var(--bg2)';
+        autoSave(draft);
+      });
+    });
   });
 
   // 셀 표시만 업데이트 (툴바 유지, 입력 유지)
