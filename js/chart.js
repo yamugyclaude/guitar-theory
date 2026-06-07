@@ -757,7 +757,7 @@ function barMarkToolbarHtml(si, bi, bar, sec) {
   </div>`;
 }
 
-function sectionRowsHtml(sec, si, barOffset) {
+function sectionRowsHtml(sec, si, barOffset, draft) {
   const bpr = sec.barsPerRow || 4;
   const bars = sec.bars;
   const rowMemos = sec.rowMemos || {};
@@ -970,7 +970,7 @@ function renderSections(ed, draft) {
 
       <!-- 마디 그리드 (클릭 편집 가능) -->
       <div class="bar-rows" data-si="${si}">
-        ${sectionRowsHtml(sec, si, offsets[si])}
+        ${sectionRowsHtml(sec, si, offsets[si], draft)}
       </div>
     </div>`;
   }).join('');
