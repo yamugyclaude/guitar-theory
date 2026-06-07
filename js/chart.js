@@ -682,18 +682,27 @@ function barMarkToolbarHtml(si, bi, bar) {
       placeholder="가사, 운지법, 지시어..."
       style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:6px">${escHtml(bm)}</textarea>
     <div style="display:flex;flex-direction:column;gap:6px;padding-top:4px;border-top:1px solid var(--border);margin-top:4px">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:0.65rem;color:var(--text2);min-width:64px">코드 글자색</span>
         <input type="color" class="bar-chord-color-input" data-si="${si}" data-bi="${bi}" value="${bar.chordColor||'#e8e8e8'}"
-          style="width:36px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
-        <button class="bar-chord-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.65rem;padding:2px 7px">기본</button>
+          style="width:28px;height:22px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
+        <button class="bar-chord-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.62rem;padding:2px 5px">기본</button>
+        ${['#ffffff','#ffe066','#ffaa44','#ff5555','#66dd88','#44ccff','#8899ff','#dd88ff'].map(c=>
+          `<span class="bar-chord-preset" data-color="${c}" style="width:18px;height:18px;border-radius:3px;background:${c};cursor:pointer;border:1px solid rgba(255,255,255,0.2);flex-shrink:0;display:inline-block" title="${c}"></span>`
+        ).join('')}
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:0.65rem;color:var(--text2);min-width:64px">마디 배경색</span>
         <input type="color" class="bar-bg-color-input" data-si="${si}" data-bi="${bi}" value="${bar.bgColor||'#6382ff'}"
-          style="width:36px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
-        <button class="bar-bg-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.65rem;padding:2px 7px">기본</button>
+          style="width:28px;height:22px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
+        <button class="bar-bg-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.62rem;padding:2px 5px">기본</button>
+        ${['#ff5555','#ff9944','#ffe066','#66dd88','#44ccff','#6382ff','#dd88ff','#aaaaaa'].map(c=>
+          `<span class="bar-bg-preset" data-color="${c}" style="width:18px;height:18px;border-radius:3px;background:${c};cursor:pointer;border:1px solid rgba(255,255,255,0.2);flex-shrink:0;display:inline-block" title="${c}"></span>`
+        ).join('')}
       </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
+      <button class="bar-toolbar-apply btn btn-primary" style="font-size:0.78rem;padding:6px 18px">✔ 적용 후 닫기</button>
     </div>
   </div>`;
 }
@@ -1078,33 +1087,42 @@ function renderSections(ed, draft) {
       // 코드 글자색
       const chordColorInput = toolbarEl.querySelector('.bar-chord-color-input');
       if (chordColorInput) {
-        chordColorInput.addEventListener('input', () => {
-          draft.sections[si].bars[bi].chordColor = chordColorInput.value;
-          // 즉시 DOM 반영
+        const applyChordColor = (color) => {
+          draft.sections[si].bars[bi].chordColor = color;
           cell.querySelectorAll('.slot-text').forEach(span => {
-            if (span.textContent !== '·') span.style.color = chordColorInput.value;
+            if (span.textContent !== '·') span.style.color = color;
           });
           saveDraft(draft);
-        });
+        };
+        chordColorInput.addEventListener('input', () => applyChordColor(chordColorInput.value));
+        chordColorInput.addEventListener('change', () => applyChordColor(chordColorInput.value));
         toolbarEl.querySelector('.bar-chord-color-reset')?.addEventListener('click', () => {
           delete draft.sections[si].bars[bi].chordColor;
           cell.querySelectorAll('.slot-text').forEach(span => span.style.color = '');
           chordColorInput.value = '#e8e8e8';
           saveDraft(draft);
         });
+        // 프리셋 색상 클릭
+        toolbarEl.querySelectorAll('.bar-chord-preset').forEach(sw => {
+          sw.addEventListener('click', () => {
+            chordColorInput.value = sw.dataset.color;
+            applyChordColor(sw.dataset.color);
+          });
+        });
       }
 
       // 마디 배경색
       const bgColorInput = toolbarEl.querySelector('.bar-bg-color-input');
       if (bgColorInput) {
-        bgColorInput.addEventListener('input', () => {
-          const color = bgColorInput.value;
+        const applyBgColor = (color) => {
           draft.sections[si].bars[bi].bgColor = color;
           cell.style.background = hexToRgba(color, 0.35);
           cell.style.borderTop = `1px solid ${color}`;
           cell.style.borderBottom = `1px solid ${color}`;
           saveDraft(draft);
-        });
+        };
+        bgColorInput.addEventListener('input', () => applyBgColor(bgColorInput.value));
+        bgColorInput.addEventListener('change', () => applyBgColor(bgColorInput.value));
         toolbarEl.querySelector('.bar-bg-color-reset')?.addEventListener('click', () => {
           delete draft.sections[si].bars[bi].bgColor;
           const sc = secColor(si, draft.sections[si]);
@@ -1114,7 +1132,20 @@ function renderSections(ed, draft) {
           bgColorInput.value = '#6382ff';
           saveDraft(draft);
         });
+        // 프리셋 색상 클릭
+        toolbarEl.querySelectorAll('.bar-bg-preset').forEach(sw => {
+          sw.addEventListener('click', () => {
+            bgColorInput.value = sw.dataset.color;
+            applyBgColor(sw.dataset.color);
+          });
+        });
       }
+
+      // 적용 후 닫기 버튼
+      toolbarEl.querySelector('.bar-toolbar-apply')?.addEventListener('click', () => {
+        saveDraft(draft);
+        renderSections(ed, draft);
+      });
     }
   }
 
