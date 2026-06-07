@@ -857,6 +857,16 @@ function renderSections(ed, draft) {
   // body에 붙은 툴바 정리
   document.querySelectorAll('.bar-mark-toolbar').forEach(t => t.remove());
 
+  // 팝업 outsideClose 공유 참조 (Enter 이동 시 정리용)
+  let activeOutsideClose = null;
+  function clearOutsideClose() {
+    if (activeOutsideClose) {
+      document.removeEventListener('mousedown', activeOutsideClose, true);
+      document.removeEventListener('touchstart', activeOutsideClose, true);
+      activeOutsideClose = null;
+    }
+  }
+
   // 모든 bar 정규화 (구버전 데이터 호환)
   draft.sections.forEach(sec => sec.bars.forEach(normalizeBar));
 
@@ -1053,15 +1063,16 @@ function renderSections(ed, draft) {
     document.body.appendChild(toolbarEl);
 
     // 팝업 외부 클릭 시 닫기
+    clearOutsideClose();
     const outsideClose = (e) => {
       if (!toolbarEl.contains(e.target) && !cell.contains(e.target)) {
+        clearOutsideClose();
         saveDraft(draft);
         renderSections(ed, draft);
-        document.removeEventListener('mousedown', outsideClose, true);
-        document.removeEventListener('touchstart', outsideClose, true);
       }
     };
     setTimeout(() => {
+      activeOutsideClose = outsideClose;
       document.addEventListener('mousedown', outsideClose, true);
       document.addEventListener('touchstart', outsideClose, true);
     }, 100);
@@ -1348,6 +1359,7 @@ function renderSections(ed, draft) {
           e2.preventDefault();
           save();
           inp.remove();
+          clearOutsideClose(); // 이전 팝업 outsideClose 제거 후 이동
           if (e2.key === 'Enter') {
             // Enter: 바로 다음 마디 첫 슬롯으로 이동
             const nextBi = bi + 1;
