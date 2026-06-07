@@ -623,7 +623,7 @@ function barCellHtml(sec, si, bi, barNum) {
 }
 
 // 마디 기호 설정 툴바 HTML
-function barMarkToolbarHtml(si, bi, bar) {
+function barMarkToolbarHtml(si, bi, bar, sec) {
   normalizeBar(bar);
   const rs  = bar.repeatStart || false;   // ||: (bool)
   const lm  = bar.leftMark   || '';       // segno | coda | ''
@@ -693,7 +693,7 @@ function barMarkToolbarHtml(si, bi, bar) {
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:0.65rem;color:var(--text2);min-width:64px">마디 배경색</span>
-        <input type="color" class="bar-bg-color-input" data-si="${si}" data-bi="${bi}" value="${bar.bgColor||'#6382ff'}"
+        <input type="color" class="bar-bg-color-input" data-si="${si}" data-bi="${bi}" value="${bar.bgColor||sec?.color||'#6382ff'}"
           style="width:28px;height:22px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
         <button class="bar-bg-color-reset btn btn-secondary" data-si="${si}" data-bi="${bi}" style="font-size:0.62rem;padding:2px 5px">기본</button>
         ${['#ff5555','#ff9944','#ffe066','#66dd88','#44ccff','#6382ff','#dd88ff','#aaaaaa'].map(c=>
@@ -980,8 +980,9 @@ function renderSections(ed, draft) {
     const si = +cell.dataset.si, bi = +cell.dataset.bi;
     cell.dataset.toolbarOpen = '1';
     const bar = draft.sections[si].bars[bi];
+    const sec = draft.sections[si];
     const toolbar = document.createElement('div');
-    toolbar.innerHTML = barMarkToolbarHtml(si, bi, bar);
+    toolbar.innerHTML = barMarkToolbarHtml(si, bi, bar, sec);
     const toolbarEl = toolbar.firstElementChild;
     document.body.appendChild(toolbarEl);
 
@@ -1129,7 +1130,7 @@ function renderSections(ed, draft) {
           cell.style.background = sc.bg;
           cell.style.borderTop = `1px solid ${sc.border}`;
           cell.style.borderBottom = `1px solid ${sc.border}`;
-          bgColorInput.value = '#6382ff';
+          bgColorInput.value = draft.sections[si].color || '#6382ff';
           saveDraft(draft);
         });
         // 프리셋 색상 클릭
@@ -1142,10 +1143,14 @@ function renderSections(ed, draft) {
       }
 
       // 적용 후 닫기 버튼
-      toolbarEl.querySelector('.bar-toolbar-apply')?.addEventListener('click', () => {
-        saveDraft(draft);
-        renderSections(ed, draft);
-      });
+      const applyBtn = toolbarEl.querySelector('.bar-toolbar-apply');
+      if (applyBtn) {
+        applyBtn.addEventListener('mousedown', e => e.preventDefault());
+        applyBtn.addEventListener('click', () => {
+          saveDraft(draft);
+          renderSections(ed, draft);
+        });
+      }
     }
   }
 
