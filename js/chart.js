@@ -204,7 +204,15 @@ function renderEditor(panel, draft) {
         <div style="flex:1;min-width:55px"><div class="label">박자</div><input type="text" id="e-time" value="${draft.time}" placeholder="4/4"></div>
         <div style="flex:1;min-width:55px"><div class="label">BPM</div><input type="text" id="e-bpm" value="${draft.bpm}" placeholder="120"></div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <span style="font-size:0.78rem;color:var(--text2)">기호 색상:</span>
+        <input type="color" id="e-symbol-color" value="${draft.symbolColor||'#e8a020'}"
+          style="width:32px;height:24px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--bg3)">
+        ${['#e8a020','#ff5555','#44ccff','#66dd88','#dd88ff','#ffffff'].map(c=>
+          `<span class="sym-color-preset" data-color="${c}" style="width:18px;height:18px;border-radius:4px;background:${c};cursor:pointer;border:2px solid ${(draft.symbolColor||'#e8a020')===c?'#fff':'transparent'};display:inline-block;flex-shrink:0"></span>`
+        ).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
         <span style="font-size:0.78rem;color:var(--text2)">기본 마디/행:</span>
         <button class="btn bpr-btn ${(draft.defaultBarsPerRow||4)===4?'btn-primary':'btn-secondary'}" data-val="4">4마디</button>
         <button class="btn bpr-btn ${(draft.defaultBarsPerRow||4)===8?'btn-primary':'btn-secondary'}" data-val="8">8마디</button>
@@ -266,6 +274,23 @@ function renderEditor(panel, draft) {
 
   ['#e-title','#e-key','#e-time','#e-bpm'].forEach(sel => {
     ed.querySelector(sel).addEventListener('input', syncMeta);
+  });
+
+  // 기호 색상 피커
+  const symColorInput = ed.querySelector('#e-symbol-color');
+  const applySymColor = (color) => {
+    draft.symbolColor = color;
+    symColorInput.value = color;
+    ed.querySelectorAll('.sym-color-preset').forEach(s => {
+      s.style.border = `2px solid ${s.dataset.color === color ? '#fff' : 'transparent'}`;
+    });
+    saveDraft(draft);
+    renderSections(ed, draft);
+  };
+  symColorInput.addEventListener('input', () => applySymColor(symColorInput.value));
+  symColorInput.addEventListener('change', () => applySymColor(symColorInput.value));
+  ed.querySelectorAll('.sym-color-preset').forEach(s => {
+    s.addEventListener('click', () => applySymColor(s.dataset.color));
   });
 
   renderSections(ed, draft);
@@ -769,9 +794,9 @@ function sectionRowsHtml(sec, si, barOffset) {
     // 세뇨/코다 있는 마디가 있으면 topRow를 2층으로 (34px), 없으면 1층 (18px)
     const hasSymIcon = idxs.some(bi => { normalizeBar(bars[bi]); const lm = bars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
     const hasVolta   = idxs.some(bi => bars[bi].volta);
-    const topH = (hasSymIcon && hasVolta) ? 38 : (hasSymIcon || hasVolta) ? 26 : 14;
+    const topH = (hasSymIcon && hasVolta) ? 46 : (hasSymIcon || hasVolta) ? 34 : 14;
     // 볼타 괄호 상단 위치: 세뇨/코다가 위층을 쓰면 아래로 밀림
-    const voltaTop = hasSymIcon ? 20 : 4;
+    const voltaTop = hasSymIcon ? 26 : 4;
 
     const topRow = `<div style="display:flex;gap:3px;height:${topH}px;align-items:stretch">
       ${idxs.map((bi, pos) => {
@@ -789,8 +814,8 @@ function sectionRowsHtml(sec, si, barOffset) {
         }
         // 세뇨/코다 — 상단층 왼쪽
         if (lm === 'segno' || lm === 'coda') {
-          const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-          inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 18)}</div>`;
+          const lmColor = draft.symbolColor || LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || '#e8a020';
+          inner += `<div style="position:absolute;top:-6px;left:2px;z-index:2">${markIconHtml(lm, lmColor, 28)}</div>`;
         }
         return `<div style="flex:1;min-width:0;position:relative;height:${topH}px">${inner}</div>`;
       }).join('')}
@@ -823,11 +848,11 @@ function sectionRowsHtml(sec, si, barOffset) {
         const b = bars[bi];
         const rm = b.rightMark || '';   // Fine | D.C. ...
         const expr = b.expr || '';
-        const color = TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || 'var(--accent)';
+        const color = draft.symbolColor || TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || '#e8a020';
         let inner = '';
-        if (rm)   inner += `<div style="font-size:0.81rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
-        if (expr) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${expr}</div>`;
-        return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
+        if (rm)   inner += `<div style="font-size:1.05rem;font-weight:800;font-style:italic;color:${color};line-height:1.2;text-align:right;padding:1px 6px 0;letter-spacing:-0.02em">${rm}</div>`;
+        if (expr) inner += `<div style="font-size:0.65rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${expr}</div>`;
+        return `<div style="flex:1;min-width:0;overflow:visible;min-height:14px">${inner}</div>`;
       }).join('')}
       ${spacers}
     </div>`;
@@ -1510,8 +1535,8 @@ export function buildChartHtml(draft, opts = {}) {
       // 위 기호 행 — 세뇨/코다와 볼타가 겹치면 2층으로
       const rHasSymIcon = rowIdxs.some(bi => { normalizeBar(allBars[bi]); const lm=allBars[bi].leftMark||''; return lm==='segno'||lm==='coda'; });
       const rHasVolta   = rowIdxs.some(bi => allBars[bi].volta);
-      const rTopH = (rHasSymIcon && rHasVolta) ? 38 : (rHasSymIcon || rHasVolta) ? 26 : 14;
-      const rVoltaTop = rHasSymIcon ? 20 : 4;
+      const rTopH = (rHasSymIcon && rHasVolta) ? 46 : (rHasSymIcon || rHasVolta) ? 34 : 14;
+      const rVoltaTop = rHasSymIcon ? 26 : 4;
 
       const topRow = `<div style="display:flex;gap:3px;height:${rTopH}px;align-items:stretch">
         ${rowIdxs.map((bi, pos) => {
@@ -1526,8 +1551,8 @@ export function buildChartHtml(draft, opts = {}) {
             if (vs.isFirst) inner += `<span style="position:absolute;top:${rVoltaTop+2}px;left:6px;font-size:0.68rem;font-weight:700;color:#80c8a0;line-height:1">${vs.label}</span>`;
           }
           if (lm === 'segno' || lm === 'coda') {
-            const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-            inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 18)}</div>`;
+            const lmColor = draft.symbolColor || LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || '#e8a020';
+            inner += `<div style="position:absolute;top:-6px;left:2px;z-index:2">${markIconHtml(lm, lmColor, 28)}</div>`;
           }
           return `<div style="flex:1;min-width:0;position:relative;height:${rTopH}px">${inner}</div>`;
         }).join('')}${spacers}
@@ -1582,11 +1607,11 @@ export function buildChartHtml(draft, opts = {}) {
           const b = allBars[bi];
           const rm = b.rightMark || '';   // Fine | D.C. ...
           const ex = b.expr || '';
-          const color = TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || 'var(--accent)';
+          const color = draft.symbolColor || TEXT_MARK_OPTIONS.find(o => o.value === rm)?.color || '#e8a020';
           let inner = '';
-          if (rm) inner += `<div style="font-size:0.81rem;font-weight:700;font-style:italic;color:${color};line-height:1.3;text-align:right;padding:1px 4px 0">${rm}</div>`;
-          if (ex) inner += `<div style="font-size:0.6rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${ex}</div>`;
-          return `<div style="flex:1;min-width:0;overflow:hidden;min-height:14px">${inner}</div>`;
+          if (rm) inner += `<div style="font-size:1.05rem;font-weight:800;font-style:italic;color:${color};line-height:1.2;text-align:right;padding:1px 6px 0;letter-spacing:-0.02em">${rm}</div>`;
+          if (ex) inner += `<div style="font-size:0.65rem;font-style:italic;color:#aaa;line-height:1.3;padding:1px 4px 0">${ex}</div>`;
+          return `<div style="flex:1;min-width:0;overflow:visible;min-height:14px">${inner}</div>`;
         }).join('')}${spacers}
       </div>`;
 
