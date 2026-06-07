@@ -683,9 +683,9 @@ function barMarkToolbarHtml(si, bi, bar, sec) {
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${vBtns}</div>
     <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">다이나믹 / 템포</div>
     <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">${eBtns}</div>
-    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">마디 메모</div>
+    <div style="font-size:0.65rem;color:var(--text2);margin-bottom:3px">🎵 가사</div>
     <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
-      placeholder="가사, 운지법, 지시어..."
+      placeholder="가사를 입력하세요..."
       style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:2px solid var(--accent);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:4px;outline:none">${escHtml(bm)}</textarea>
     <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap">
       <span style="font-size:0.65rem;color:var(--text2)">🖊 에딩펜</span>
@@ -805,13 +805,13 @@ function sectionRowsHtml(sec, si, barOffset) {
 
     // ─── 마디별 메모 행 ───
     const hasBarMemo = idxs.some(bi => bars[bi].memo);
-    const barMemoRow = `<div class="bar-memo-row" style="display:flex;gap:3px;margin-top:1px">
+    const barMemoRow = `<div class="bar-memo-row" style="display:flex;gap:3px;margin-top:2px" title="가사 (마디 클릭 후 입력)">
       ${idxs.map(bi => {
         const bm = bars[bi].memo || '';
         const mc = bars[bi].memoColor || 'var(--text2)';
         const mhl = bars[bi].memoHl || '';
-        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:18px;cursor:text;padding:2px 5px;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="클릭하여 메모">
-          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
+        return `<div class="bar-memo-cell" data-si="${si}" data-bi="${bi}" style="flex:1;min-width:0;min-height:18px;cursor:text;padding:2px 5px;border-radius:0 0 4px 4px;border:1px solid var(--border);border-top:none;transition:background 0.15s" title="🎵 가사">
+          <div class="bar-memo-display" style="font-size:0.8rem;font-weight:600;color:${mc};white-space:pre-wrap;line-height:1.4;word-break:break-all;${mhl?`background:${mhl}66;border-radius:2px;padding:0 2px`:''}">${bm ? escHtml(bm) : (hasBarMemo ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>')}</div>
         </div>`;
       }).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0"></div>`).join('') : ''}
@@ -837,10 +837,10 @@ function sectionRowsHtml(sec, si, barOffset) {
     const memoRow = `<div class="row-memo-wrap" data-si="${si}" data-row="${rowIdx}"
       style="display:flex;align-items:center;gap:4px;min-height:${memo?'auto':'16px'};padding:${memo?'3px':'1px'} 0;cursor:text;border-radius:3px;transition:background 0.15s"
       title="메모 클릭하여 편집">
-      <span style="font-size:0.6rem;color:var(--text2);opacity:0.4;flex-shrink:0">✎</span>
+      <span style="font-size:0.6rem;color:var(--text2);opacity:0.5;flex-shrink:0">📝</span>
       <div class="row-memo-display" style="flex:1;font-size:0.72rem;color:var(--text2);font-style:italic;white-space:pre-wrap;line-height:1.3;min-height:14px;word-break:break-all">${memo ? escHtml(memo) : '<span style="opacity:0.25">메모...</span>'}</div>
       <textarea class="row-memo-input" data-si="${si}" data-row="${rowIdx}"
-        placeholder="메모, 가사, 운지법 등..."
+        placeholder="메모 (운지법, 지시어, 참고사항...)"
         style="display:none;flex:1;font-size:0.72rem;color:var(--text);background:var(--bg2);border:1px solid var(--accent);border-radius:3px;padding:3px 6px;resize:vertical;min-height:28px;font-family:inherit;line-height:1.4;box-sizing:border-box">${memo ? escHtml(memo) : ''}</textarea>
     </div>`;
 
