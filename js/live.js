@@ -208,12 +208,16 @@ function renderFolderCards(panel) {
     } else {
       songs.forEach((song, si) => {
         const row = document.createElement('div');
-        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:5px 4px;
+        row.style.cssText = `display:flex;align-items:center;gap:5px;padding:5px 4px;
           ${si < songs.length-1 ? 'border-bottom:1px solid var(--border);' : ''}`;
         row.innerHTML = `
-          <span style="font-size:0.68rem;color:var(--text2);min-width:18px;text-align:right;flex-shrink:0">${si+1}</span>
+          <span style="font-size:0.68rem;color:var(--text2);min-width:16px;text-align:right;flex-shrink:0">${si+1}</span>
           <span style="font-size:0.8rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(song.title||'(제목 없음)')}</span>
           <span class="badge" style="font-size:0.58rem;flex-shrink:0">${song.type==='chart'?'차트':'악보'}</span>
+          <button class="move-up-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.6rem;padding:2px 5px;flex-shrink:0" ${si===0?'disabled':''}>↑</button>
+          <button class="move-down-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
+            style="font-size:0.6rem;padding:2px 5px;flex-shrink:0" ${si===songs.length-1?'disabled':''}>↓</button>
           <button class="fs-song-btn btn btn-secondary" data-fi="${fi}" data-si="${si}"
             style="font-size:0.68rem;padding:3px 8px;flex-shrink:0">🎬</button>
         `;
@@ -238,6 +242,23 @@ function renderFolderCards(panel) {
       const fi = +btn.dataset.fi, si = +btn.dataset.si;
       const songs = getFolders()[fi]?.songs || [];
       if (songs.length) startFullscreen(songs, si);
+    });
+  });
+  area.querySelectorAll('.move-up-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fi = +btn.dataset.fi, si = +btn.dataset.si; if (si === 0) return;
+      const fs = getFolders(); const songs = fs[fi]?.songs || [];
+      [songs[si-1], songs[si]] = [songs[si], songs[si-1]];
+      _saveFolders(fs); renderFolderCards(panel);
+    });
+  });
+  area.querySelectorAll('.move-down-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fi = +btn.dataset.fi, si = +btn.dataset.si;
+      const fs = getFolders(); const songs = fs[fi]?.songs || [];
+      if (si >= songs.length-1) return;
+      [songs[si], songs[si+1]] = [songs[si+1], songs[si]];
+      _saveFolders(fs); renderFolderCards(panel);
     });
   });
 }
