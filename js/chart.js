@@ -520,7 +520,18 @@ const SEC_COLORS = [
   { bg: 'rgba(230,80,110,0.15)', border: 'rgba(230,80,110,0.55)'  }, // 빨강
   { bg: 'rgba(100,210,210,0.15)',border: 'rgba(100,210,210,0.55)' }, // 청록
 ];
-function secColor(si) { return SEC_COLORS[si % SEC_COLORS.length]; }
+function secColor(si, sec) {
+  if (sec?.color) {
+    // hex → rgba 변환
+    const h = sec.color.replace('#','');
+    const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+    return { bg: `rgba(${r},${g},${b},0.18)`, border: `rgba(${r},${g},${b},0.6)` };
+  }
+  return SEC_COLORS[si % SEC_COLORS.length];
+}
+
+// 색상 팔레트 (섹션/마디 공용)
+const COLOR_PALETTE = ['#6382ff','#50c882','#f08250','#c850c8','#50c8e6','#e6c83c','#e6506e','#64d2d2','#ff6b6b','#ffd93d','#6bcb77','#4d96ff'];
 
 // ── 4비트 슬롯 HTML 생성 헬퍼 ─────────────────────────────────────
 const SLOT_MAP = { 1:[0], 2:[0,2], 3:[0,2,3], 4:[0,1,2,3] };
@@ -598,10 +609,14 @@ function barCellHtml(sec, si, bi, barNum) {
   const pleft  = rs                        ? 'padding-left:8px;'  : '';
   const pright = (re===':||'||re===':||:') ? 'padding-right:8px;' : '';
 
-  const sc = secColor(si);
+  const sc = secColor(si, sec);
+  const barBg = b.bgColor
+    ? (() => { const h=b.bgColor.replace('#',''); const r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),bv=parseInt(h.substring(4,6),16); return `rgba(${r},${g},${bv},0.35)`; })()
+    : sc.bg;
+  const barBorder = b.bgColor ? b.bgColor : sc.border;
 
   return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
-    style="flex:1;min-width:0;background:${sc.bg};${borderLeft}${borderRight}border-top:1px solid ${sc.border};border-bottom:1px solid ${sc.border};border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
+    style="flex:1;min-width:0;background:${barBg};${borderLeft}${borderRight}border-top:1px solid ${barBorder};border-bottom:1px solid ${barBorder};border-radius:4px;position:relative;cursor:text;user-select:none;${pleft}${pright}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
     ${rs ? leftMarkHtml('||:') : ''}
     ${rightMarkHtml(re)}
     ${barNum != null ? `<span style="position:absolute;top:2px;${rs?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
@@ -668,11 +683,20 @@ function barMarkToolbarHtml(si, bi, bar) {
     <textarea class="bar-memo-input" data-si="${si}" data-bi="${bi}"
       placeholder="가사, 운지법, 지시어..."
       style="width:100%;font-size:0.78rem;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px;resize:vertical;min-height:52px;font-family:inherit;line-height:1.4;box-sizing:border-box;margin-bottom:6px">${escHtml(bm)}</textarea>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
       <span style="font-size:0.65rem;color:var(--text2)">메모 색상</span>
       ${['var(--text2)','#e06c75','#61afef','#98c379','#e5c07b','#c678dd','#56b6c2','#ff9f43'].map(col =>
         `<div class="bar-memo-color-btn" data-si="${si}" data-bi="${bi}" data-color="${col}"
           style="width:16px;height:16px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(bar.memoColor||'var(--text2)')===col?'white':'transparent'};box-sizing:border-box;flex-shrink:0"></div>`
+      ).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:0.65rem;color:var(--text2)">마디 색상</span>
+      <div class="bar-bg-color-btn" data-si="${si}" data-bi="${bi}" data-color=""
+        style="width:16px;height:16px;border-radius:50%;background:var(--bg3);cursor:pointer;border:2px solid ${!bar.bgColor?'white':'transparent'};box-sizing:border-box;flex-shrink:0;font-size:0.55rem;display:flex;align-items:center;justify-content:center;color:var(--text2)" title="기본">✕</div>
+      ${COLOR_PALETTE.map(col =>
+        `<div class="bar-bg-color-btn" data-si="${si}" data-bi="${bi}" data-color="${col}"
+          style="width:16px;height:16px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(bar.bgColor||'')===col?'white':'transparent'};box-sizing:border-box;flex-shrink:0"></div>`
       ).join('')}
     </div>
   </div>`;
@@ -846,6 +870,15 @@ function renderSections(ed, draft) {
         <button class="btn btn-secondary remove-bar-btn" data-si="${si}" style="font-size:0.7rem;padding:2px 7px">−1마디</button>
         <!-- 기호 토글 -->
         <button class="btn btn-secondary sec-sym-toggle" data-si="${si}" style="font-size:0.7rem;padding:2px 7px">기호${symOpen?'▴':'▾'}</button>
+        <!-- 섹션 색상 -->
+        <div style="display:flex;align-items:center;gap:3px;margin-left:4px">
+          <div class="sec-color-btn" data-si="${si}" data-color=""
+            style="width:14px;height:14px;border-radius:50%;background:var(--bg3);cursor:pointer;border:2px solid ${!sec.color?'var(--accent)':'transparent'};flex-shrink:0;font-size:0.5rem;display:flex;align-items:center;justify-content:center;color:var(--text2)" title="기본색">✕</div>
+          ${COLOR_PALETTE.map(col =>
+            `<div class="sec-color-btn" data-si="${si}" data-color="${col}"
+              style="width:14px;height:14px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${(sec.color||'')===col?'white':'transparent'};flex-shrink:0"></div>`
+          ).join('')}
+        </div>
         <!-- 삭제 -->
         <button class="btn btn-secondary del-sec" data-si="${si}" style="font-size:0.7rem;padding:2px 7px;color:var(--danger);margin-left:auto">🗑</button>
       </div>
@@ -873,6 +906,16 @@ function renderSections(ed, draft) {
   // 섹션 이름
   area.querySelectorAll('.sec-type-input').forEach(inp => {
     inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; });
+  });
+
+  // 섹션 색상
+  area.querySelectorAll('.sec-color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const si = +btn.dataset.si;
+      draft.sections[si].color = btn.dataset.color || undefined;
+      saveDraft(draft);
+      renderSections(ed, draft);
+    });
   });
 
   // 기호 토글
@@ -1003,7 +1046,7 @@ function renderSections(ed, draft) {
         }
       });
 
-      // 색상 버튼
+      // 메모 색상 버튼
       toolbarEl.querySelectorAll('.bar-memo-color-btn').forEach(btn => {
         btn.addEventListener('mousedown', e => e.preventDefault());
         btn.addEventListener('click', () => {
@@ -1014,6 +1057,19 @@ function renderSections(ed, draft) {
           });
           const memoCell = area.querySelector(`.bar-memo-cell[data-si="${si}"][data-bi="${bi}"]`);
           if (memoCell) memoCell.querySelector('.bar-memo-display').style.color = color;
+        });
+      });
+
+      // 마디 배경 색상 버튼
+      toolbarEl.querySelectorAll('.bar-bg-color-btn').forEach(btn => {
+        btn.addEventListener('mousedown', e => e.preventDefault());
+        btn.addEventListener('click', () => {
+          const color = btn.dataset.color; // '' = 기본
+          draft.sections[si].bars[bi].bgColor = color || undefined;
+          saveDraft(draft);
+          renderSections(ed, draft);
+          const updatedCell = area.querySelector(`.bar-cell[data-si="${si}"][data-bi="${bi}"]`);
+          if (updatedCell) openBarCell(updatedCell);
         });
       });
     }
@@ -1292,12 +1348,14 @@ export function buildChartHtml(draft, opts = {}) {
           const rs2 = b.repeatStart || false;
           const re2 = b.repeatEnd   || '';
           const bMemo = b.memo || '';
-          const sc2 = secColor(si);
-          const borderL = rs2 ? 'border-left:3px solid var(--accent);'  : `border-left:1px solid ${sc2.border};`;
-          const borderR = (re2===':||'||re2===':||:') ? 'border-right:3px solid var(--accent);' : `border-right:1px solid ${sc2.border};`;
+          const sc2 = secColor(si, sec);
+          const barBg2 = b.bgColor ? (() => { const h=b.bgColor.replace('#',''); const r=parseInt(h.substring(0,2),16),g=parseInt(h.substring(2,4),16),bv=parseInt(h.substring(4,6),16); return `rgba(${r},${g},${bv},0.35)`; })() : sc2.bg;
+          const barBd2 = b.bgColor ? b.bgColor : sc2.border;
+          const borderL = rs2 ? 'border-left:3px solid var(--accent);'  : `border-left:1px solid ${barBd2};`;
+          const borderR = (re2===':||'||re2===':||:') ? 'border-right:3px solid var(--accent);' : `border-right:1px solid ${barBd2};`;
           const pleft  = rs2                           ? 'padding-left:8px;'  : '';
           const pright = (re2===':||'||re2===':||:')   ? 'padding-right:8px;' : '';
-          return `<div style="flex:1;min-width:0;background:${sc2.bg};${borderL}${borderR}border-top:1px solid ${sc2.border};border-bottom:1px solid ${sc2.border};border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
+          return `<div style="flex:1;min-width:0;background:${barBg2};${borderL}${borderR}border-top:1px solid ${barBd2};border-bottom:1px solid ${barBd2};border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
             ${rs2 ? leftMarkHtml('||:') : ''}${rightMarkHtml(re2)}
             ${showNums ? `<span style="position:absolute;top:2px;${rs2?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
             <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch;padding:4px 0">${slotsHtml}</div>

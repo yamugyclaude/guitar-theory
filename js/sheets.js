@@ -60,8 +60,12 @@ export async function render(panel) {
         <span id="upload-arrow" style="font-size:0.8rem;color:var(--text2)">▼</span>
       </div>
       <div id="upload-body" style="display:none;margin-top:12px">
-        <div class="label">악보 업로드 (PDF · PNG · JPG · 복수 선택 가능)</div>
-        <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="margin-bottom:10px">
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="pick-file-btn" style="font-size:0.82rem;flex:1">📁 파일 / iCloud에서 가져오기</button>
+          <button class="btn btn-secondary" id="pick-photo-btn" style="font-size:0.82rem;flex:1">🖼️ 사진 앨범에서 가져오기</button>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="display:none">
+        <input type="file" id="photo-input" accept="image/*" multiple style="display:none">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <div style="flex:2;min-width:120px"><div class="label">곡명</div><input type="text" id="meta-title" placeholder="곡명"></div>
           <div style="flex:1;min-width:100px"><div class="label">아티스트</div><input type="text" id="meta-artist" placeholder="아티스트"></div>
@@ -119,6 +123,16 @@ export async function render(panel) {
     arrow.textContent = open ? '▲' : '▼';
   });
 
+  panel.querySelector('#pick-file-btn').addEventListener('click', () => panel.querySelector('#file-input').click());
+  panel.querySelector('#pick-photo-btn').addEventListener('click', () => panel.querySelector('#photo-input').click());
+  panel.querySelector('#photo-input').addEventListener('change', e => {
+    const fileInput = panel.querySelector('#file-input');
+    // photo-input의 파일을 file-input으로 복사 (DataTransfer 사용)
+    const dt = new DataTransfer();
+    Array.from(e.target.files).forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+    e.target.value = '';
+  });
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
   panel.querySelector('#new-folder-btn').addEventListener('click', () => {
