@@ -1276,9 +1276,13 @@ function renderSections(ed, draft) {
       autoSave(draft);
       const hl = draft.sections[si2].bars[bi2].memoHl || '';
       const mc2 = draft.sections[si2].bars[bi2].memoColor || 'var(--text2)';
-      disp.innerHTML = ta.value ? escHtml(ta.value) : (draft.sections[si2].bars.some(b=>b.memo) ? '<span style="opacity:0.2;font-size:0.6rem">가사</span>' : '<span style="opacity:0;font-size:0.6rem">·</span>');
+      disp.style.background = hl ? hl + 'aa' : '';
+      disp.style.borderRadius = hl ? '2px' : '';
+      disp.style.padding = hl ? '0 2px' : '';
       disp.style.color = mc2;
-      disp.style.background = hl ? hl + '66' : '';
+      disp.innerHTML = ta.value
+        ? escHtml(ta.value)
+        : (hl ? `<span style="opacity:0.4;font-size:0.6rem">🖊</span>` : `<span style="opacity:0.2;font-size:0.6rem">가사</span>`);
       disp.style.display = 'block';
       editBox.style.display = 'none';
     });
@@ -1296,14 +1300,16 @@ function renderSections(ed, draft) {
           if (b.dataset.hl === '') b.style.outline = b === btn ? '2px solid var(--accent)' : 'none';
           else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
         });
-        ta.style.background = hl ? hl + '33' : 'var(--bg2)';
-        // blur 순서 문제 방지: disp도 즉시 업데이트
-        disp.style.background = hl ? hl + '66' : '';
+        // 색 즉시 적용 + 편집창 닫기
+        const txt = ta.value;
+        disp.style.background = hl ? hl + 'aa' : '';
         disp.style.borderRadius = hl ? '2px' : '';
-        // editBox가 이미 닫혔을 경우 disp 표시 보장
-        if (editBox.style.display === 'none') {
-          disp.style.display = 'block';
-        }
+        disp.style.padding = hl ? '0 2px' : '';
+        disp.innerHTML = txt
+          ? escHtml(txt)
+          : (hl ? `<span style="opacity:0.4;font-size:0.6rem">🖊</span>` : `<span style="opacity:0.2;font-size:0.6rem">가사</span>`);
+        disp.style.display = 'block';
+        editBox.style.display = 'none';
         autoSave(draft);
       });
     });
@@ -1435,10 +1441,14 @@ function renderSections(ed, draft) {
       draft.sections[si].barNotes[bi].text = ta.value;
       autoSave(draft);
       const nhl = (draft.sections[si].barNotes[bi] || {}).hl || '';
-      disp.style.background = nhl ? nhl + '55' : '';
+      disp.style.background = nhl ? nhl + 'aa' : '';
+      disp.style.borderRadius = nhl ? '2px' : '';
+      disp.style.padding = nhl ? '0 2px' : '';
+      disp.innerHTML = ta.value
+        ? escHtml(ta.value)
+        : (nhl ? `<span style="opacity:0.4;font-size:0.6rem">🖊</span>` : `<span style="opacity:0.15;font-size:0.6rem">✱</span>`);
       disp.style.display = 'block';
       editBox.style.display = 'none';
-      disp.innerHTML = ta.value ? escHtml(ta.value) : '<span style="opacity:0;font-size:0.6rem">·</span>';
     });
 
     ta.addEventListener('keydown', e => { if (e.key === 'Escape') ta.blur(); });
@@ -1457,14 +1467,16 @@ function renderSections(ed, draft) {
           if (b.dataset.hl === '') b.style.outline = b === btn ? '2px solid var(--accent)' : 'none';
           else b.style.border = `2px solid ${b === btn ? '#fff' : 'transparent'}`;
         });
-        ta.style.background = hl ? hl + '33' : 'var(--bg2)';
-        // blur 순서 문제 방지: disp도 즉시 업데이트
-        disp.style.background = hl ? hl + '55' : '';
+        // 색 즉시 적용 + 편집창 닫기
+        const txt = ta.value;
+        disp.style.background = hl ? hl + 'aa' : '';
         disp.style.borderRadius = hl ? '2px' : '';
-        // editBox가 이미 닫혔을 경우 disp 표시 보장
-        if (editBox.style.display === 'none') {
-          disp.style.display = 'block';
-        }
+        disp.style.padding = hl ? '0 2px' : '';
+        disp.innerHTML = txt
+          ? escHtml(txt)
+          : (hl ? `<span style="opacity:0.4;font-size:0.6rem">🖊</span>` : `<span style="opacity:0.15;font-size:0.6rem">✱</span>`);
+        disp.style.display = 'block';
+        editBox.style.display = 'none';
         autoSave(draft);
       });
     });
