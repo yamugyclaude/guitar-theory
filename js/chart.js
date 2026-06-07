@@ -330,10 +330,19 @@ function renderEditor(panel, draft) {
     const idx = drafts.findIndex(d => d.id === toSave.id);
     if (idx >= 0) drafts[idx] = toSave; else drafts.unshift(toSave);
     saveDrafts(drafts);
-    const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-    if (!setlists.find(s => s.id === draft.id)) {
-      setlists.push({ id: draft.id, title: draft.title, type: 'chart' });
-      localStorage.setItem('gta_setlists', JSON.stringify(setlists));
+    // 라이브 폴더에 없으면 첫 번째 폴더(없으면 생성)에 추가
+    const folders = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+    // 구버전 flat list 처리
+    if (folders.length && folders[0]?.type !== undefined && !folders[0]?.songs) {
+      const migrated = [{ id: 'folder_' + Date.now(), name: '셋리스트', songs: folders }];
+      const already = migrated[0].songs.find(s => s.id === draft.id);
+      if (!already) migrated[0].songs.push({ id: draft.id, title: draft.title, type: 'chart' });
+      localStorage.setItem('gta_setlists', JSON.stringify(migrated));
+    } else {
+      if (!folders.length) folders.push({ id: 'folder_' + Date.now(), name: '셋리스트', songs: [] });
+      const already = folders.some(f => f.songs?.find(s => s.id === draft.id));
+      if (!already) { folders[0].songs.push({ id: draft.id, title: draft.title, type: 'chart' }); }
+      localStorage.setItem('gta_setlists', JSON.stringify(folders));
     }
     showToast('저장 완료 ✅');
   });

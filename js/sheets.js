@@ -5,6 +5,21 @@ function uuid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().to
 
 function getMeta() { return JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]'); }
 function setMeta(data) { localStorage.setItem('gta_sheet_meta', JSON.stringify(data)); }
+
+// 라이브 폴더에 곡 추가 (공통 헬퍼)
+function addToLiveFolders(item) {
+  const folders = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
+  if (folders.length && folders[0]?.type !== undefined && !folders[0]?.songs) {
+    // 구버전 마이그레이션
+    const migrated = [{ id: 'folder_' + Date.now(), name: '셋리스트', songs: folders }];
+    if (!migrated[0].songs.find(s => s.id === item.id)) migrated[0].songs.push(item);
+    localStorage.setItem('gta_setlists', JSON.stringify(migrated));
+  } else {
+    if (!folders.length) folders.push({ id: 'folder_' + Date.now(), name: '셋리스트', songs: [] });
+    if (!folders.some(f => f.songs?.find(s => s.id === item.id))) folders[0].songs.push(item);
+    localStorage.setItem('gta_setlists', JSON.stringify(folders));
+  }
+}
 // ===== 폴더 관리 (하위폴더 지원) =====
 // 형식: [{id, name, parentId}]  parentId=null → 루트 폴더
 // 하위폴더 id: 'ParentName/ChildName' 형태
@@ -680,11 +695,7 @@ function addPdfToLive(pdfBlob, title, sourceId) {
     setMeta(allMeta);
   }
   // 셋리스트 추가
-  const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-  if (!setlists.find(s => s.id === liveId)) {
-    setlists.push({ id: liveId, title, type: 'sheet' });
-    localStorage.setItem('gta_setlists', JSON.stringify(setlists));
-  }
+  addToLiveFolders({ id: liveId, title, type: 'sheet' });
 }
 
 async function openSheet(panel, id) {
@@ -741,10 +752,8 @@ async function openSheet(panel, id) {
     goTo(7, { title: meta.title, artist: meta.artist, key: meta.key, bpm: meta.bpm }));
 
   viewer.querySelector('#to-live-btn').addEventListener('click', () => {
-    const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-    if (!setlists.find(s => s.id === id)) setlists.push({ id, title: meta.title, type: 'sheet' });
-    localStorage.setItem('gta_setlists', JSON.stringify(setlists));
-    alert(`"${meta.title}"을 라이브 모드 셋리스트에 추가했습니다.`);
+    addToLiveFolders({ id, title: meta.title, type: 'sheet' });
+    alert(`"${meta.title}"을 라이브 모드에 추가했습니다.`);
   });
 
   viewer.querySelector('#delete-btn').addEventListener('click', async () => {
@@ -940,11 +949,7 @@ function saveLiveChart(meta, sections) {
   drafts.unshift(draft);
   localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
 
-  const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-  if (!setlists.find(s => s.id === draft.id)) {
-    setlists.push({ id: draft.id, title: draft.title, type: 'chart' });
-    localStorage.setItem('gta_setlists', JSON.stringify(setlists));
-  }
+  addToLiveFolders({ id: draft.id, title: draft.title, type: 'chart' });
 }
 
 // ===== 클라우드 동기화 =====
@@ -1152,11 +1157,7 @@ function renderAnalysisReview(result, meta, container, panel) {
     drafts.unshift(draft);
     localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
 
-    const setlists = JSON.parse(localStorage.getItem('gta_setlists') || '[]');
-    if (!setlists.find(s => s.id === draftId)) {
-      setlists.push({ id: draftId, title: newMeta.title, type: 'chart' });
-      localStorage.setItem('gta_setlists', JSON.stringify(setlists));
-    }
+    addToLiveFolders({ id: draftId, title: newMeta.title, type: 'chart' });
 
     // 3. 이론 분석 탭에 코드 진행 전달
     const allChords = editResult.sections.flatMap(s => s.chords || []);
