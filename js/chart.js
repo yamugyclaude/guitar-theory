@@ -790,7 +790,7 @@ function sectionRowsHtml(sec, si, barOffset) {
         // 세뇨/코다 — 상단층 왼쪽
         if (lm === 'segno' || lm === 'coda') {
           const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-          inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 14)}</div>`;
+          inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 18)}</div>`;
         }
         return `<div style="flex:1;min-width:0;position:relative;height:${topH}px">${inner}</div>`;
       }).join('')}
@@ -1527,7 +1527,7 @@ export function buildChartHtml(draft, opts = {}) {
           }
           if (lm === 'segno' || lm === 'coda') {
             const lmColor = LEFT_MARK_OPTIONS.find(o=>o.value===lm)?.color || 'var(--accent)';
-            inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 14)}</div>`;
+            inner += `<div style="position:absolute;top:0;left:2px">${markIconHtml(lm, lmColor, 18)}</div>`;
           }
           return `<div style="flex:1;min-width:0;position:relative;height:${rTopH}px">${inner}</div>`;
         }).join('')}${spacers}
