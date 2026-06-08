@@ -94,218 +94,240 @@ export async function render(panel) {
   migrateOldFolders();
 
   panel.innerHTML = `
-    <h1 class="page-title">📂 악보 보관함</h1>
-
-    <!-- 업로드 폼 -->
-    <div class="card" id="upload-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" id="upload-toggle">
-        <span style="font-weight:600;font-size:0.88rem">➕ 악보 파일 업로드</span>
-        <span id="upload-arrow" style="font-size:0.8rem;color:var(--text2)">▼</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:8px">
+      <h1 class="page-title" style="margin-bottom:0;border-bottom:none;padding-bottom:0">📂 악보 보관함</h1>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-secondary" id="sync-btn" style="font-size:0.78rem;padding:6px 10px" title="클라우드 동기화">☁️</button>
+        <button class="btn btn-primary" id="upload-fab" style="font-size:0.8rem;padding:6px 14px">＋ 업로드</button>
       </div>
-      <div id="upload-body" style="display:none;margin-top:12px">
-        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-          <button class="btn btn-secondary" id="pick-file-btn" style="font-size:0.82rem;flex:1">📁 파일 / iCloud에서 가져오기</button>
-          <button class="btn btn-secondary" id="pick-photo-btn" style="font-size:0.82rem;flex:1">🖼️ 사진 앨범에서 가져오기</button>
+    </div>
+
+    <!-- 업로드 폼 (숨김) -->
+    <div id="upload-card" style="display:none;margin-bottom:16px">
+      <div class="card" style="border:2px solid var(--accent);padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-weight:700;font-size:0.9rem">악보 파일 업로드</span>
+          <button id="upload-close" style="background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer;padding:0 4px">×</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="btn btn-secondary" id="pick-file-btn" style="font-size:0.82rem;flex:1;min-width:140px">📁 파일 가져오기</button>
+          <button class="btn btn-secondary" id="pick-photo-btn" style="font-size:0.82rem;flex:1;min-width:140px">🖼️ 사진 앨범</button>
         </div>
         <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" multiple style="display:none">
         <input type="file" id="photo-input" accept="image/*" multiple style="display:none">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <div style="flex:2;min-width:120px"><div class="label">곡명</div><input type="text" id="meta-title" placeholder="곡명"></div>
-          <div style="flex:1;min-width:100px"><div class="label">아티스트</div><input type="text" id="meta-artist" placeholder="아티스트"></div>
-          <div style="flex:1;min-width:70px"><div class="label">키</div><input type="text" id="meta-key" placeholder="Am"></div>
-          <div style="flex:1;min-width:60px"><div class="label">BPM</div><input type="text" id="meta-bpm" placeholder="120"></div>
+        <div id="file-preview" style="margin-bottom:10px;font-size:0.8rem;color:var(--accent)"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><div class="label">곡명</div><input type="text" id="meta-title" placeholder="곡명"></div>
+          <div><div class="label">아티스트</div><input type="text" id="meta-artist" placeholder="아티스트"></div>
+          <div><div class="label">키</div><input type="text" id="meta-key" placeholder="Am"></div>
+          <div><div class="label">BPM</div><input type="text" id="meta-bpm" placeholder="120"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-          <div style="flex:2;min-width:140px"><div class="label">태그 (쉼표 구분)</div><input type="text" id="meta-tags" placeholder="블루스, 펑크"></div>
-          <div style="flex:1;min-width:120px">
-            <div class="label">폴더에 추가</div>
-            <select id="meta-folder"><option value="">폴더 없음</option></select>
-          </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div><div class="label">태그 (쉼표 구분)</div><input type="text" id="meta-tags" placeholder="블루스, 펑크"></div>
+          <div><div class="label">폴더</div><select id="meta-folder"><option value="">폴더 없음</option></select></div>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="upload-btn">저장</button>
-        </div>
+        <button class="btn btn-primary" id="upload-btn" style="width:100%;margin-top:12px">저장</button>
       </div>
     </div>
 
-    <!-- 탐색기 레이아웃 -->
-    <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:400px;background:var(--bg2)">
-      <!-- 왼쪽: 폴더 -->
-      <div id="folder-pane" style="width:200px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--bg3)">
-        <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:4px">
-          <span style="font-size:0.72rem;font-weight:700;color:var(--text2);letter-spacing:0.04em">폴더</span>
-          <div style="display:flex;gap:4px">
-            <button class="btn btn-secondary" id="new-folder-btn" style="font-size:0.65rem;padding:2px 7px">+ 폴더</button>
-            <button class="btn btn-secondary" id="sync-btn" style="font-size:0.65rem;padding:2px 7px">☁️</button>
-          </div>
-        </div>
-        <div id="folder-tree"></div>
-      </div>
-      <!-- 오른쪽: 파일 목록 -->
-      <div style="flex:1;display:flex;flex-direction:column;min-width:0">
-        <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
-          <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)" style="padding:5px 10px;font-size:0.82rem">
-        </div>
-        <div id="sheet-list" style="flex:1;overflow-y:auto;padding:6px 8px"></div>
-      </div>
+    <!-- 폴더 칩 -->
+    <div id="folder-chips-wrap" style="margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
+      <div id="folder-chips" style="display:flex;gap:6px;flex-wrap:nowrap;min-width:max-content;padding:2px 0"></div>
     </div>
+
+    <!-- 검색 -->
+    <div style="position:relative;margin-bottom:14px">
+      <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:0.9rem;pointer-events:none">🔍</span>
+      <input type="text" id="search-input" placeholder="검색 (곡명·태그·아티스트)"
+        style="padding:8px 10px 8px 32px;font-size:0.85rem;border-radius:20px">
+    </div>
+
+    <!-- 카드 그리드 -->
+    <div id="sheet-list"></div>
 
     <div id="sheet-viewer"></div>
   `;
 
   checkBackup(panel);
-  renderFolderTree(panel);
+  renderFolderChips(panel);
   loadList(panel);
 
-  // 업로드 접기/펼치기
-  panel.querySelector('#upload-toggle').addEventListener('click', () => {
-    const body = panel.querySelector('#upload-body');
-    const arrow = panel.querySelector('#upload-arrow');
-    const open = body.style.display === 'none';
-    body.style.display = open ? '' : 'none';
-    arrow.textContent = open ? '▲' : '▼';
+  // 업로드 FAB
+  panel.querySelector('#upload-fab').addEventListener('click', () => {
+    const card = panel.querySelector('#upload-card');
+    card.style.display = card.style.display === 'none' ? '' : 'none';
+  });
+  panel.querySelector('#upload-close').addEventListener('click', () => {
+    panel.querySelector('#upload-card').style.display = 'none';
   });
 
   panel.querySelector('#pick-file-btn').addEventListener('click', () => panel.querySelector('#file-input').click());
   panel.querySelector('#pick-photo-btn').addEventListener('click', () => panel.querySelector('#photo-input').click());
+
+  const showFilePreview = files => {
+    const p = panel.querySelector('#file-preview');
+    if (!files.length) { p.textContent = ''; return; }
+    p.textContent = `📎 ${files.length}개 파일: ${Array.from(files).map(f => f.name).join(', ')}`;
+  };
+  panel.querySelector('#file-input').addEventListener('change', e => showFilePreview(e.target.files));
   panel.querySelector('#photo-input').addEventListener('change', e => {
     const fileInput = panel.querySelector('#file-input');
     const dt = new DataTransfer();
     Array.from(e.target.files).forEach(f => dt.items.add(f));
     fileInput.files = dt.files;
+    showFilePreview(dt.files);
     e.target.value = '';
   });
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
-  panel.querySelector('#new-folder-btn').addEventListener('click', () => {
-    const name = prompt('새 폴더 이름:');
-    if (!name?.trim()) return;
-    const folders = getSetlistFolders();
-    if (folders.find(f => f.name === name.trim())) { alert('이미 같은 이름의 폴더가 있습니다.'); return; }
-    folders.push({ id: 'folder_' + Date.now(), name: name.trim(), songs: [] });
-    saveSetlistFolders(folders);
-    renderFolderTree(panel);
-  });
   panel.querySelector('#sync-btn').addEventListener('click', () => syncFromCloud(panel));
 }
 
-function renderFolderTree(panel) {
+function renderFolderChips(panel) {
   const folders = getSetlistFolders();
   const allMeta = getMeta();
   const allDrafts = getDrafts();
+  const totalCount = allDrafts.length + allMeta.length;
 
   // 업로드 폼 폴더 select 업데이트
   const sel = panel.querySelector('#meta-folder');
   if (sel) {
     sel.innerHTML = `<option value="">폴더 없음</option>` +
       folders.map(f => `<option value="${f.id}">📁 ${f.name}</option>`).join('');
-    // activeFolder가 있으면 선택
     if (activeFolder) sel.value = activeFolder;
   }
 
-  const tree = panel.querySelector('#folder-tree');
-  if (!tree) return;
+  const chips = panel.querySelector('#folder-chips');
+  if (!chips) return;
 
-  // 전체 개수 = 모든 차트 + 모든 악보 파일
-  const totalCount = allDrafts.length + allMeta.length;
+  chips.innerHTML = '';
 
-  function folderItemCount(f) {
-    return (f.songs || []).length;
-  }
-
-  // 전체 항목
+  // "전체" 칩
+  const allChip = document.createElement('div');
   const allActive = activeFolder === null;
-  let html = `
-    <div class="tree-item" data-fid="__all__"
-      style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;border-radius:4px;margin:2px 4px;
-      ${allActive ? 'background:var(--accent);color:#fff;' : ''}">
-      <span style="font-size:0.9rem">🗂</span>
-      <span style="flex:1;font-size:0.82rem;font-weight:${allActive?'700':'400'}">전체</span>
-      <span style="font-size:0.68rem;${allActive?'opacity:0.8':'color:var(--text2)'}">${totalCount}</span>
-    </div>
-  `;
+  allChip.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:20px;cursor:pointer;
+    font-size:0.82rem;font-weight:${allActive?'700':'400'};white-space:nowrap;user-select:none;transition:all 0.15s;
+    ${allActive
+      ? 'background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)'
+      : 'background:var(--bg3);color:var(--text);border:1px solid var(--border)'}`;
+  allChip.innerHTML = `🗂 전체 <span style="font-size:0.72rem;opacity:0.8">${totalCount}</span>`;
+  allChip.addEventListener('click', () => {
+    activeFolder = null; renderFolderChips(panel);
+    filterList(panel, panel.querySelector('#search-input')?.value || '');
+  });
+  chips.appendChild(allChip);
 
+  // 폴더 칩들
   folders.forEach((f, fi) => {
     const isActive = activeFolder === f.id;
-    const count = folderItemCount(f);
-    html += `
-      <div class="tree-item" data-fid="${f.id}"
-        style="display:flex;align-items:center;gap:5px;padding:6px 8px;cursor:pointer;border-radius:4px;margin:2px 4px;
-        ${isActive ? 'background:var(--accent);color:#fff;' : ''}">
-        <span style="font-size:0.85rem;flex-shrink:0">📁</span>
-        <span class="folder-name-span" style="flex:1;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:${isActive?'700':'400'}">${f.name}</span>
-        <span style="font-size:0.65rem;${isActive?'opacity:0.8':'color:var(--text2)'};flex-shrink:0">${count}</span>
-        <button class="folder-up-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.55rem;padding:1px 4px;flex-shrink:0;${isActive?'background:rgba(255,255,255,0.2);border-color:transparent;color:#fff;':''}"
-          ${fi===0?'disabled':''} title="위로">↑</button>
-        <button class="folder-down-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.55rem;padding:1px 4px;flex-shrink:0;${isActive?'background:rgba(255,255,255,0.2);border-color:transparent;color:#fff;':''}"
-          ${fi===folders.length-1?'disabled':''} title="아래로">↓</button>
-        <button class="folder-ctx-btn btn btn-secondary" data-fi="${fi}"
-          style="font-size:0.6rem;padding:1px 5px;flex-shrink:0;${isActive?'background:rgba(255,255,255,0.2);border-color:transparent;color:#fff;':''}"
-          title="이름 변경 / 삭제">⋯</button>
-      </div>
+    const count = (f.songs || []).length;
+
+    const chip = document.createElement('div');
+    chip.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;cursor:pointer;
+      font-size:0.82rem;font-weight:${isActive?'700':'400'};white-space:nowrap;user-select:none;transition:all 0.15s;
+      ${isActive
+        ? 'background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)'
+        : 'background:var(--bg3);color:var(--text);border:1px solid var(--border)'}`;
+    chip.innerHTML = `
+      📁 ${escHtml(f.name)}
+      <span style="font-size:0.72rem;opacity:0.8">${count}</span>
+      <button class="chip-ctx" data-fi="${fi}"
+        style="background:none;border:none;cursor:pointer;padding:0 0 0 2px;font-size:0.75rem;
+        color:${isActive?'rgba(255,255,255,0.8)':'var(--text2)'};line-height:1" title="편집">⋯</button>
     `;
-  });
 
-  tree.innerHTML = html;
-
-  // 트리 항목 클릭 (폴더 선택)
-  tree.querySelectorAll('.tree-item').forEach(el => {
-    el.addEventListener('click', e => {
-      if (e.target.closest('button')) return;
-      const fid = el.dataset.fid;
-      activeFolder = fid === '__all__' ? null : fid;
-      renderFolderTree(panel);
+    chip.addEventListener('click', e => {
+      if (e.target.closest('.chip-ctx')) return;
+      activeFolder = f.id; renderFolderChips(panel);
       filterList(panel, panel.querySelector('#search-input')?.value || '');
     });
+    chips.appendChild(chip);
   });
 
-  // 폴더 순서 ↑↓
-  tree.querySelectorAll('.folder-up-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const fi = +btn.dataset.fi; if (fi === 0) return;
-      const fs = getSetlistFolders();
-      [fs[fi-1], fs[fi]] = [fs[fi], fs[fi-1]];
-      saveSetlistFolders(fs);
-      renderFolderTree(panel);
-    });
+  // "새 폴더" 칩
+  const newChip = document.createElement('div');
+  newChip.style.cssText = `display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:20px;cursor:pointer;
+    font-size:0.82rem;white-space:nowrap;user-select:none;
+    background:transparent;color:var(--accent);border:1px dashed var(--accent);transition:all 0.15s`;
+  newChip.textContent = '＋ 폴더';
+  newChip.addEventListener('click', () => {
+    const name = prompt('새 폴더 이름:');
+    if (!name?.trim()) return;
+    const fs = getSetlistFolders();
+    if (fs.find(f => f.name === name.trim())) { alert('이미 같은 이름의 폴더가 있습니다.'); return; }
+    fs.push({ id: 'folder_' + Date.now(), name: name.trim(), songs: [] });
+    saveSetlistFolders(fs);
+    renderFolderChips(panel);
   });
-  tree.querySelectorAll('.folder-down-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const fi = +btn.dataset.fi;
-      const fs = getSetlistFolders(); if (fi >= fs.length-1) return;
-      [fs[fi], fs[fi+1]] = [fs[fi+1], fs[fi]];
-      saveSetlistFolders(fs);
-      renderFolderTree(panel);
-    });
-  });
+  chips.appendChild(newChip);
 
-  // ⋯ 컨텍스트 (이름 변경 / 삭제)
-  tree.querySelectorAll('.folder-ctx-btn').forEach(btn => {
+  // ⋯ 컨텍스트
+  chips.querySelectorAll('.chip-ctx').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const fi = +btn.dataset.fi;
       const fs = getSetlistFolders();
       const f = fs[fi];
-      const action = prompt(`"${f.name}" 폴더\n\n이름 변경: 새 이름 입력\n삭제: "삭제" 입력`, f.name);
-      if (action === null) return;
-      if (action.trim() === '삭제') {
-        if (!confirm(`"${f.name}" 폴더를 삭제합니다. (악보는 유지됩니다)`)) return;
-        fs.splice(fi, 1);
-        if (activeFolder === f.id) activeFolder = null;
-        saveSetlistFolders(fs);
-        renderFolderTree(panel);
-        filterList(panel, panel.querySelector('#search-input')?.value || '');
-      } else if (action.trim()) {
-        fs[fi].name = action.trim();
-        saveSetlistFolders(fs);
-        renderFolderTree(panel);
-      }
+      // 인라인 미니 메뉴
+      showFolderMenu(btn, f, fi, panel);
     });
   });
+}
+
+function showFolderMenu(anchor, folder, fi, panel) {
+  // 기존 메뉴 닫기
+  document.querySelector('#folder-ctx-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'folder-ctx-menu';
+  menu.style.cssText = `position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:9000;min-width:160px;padding:4px 0;font-size:0.84rem`;
+
+  const items = [
+    { label: '✏️ 이름 변경', action: 'rename' },
+    { label: '↑ 위로', action: 'up', disabled: fi === 0 },
+    { label: '↓ 아래로', action: 'down', disabled: fi === getSetlistFolders().length - 1 },
+    { label: '🗑 삭제', action: 'delete', danger: true },
+  ];
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.style.cssText = `padding:8px 14px;cursor:pointer;${item.danger?'color:var(--danger)':''}${item.disabled?'opacity:0.35;pointer-events:none':''}`;
+    el.textContent = item.label;
+    el.addEventListener('click', () => {
+      menu.remove();
+      const fs = getSetlistFolders();
+      if (item.action === 'rename') {
+        const name = prompt('폴더 이름 변경:', fs[fi]?.name || '');
+        if (!name?.trim()) return;
+        fs[fi].name = name.trim(); saveSetlistFolders(fs); renderFolderChips(panel);
+      } else if (item.action === 'up') {
+        if (fi > 0) { [fs[fi-1],fs[fi]]=[fs[fi],fs[fi-1]]; saveSetlistFolders(fs); renderFolderChips(panel); }
+      } else if (item.action === 'down') {
+        if (fi < fs.length-1) { [fs[fi],fs[fi+1]]=[fs[fi+1],fs[fi]]; saveSetlistFolders(fs); renderFolderChips(panel); }
+      } else if (item.action === 'delete') {
+        if (!confirm(`"${fs[fi]?.name}" 폴더를 삭제합니다. (악보는 유지됩니다)`)) return;
+        fs.splice(fi, 1);
+        if (activeFolder === folder.id) activeFolder = null;
+        saveSetlistFolders(fs);
+        renderFolderChips(panel);
+        filterList(panel, panel.querySelector('#search-input')?.value || '');
+      }
+    });
+    el.addEventListener('mouseenter', () => { el.style.background = 'var(--bg3)'; });
+    el.addEventListener('mouseleave', () => { el.style.background = ''; });
+    menu.appendChild(el);
+  });
+
+  // 위치 계산
+  const rect = anchor.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.left = Math.min(rect.left, window.innerWidth - 170) + 'px';
+  document.body.appendChild(menu);
+
+  // 외부 클릭 시 닫기
+  setTimeout(() => {
+    document.addEventListener('click', () => menu.remove(), { once: true });
+  }, 10);
 }
 
 async function uploadSheet(panel) {
@@ -435,17 +457,27 @@ function loadList(panel) {
 
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// 카드 그라디언트 (id 기반 결정)
+const CARD_COLORS = [
+  ['#1a237e','#283593'],['#4a148c','#6a1b9a'],['#880e4f','#ad1457'],
+  ['#1b5e20','#2e7d32'],['#0d47a1','#1565c0'],['#bf360c','#d84315'],
+  ['#006064','#00838f'],['#37474f','#546e7a'],['#4e342e','#6d4c41'],
+];
+function cardGradient(id) {
+  const idx = id ? (id.charCodeAt(id.length-1) % CARD_COLORS.length) : 0;
+  const [a,b] = CARD_COLORS[idx];
+  return `linear-gradient(135deg, ${a}, ${b})`;
+}
+
 function filterList(panel, query) {
   const folders = getSetlistFolders();
   const allMeta = getMeta();
   const allDrafts = getDrafts();
   const q = query.toLowerCase();
 
-  // activeFolder에 따른 항목 수집
-  let items = []; // [{id, title, itemType:'chart'|'sheet', meta?, draft?, folderName?}]
-
+  // 항목 수집
+  let items = [];
   if (activeFolder) {
-    // 특정 폴더: 해당 폴더의 songs 기준
     const folder = folders.find(f => f.id === activeFolder);
     if (folder) {
       for (const song of (folder.songs || [])) {
@@ -459,25 +491,22 @@ function filterList(panel, query) {
       }
     }
   } else {
-    // 전체: 모든 차트 + 모든 악보 파일
     for (const d of allDrafts) {
-      // 어느 폴더에 속하는지 찾기
-      const folder = folders.find(f => f.songs?.find(s => s.id === d.id));
-      items.push({ id: d.id, title: d.title, itemType: 'chart', draft: d, folderName: folder?.name });
+      const f = folders.find(f => f.songs?.find(s => s.id === d.id));
+      items.push({ id: d.id, title: d.title, itemType: 'chart', draft: d, folderName: f?.name });
     }
     for (const m of allMeta) {
-      const folder = folders.find(f => f.songs?.find(s => s.id === m.id));
-      items.push({ id: m.id, title: m.title, itemType: 'sheet', meta: m, folderName: folder?.name });
+      const f = folders.find(f => f.songs?.find(s => s.id === m.id));
+      items.push({ id: m.id, title: m.title, itemType: 'sheet', meta: m, folderName: f?.name });
     }
   }
 
-  // 검색 필터
+  // 검색
   if (q) items = items.filter(item => {
     if (item.title.toLowerCase().includes(q)) return true;
     if (item.itemType === 'sheet') {
-      const m = item.meta;
-      if ((m?.artist||'').toLowerCase().includes(q)) return true;
-      if ((m?.tags||[]).some(t => t.toLowerCase().includes(q))) return true;
+      if ((item.meta?.artist||'').toLowerCase().includes(q)) return true;
+      if ((item.meta?.tags||[]).some(t => t.toLowerCase().includes(q))) return true;
     }
     if (item.itemType === 'chart') {
       if ((item.draft?.artist||'').toLowerCase().includes(q)) return true;
@@ -487,148 +516,144 @@ function filterList(panel, query) {
   });
 
   const list = panel.querySelector('#sheet-list');
+
   if (!items.length) {
     const folderName = activeFolder ? folders.find(f=>f.id===activeFolder)?.name : null;
-    list.innerHTML = `<div class="empty-state">${folderName ? `"${folderName}" 폴더에 ` : ''}항목이 없습니다.<br>
-      <span style="font-size:0.78rem">악보 파일을 업로드하거나 곡진행 탭에서 차트를 저장하세요.</span></div>`;
+    list.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2)">
+      <div style="font-size:2.5rem;margin-bottom:12px">📭</div>
+      <div style="font-size:0.9rem;font-weight:600;margin-bottom:6px">${folderName ? `"${folderName}" 폴더가 비어있습니다` : '항목이 없습니다'}</div>
+      <div style="font-size:0.78rem">악보 파일을 업로드하거나 곡진행 탭에서 차트를 저장하세요.</div>
+    </div>`;
     return;
   }
 
-  const folderOptions = `<option value="">폴더 없음</option>` +
-    folders.map(f => `<option value="${f.id}">${escHtml(f.name)}</option>`).join('');
+  list.innerHTML = `<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px;padding:0 2px">${items.length}개 항목</div>
+    <div id="card-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px"></div>`;
 
-  list.innerHTML = `
-    <div style="padding:4px 4px 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:0.72rem;color:var(--text2)">${items.length}개 항목</span>
-      <span style="font-size:0.7rem;color:var(--text2);margin-left:auto">📝=차트 · 📄=PDF · 🖼️=이미지</span>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:2px">
-      ${items.map(item => {
-        const isChart = item.itemType === 'chart';
-        const d = item.draft;
-        const m = item.meta;
-        const icon = isChart ? '📝' : (m?.type === 'pdf' ? '📄' : '🖼️');
-        const subtitle = isChart
-          ? [d?.key, d?.time, d?.bpm ? d.bpm+'BPM' : ''].filter(Boolean).join(' · ')
-          : [m?.artist, m?.key ? '🎵 '+m.key : '', m?.bpm ? m.bpm+'BPM' : ''].filter(Boolean).join(' · ');
-        const tags = isChart ? [] : (m?.tags || []);
-        const folderBadge = item.folderName
-          ? `<span style="color:var(--accent);font-size:0.65rem">📁 ${escHtml(item.folderName)}</span>` : '';
-        return `
-          <div class="sheet-item" data-id="${item.id}" data-type="${item.itemType}"
-            style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;border:1px solid transparent;transition:background 0.12s">
-            <span style="font-size:1.1rem;flex-shrink:0">${icon}</span>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
-              <div style="font-size:0.7rem;color:var(--text2);display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:1px">
-                ${subtitle ? `<span>${escHtml(subtitle)}</span>` : ''}
-                ${folderBadge}
-                ${tags.map(t=>`<span class="badge" style="font-size:0.6rem">${escHtml(t)}</span>`).join('')}
-              </div>
-            </div>
-            ${folders.length ? `
-              <select class="move-folder-sel" data-id="${item.id}" style="width:auto;font-size:0.68rem;padding:2px 4px;max-width:90px;flex-shrink:0"
-                onclick="event.stopPropagation()">${folderOptions}</select>
-            ` : ''}
-            <button class="sheet-del-btn btn btn-secondary" data-id="${item.id}" data-type="${item.itemType}"
-              style="flex-shrink:0;font-size:0.72rem;padding:3px 7px;color:var(--danger)">🗑</button>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `;
+  const grid = list.querySelector('#card-grid');
 
-  // 폴더 select 현재 값 설정
-  list.querySelectorAll('.move-folder-sel').forEach(sel => {
-    const id = sel.dataset.id;
-    const folder = folders.find(f => f.songs?.find(s => s.id === id));
-    sel.value = folder?.id || '';
-    sel.addEventListener('change', e => {
-      e.stopPropagation();
-      const newFolderId = sel.value;
-      const itemId = sel.dataset.id;
-      // 기존 폴더에서 제거
-      const fs = getSetlistFolders();
-      fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== itemId); });
-      // 새 폴더에 추가
-      if (newFolderId) {
-        const target = fs.find(f => f.id === newFolderId);
-        if (target) {
-          const title = items.find(it => it.id === itemId)?.title || '';
-          const type = items.find(it => it.id === itemId)?.itemType === 'chart' ? 'chart'
-            : (allMeta.find(m => m.id === itemId)?.type || 'sheet');
-          target.songs.push({ id: itemId, title, type });
-        }
-      }
-      saveSetlistFolders(fs);
-      renderFolderTree(panel);
-    });
-  });
+  items.forEach(item => {
+    const isChart = item.itemType === 'chart';
+    const d = item.draft;
+    const m = item.meta;
+    const hasThumbnail = !isChart && m?.thumbnail;
 
-  // 호버 미리보기 팝업 (PC, 악보 파일만)
-  const preview = document.createElement('div');
-  preview.style.cssText = 'position:fixed;z-index:9990;pointer-events:none;display:none;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-width:200px';
-  document.body.appendChild(preview);
+    const card = document.createElement('div');
+    card.dataset.id = item.id;
+    card.dataset.type = item.itemType;
+    card.style.cssText = `border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);
+      background:var(--bg2);transition:transform 0.15s,box-shadow 0.15s;position:relative`;
 
-  list.querySelectorAll('.sheet-item').forEach(el => {
-    if (el.dataset.type === 'sheet') {
-      const m = allMeta.find(x => x.id === el.dataset.id);
-      el.addEventListener('mouseenter', e => {
-        if (!m?.thumbnail) return;
-        preview.innerHTML = `<img src="${m.thumbnail}" style="width:180px;border-radius:4px;display:block">
-          <div style="font-size:0.75rem;font-weight:600;margin-top:5px;padding:0 2px">${escHtml(m.title)}</div>`;
-        preview.style.display = 'block';
-      });
-      el.addEventListener('mousemove', e => {
-        let left = e.clientX + 16, top = e.clientY - 20;
-        if (left + 210 > window.innerWidth) left = e.clientX - 210;
-        if (top + 260 > window.innerHeight) top = window.innerHeight - 270;
-        preview.style.left = left + 'px'; preview.style.top = top + 'px';
-      });
+    // 썸네일 / 그라디언트
+    const thumb = document.createElement('div');
+    thumb.style.cssText = `height:110px;overflow:hidden;position:relative;`;
+    if (hasThumbnail) {
+      thumb.innerHTML = `<img src="${m.thumbnail}" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+      thumb.style.background = cardGradient(item.id);
+      const iconLabel = isChart ? '📝' : (m?.type === 'pdf' ? '📄' : '🖼️');
+      const keyInfo = isChart ? (d?.key || '') : (m?.key || '');
+      thumb.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px">
+          <span style="font-size:2rem">${iconLabel}</span>
+          ${keyInfo ? `<span style="font-size:0.8rem;color:rgba(255,255,255,0.85);font-weight:700">${escHtml(keyInfo)}</span>` : ''}
+        </div>`;
     }
-    el.addEventListener('mouseenter', () => { el.style.background = 'var(--bg3)'; });
-    el.addEventListener('mouseleave', () => { el.style.background = ''; preview.style.display = 'none'; });
-    el.addEventListener('click', e => {
-      if (e.target.closest('.sheet-del-btn') || e.target.closest('select')) return;
-      if (el.dataset.type === 'chart') {
-        goTo(7, { openDraftId: el.dataset.id });
-      } else {
-        openSheet(panel, el.dataset.id);
-      }
-    });
-  });
 
-  // 삭제 버튼
-  list.querySelectorAll('.sheet-del-btn').forEach(btn => {
-    btn.addEventListener('click', async e => {
+    const typeBadge = document.createElement('div');
+    typeBadge.style.cssText = `position:absolute;top:6px;left:6px;font-size:0.58rem;padding:2px 6px;border-radius:10px;
+      font-weight:600;background:rgba(0,0,0,0.55);color:#fff`;
+    typeBadge.textContent = isChart ? '차트' : (m?.type === 'pdf' ? 'PDF' : '이미지');
+    thumb.appendChild(typeBadge);
+
+    const delBtn = document.createElement('button');
+    delBtn.dataset.id = item.id;
+    delBtn.dataset.type = item.itemType;
+    delBtn.style.cssText = `position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.55);border:none;
+      color:#fff;border-radius:50%;width:24px;height:24px;font-size:0.7rem;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s`;
+    delBtn.textContent = '✕';
+    thumb.appendChild(delBtn);
+
+    const info = document.createElement('div');
+    info.style.cssText = 'padding:8px 9px 10px';
+    const subtitle = isChart
+      ? [d?.key, d?.bpm ? d.bpm+'BPM' : ''].filter(Boolean).join('  '
+)
+      : [m?.artist, m?.bpm ? m.bpm+'BPM' : ''].filter(Boolean).join('  ');
+    const folderBadgeHtml = item.folderName
+      ? `<div style="font-size:0.6rem;color:var(--accent);margin-top:4px">📁 ${escHtml(item.folderName)}</div>` : '';
+    const curFolder = folders.find(f => f.songs?.find(s => s.id === item.id));
+    const folderSel = folders.length
+      ? `<select class="move-folder-sel" data-id="${item.id}" style="width:100%;font-size:0.65rem;padding:2px 4px;margin-top:5px;border-radius:4px">
+          <option value="">폴더 없음</option>
+          ${folders.map(f=>`<option value="${f.id}">${escHtml(f.name)}</option>`).join('')}        </select>` : '';
+
+    info.innerHTML = `<div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2">${escHtml(item.title)}</div>
+      ${subtitle ? `<div style="font-size:0.68rem;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(subtitle)}</div>` : ''}
+      ${folderBadgeHtml}${folderSel}`;
+
+    const sel = info.querySelector('.move-folder-sel');
+    if (sel) {
+      sel.value = curFolder?.id || '';
+      sel.addEventListener('change', e => {
+        e.stopPropagation();
+        const fs = getSetlistFolders();
+        fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });
+        if (sel.value) {
+          const target = fs.find(f => f.id === sel.value);
+          if (target) target.songs.push({ id: item.id, title: item.title, type: isChart ? 'chart' : (m?.type || 'sheet') });
+        }
+        saveSetlistFolders(fs);
+        renderFolderChips(panel);
+      });
+      sel.addEventListener('click', e => e.stopPropagation());
+    }
+
+    card.appendChild(thumb);
+    card.appendChild(info);
+
+    card.addEventListener('mouseenter', () => {
+      card.style.transform = 'translateY(-2px)';
+      card.style.boxShadow = '0 6px 20px rgba(0,0,0,0.25)';
+      delBtn.style.opacity = '1';
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+      card.style.boxShadow = '';
+      delBtn.style.opacity = '0';
+    });
+
+    let touchTimer;
+    card.addEventListener('touchstart', () => { touchTimer = setTimeout(() => { delBtn.style.opacity = '1'; }, 600); }, { passive: true });
+    card.addEventListener('touchend', () => clearTimeout(touchTimer), { passive: true });
+
+    card.addEventListener('click', e => {
+      if (e.target.closest('[data-type]')?.tagName === 'BUTTON') return;
+      if (e.target.closest('select')) return;
+      if (item.itemType === 'chart') goTo(7, { openDraftId: item.id });
+      else openSheet(panel, item.id);
+    });
+
+    delBtn.addEventListener('click', async e => {
       e.stopPropagation();
-      const id = btn.dataset.id;
-      const type = btn.dataset.type;
-      if (type === 'chart') {
-        const d = allDrafts.find(x => x.id === id);
-        if (!confirm(`"${d?.title || id}" 차트를 삭제하시겠습니까?`)) return;
-        const newDrafts = allDrafts.filter(x => x.id !== id);
+      if (item.itemType === 'chart') {
+        if (!confirm(`"${item.title}" 차트를 삭제하시겠습니까?`)) return;
+        const newDrafts = getDrafts().filter(x => x.id !== item.id);
         localStorage.setItem('gta_chart_drafts', JSON.stringify(newDrafts));
-        // 폴더에서도 제거
-        const fs = getSetlistFolders();
-        fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== id); });
-        saveSetlistFolders(fs);
-        loadList(panel); renderFolderTree(panel);
       } else {
-        const m = allMeta.find(x => x.id === id);
-        if (!confirm(`"${m?.title || id}" 을 삭제하시겠습니까?`)) return;
-        await deleteSheetItem(id, panel);
-        // 폴더에서도 제거
-        const fs = getSetlistFolders();
-        fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== id); });
-        saveSetlistFolders(fs);
-        renderFolderTree(panel);
+        if (!confirm(`"${item.title}" 을 삭제하시겠습니까?`)) return;
+        await deleteSheetItem(item.id, panel);
       }
+      const fs = getSetlistFolders();
+      fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });
+      saveSetlistFolders(fs);
+      loadList(panel); renderFolderChips(panel);
     });
-  });
 
-  panel.addEventListener('panel-hide', () => preview.remove(), { once: true });
+    grid.appendChild(card);
+  });
 }
+
 
 async function deleteSheetItem(id, panel) {
   await deleteSheet(id);
