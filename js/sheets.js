@@ -548,15 +548,15 @@ function filterList(panel, query) {
     const thumb = document.createElement('div');
     thumb.style.cssText = `width:${size}px;height:${size}px;border-radius:${size>80?'10px':'8px'};overflow:hidden;position:relative;flex-shrink:0;`;
     if (hasThumbnail) {
-      thumb.innerHTML = \`<img src="\${m.thumbnail}" style="width:100%;height:100%;object-fit:cover">\`;
+      thumb.innerHTML = `<img src="${m.thumbnail}" style="width:100%;height:100%;object-fit:cover">`;
     } else {
       thumb.style.background = cardGradient(item.id);
       const icon = isChart ? '📝' : (m?.type === 'pdf' ? '📄' : '🖼️');
       const key = isChart ? (d?.key||'') : (m?.key||'');
-      thumb.innerHTML = \`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px">
-        <span style="font-size:\${size>80?'1.8':'1.2'}rem">\${icon}</span>
-        \${key ? \`<span style="font-size:\${size>80?'0.75':'0.6'}rem;color:rgba(255,255,255,0.9);font-weight:700">\${escHtml(key)}</span>\` : ''}
-      </div>\`;
+      thumb.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px">
+        <span style="font-size:${size>80?'1.8':'1.2'}rem">${icon}</span>
+        ${key ? `<span style="font-size:${size>80?'0.75':'0.6'}rem;color:rgba(255,255,255,0.9);font-weight:700">${escHtml(key)}</span>` : ''}
+      </div>`;
     }
     return thumb;
   }
@@ -576,10 +576,10 @@ function filterList(panel, query) {
     if (delBtn) delBtn.addEventListener('click', async e => {
       e.stopPropagation();
       if (item.itemType === 'chart') {
-        if (!confirm(\`"\${item.title}" 차트를 삭제하시겠습니까?\`)) return;
+        if (!confirm(`"${item.title}" 차트를 삭제하시겠습니까?`)) return;
         localStorage.setItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x=>x.id!==item.id)));
       } else {
-        if (!confirm(\`"\${item.title}" 을 삭제하시겠습니까?\`)) return;
+        if (!confirm(`"${item.title}" 을 삭제하시겠습니까?`)) return;
         await deleteSheetItem(item.id, panel);
       }
       const fs = getSetlistFolders();
@@ -594,10 +594,10 @@ function filterList(panel, query) {
     const curFolder = folders.find(f=>f.songs?.find(s=>s.id===item.id));
     if (!folders.length) return { html: '', curFolderId: '' };
     return {
-      html: \`<select class="move-folder-sel" data-id="\${item.id}" style="font-size:0.65rem;padding:2px 4px;margin-top:5px;border-radius:4px;width:100%">
+      html: `<select class="move-folder-sel" data-id="${item.id}" style="font-size:0.65rem;padding:2px 4px;margin-top:5px;border-radius:4px;width:100%">
         <option value="">폴더 없음</option>
-        \${folders.map(f=>\`<option value="\${f.id}">\${escHtml(f.name)}</option>\`).join('')}
-      </select>\`,
+        ${folders.map(f=>`<option value="${f.id}">${escHtml(f.name)}</option>`).join('')}
+      </select>`,
       curFolderId: curFolder?.id || ''
     };
   }
@@ -640,10 +640,10 @@ function filterList(panel, query) {
       delBtn.textContent='✕'; thumbEl.appendChild(delBtn);
       const info = document.createElement('div');
       info.style.cssText = 'padding:8px 9px 10px';
-      info.innerHTML = \`<div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${escHtml(item.title)}</div>
-        \${subtitle?\`<div style="font-size:0.68rem;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${escHtml(subtitle)}</div>\`:''}
-        \${item.folderName?\`<div style="font-size:0.6rem;color:var(--accent);margin-top:4px">📁 \${escHtml(item.folderName)}</div>\`:''}
-        \${fSelHtml}\`;
+      info.innerHTML = `<div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
+        ${subtitle?`<div style="font-size:0.68rem;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(subtitle)}</div>`:''}
+        ${item.folderName?`<div style="font-size:0.6rem;color:var(--accent);margin-top:4px">📁 ${escHtml(item.folderName)}</div>`:''}
+        ${fSelHtml}`;
       card.appendChild(thumbEl); card.appendChild(info);
       attachFolderSel(info, item, isChart, m);
       attachEvents(card, item, delBtn, isChart, m);
@@ -656,9 +656,9 @@ function filterList(panel, query) {
       const thumbEl = makeThumb(item, isChart, d, m, 50);
       const info = document.createElement('div');
       info.style.cssText = 'flex:1;min-width:0';
-      info.innerHTML = \`<div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${escHtml(item.title)}</div>
-        <div style="font-size:0.72rem;color:var(--text2);margin-top:3px">\${typeLabel}\${subtitle?' · '+escHtml(subtitle):''}\${item.folderName?' · 📁'+escHtml(item.folderName):''}</div>
-        \${fSelHtml}\`;
+      info.innerHTML = `<div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:3px">${typeLabel}${subtitle?' · '+escHtml(subtitle):''}${item.folderName?' · 📁'+escHtml(item.folderName):''}</div>
+        ${fSelHtml}`;
       const delBtn = document.createElement('button');
       delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:1rem;cursor:pointer;padding:4px;opacity:0;transition:opacity 0.15s;flex-shrink:0';
       delBtn.textContent='✕';
@@ -683,10 +683,10 @@ function filterList(panel, query) {
         delBtn.textContent='✕'; heroThumb.appendChild(delBtn);
         const info = document.createElement('div');
         info.style.cssText = 'padding:12px 14px';
-        info.innerHTML = \`<div style="font-size:0.68rem;color:var(--accent);font-weight:700;margin-bottom:3px">\${typeLabel}</div>
-          <div style="font-size:1rem;font-weight:700">\${escHtml(item.title)}</div>
-          \${subtitle?\`<div style="font-size:0.78rem;color:var(--text2);margin-top:4px">\${escHtml(subtitle)}</div>\`:''}
-          \${fSelHtml}\`;
+        info.innerHTML = `<div style="font-size:0.68rem;color:var(--accent);font-weight:700;margin-bottom:3px">${typeLabel}</div>
+          <div style="font-size:1rem;font-weight:700">${escHtml(item.title)}</div>
+          ${subtitle?`<div style="font-size:0.78rem;color:var(--text2);margin-top:4px">${escHtml(subtitle)}</div>`:''}
+          ${fSelHtml}`;
         hero.appendChild(heroThumb); hero.appendChild(info);
         attachFolderSel(info, item, isChart, m);
         attachEvents(hero, item, delBtn, isChart, m);
@@ -705,9 +705,9 @@ function filterList(panel, query) {
         const thumbEl = makeThumb(item, isChart, d, m, 46);
         const info = document.createElement('div');
         info.style.cssText = 'flex:1;min-width:0';
-        info.innerHTML = \`<div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${escHtml(item.title)}</div>
-          <div style="font-size:0.7rem;color:var(--text2);margin-top:2px">\${typeLabel}\${subtitle?' · '+escHtml(subtitle):''}</div>
-          \${fSelHtml}\`;
+        info.innerHTML = `<div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
+          <div style="font-size:0.7rem;color:var(--text2);margin-top:2px">${typeLabel}${subtitle?' · '+escHtml(subtitle):''}</div>
+          ${fSelHtml}`;
         const delBtn = document.createElement('button');
         delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:0.9rem;cursor:pointer;padding:4px;opacity:0;transition:opacity 0.15s;flex-shrink:0';
         delBtn.textContent='✕';
