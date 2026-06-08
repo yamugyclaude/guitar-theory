@@ -187,7 +187,7 @@ function renderFolderChips(panel) {
   const folders = getSetlistFolders();
   const allMeta = getMeta();
   const allDrafts = getDrafts();
-  const totalCount = allDrafts.length + allMeta.length;
+  const totalCount = allDrafts.filter(d=>!d.deleted).length + allMeta.filter(m=>!m.deleted).length;
 
   // 업로드 폼 폴더 select 업데이트
   const sel = panel.querySelector('#meta-folder');
@@ -243,6 +243,24 @@ function renderFolderChips(panel) {
     });
     chips.appendChild(chip);
   });
+
+  // 휴지통 칩
+  const trashMeta = getMeta().filter(m => m.deleted);
+  const trashDrafts = getDrafts().filter(d => d.deleted);
+  const trashCount = trashMeta.length + trashDrafts.length;
+  const trashActive = activeFolder === 'trash';
+  const trashChip = document.createElement('div');
+  trashChip.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:20px;cursor:pointer;
+    font-size:0.82rem;font-weight:${trashActive?'700':'400'};white-space:nowrap;user-select:none;transition:all 0.15s;
+    ${trashActive
+      ? 'background:var(--danger);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.2)'
+      : 'background:var(--bg3);color:var(--text2);border:1px solid var(--border)'}`;
+  trashChip.innerHTML = `🗑 휴지통 <span style="font-size:0.72rem;opacity:0.8">${trashCount}</span>`;
+  trashChip.addEventListener('click', () => {
+    activeFolder = 'trash'; renderFolderChips(panel);
+    filterList(panel, panel.querySelector('#search-input')?.value || '');
+  });
+  chips.appendChild(trashChip);
 
   // "새 폴더" 칩
   const newChip = document.createElement('div');
@@ -474,28 +492,124 @@ function filterList(panel, query) {
   const allMeta = getMeta();
   const allDrafts = getDrafts();
   const q = query.toLowerCase();
+  const list = panel.querySelector('#sheet-list');
 
-  // 항목 수집
+  // ── 휴지통 뷰 ──
+  if (activeFolder === 'trash') {
+    const trashItems = [
+      ...allDrafts.filter(d => d.deleted).map(d => ({ id: d.id, title: d.title, itemType: 'chart', draft: d })),
+      ...allMeta.filter(m => m.deleted).map(m => ({ id: m.id, title: m.title, itemType: 'sheet', meta: m })),
+    ];
+    if (!trashItems.length) {
+      list.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2)">
+        <div style="font-size:2.5rem;margin-bottom:12px">🗑</div>
+        <div style="font-size:0.9rem;font-weight:600">휴지통이 비어있습니다</div>
+      </div>`;
+      return;
+    }
+    list.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-size:0.72rem;color:var(--text2)">${trashItems.length}개 항목</span>
+      <button id="empty-trash-btn" style="font-size:0.72rem;color:var(--danger);background:none;border:1px solid var(--danger);border-radius:6px;padding:3px 10px;cursor:pointer">전체 영구삭제</button>
+    </div><div id="trash-container"></div>`;
+    const tc = list.querySelector('#trash-container');
+
+    list.querySelector('#empty-trash-btn').addEventListener('click', async () => {
+      if (!confirm('휴지통을 모두 영구 삭제합니까? 복구할 수 없습니다.')) return;
+      for (const item of trashItems) {
+        if (item.itemType === 'sheet') {
+          await deleteSheet(item.id);
+          const { isReady, removeSheet } = await import('./supabase-sync.js');
+          if (isReady()) removeSheet(item.id).catch(() => {});
+        }
+      }
+      setMeta(allMeta.filter(m => !m.deleted));
+      localStorage.setItem('gta_chart_drafts', JSON.stringify(allDrafts.filter(d => !d.deleted)));
+      renderFolderChips(panel); filterList(panel, '');
+    });
+
+    trashItems.forEach(item => {
+      const isChart = item.itemType === 'chart';
+      const m = item.meta;
+      const d = item.draft;
+      const sub = isChart
+        ? [d?.key, d?.bpm ? d.bpm+'BPM' : ''].filter(Boolean).join(' · ')
+        : [m?.artist, m?.bpm ? m.bpm+'BPM' : ''].filter(Boolean).join(' · ');
+      const typeLabel = isChart ? 'Chart' : (m?.type === 'pdf' ? 'PDF' : 'IMG');
+      const deletedAt = isChart ? d?.deletedAt : m?.deletedAt;
+      const dateStr = deletedAt ? new Date(deletedAt).toLocaleDateString('ko-KR') : '';
+
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--border)';
+
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:0';
+      info.innerHTML = '<div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(item.title) + '</div>'
+        + '<div style="font-size:0.7rem;color:var(--text2);margin-top:2px">' + typeLabel + (sub ? ' · ' + escHtml(sub) : '') + (dateStr ? ' · ' + dateStr + ' 삭제' : '') + '</div>';
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.style.cssText = 'font-size:0.72rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);background:none;cursor:pointer;flex-shrink:0;white-space:nowrap';
+      restoreBtn.textContent = '복구';
+      restoreBtn.addEventListener('click', () => {
+        if (isChart) {
+          const drafts = getDrafts();
+          const idx = drafts.findIndex(x => x.id === item.id);
+          if (idx >= 0) { delete drafts[idx].deleted; delete drafts[idx].deletedAt; }
+          localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+        } else {
+          const meta = getMeta();
+          const idx = meta.findIndex(x => x.id === item.id);
+          if (idx >= 0) { delete meta[idx].deleted; delete meta[idx].deletedAt; }
+          setMeta(meta);
+        }
+        renderFolderChips(panel); filterList(panel, '');
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.style.cssText = 'font-size:0.72rem;padding:4px 10px;border-radius:6px;border:1px solid var(--danger);color:var(--danger);background:none;cursor:pointer;flex-shrink:0;white-space:nowrap';
+      delBtn.textContent = '영구삭제';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('"' + item.title + '"을 영구 삭제합니까? 복구할 수 없습니다.')) return;
+        if (isChart) {
+          localStorage.setItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x => x.id !== item.id)));
+        } else {
+          await deleteSheet(item.id);
+          setMeta(getMeta().filter(x => x.id !== item.id));
+          const { isReady, removeSheet } = await import('./supabase-sync.js');
+          if (isReady()) removeSheet(item.id).catch(() => {});
+        }
+        const fs = getSetlistFolders();
+        fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });
+        saveSetlistFolders(fs);
+        renderFolderChips(panel); filterList(panel, '');
+      });
+
+      row.appendChild(info); row.appendChild(restoreBtn); row.appendChild(delBtn);
+      tc.appendChild(row);
+    });
+    return;
+  }
+
+  // ── 일반 뷰 ──
   let items = [];
   if (activeFolder) {
     const folder = folders.find(f => f.id === activeFolder);
     if (folder) {
       for (const song of (folder.songs || [])) {
         if (song.type === 'chart') {
-          const d = allDrafts.find(d => d.id === song.id);
+          const d = allDrafts.find(d => d.id === song.id && !d.deleted);
           if (d) items.push({ id: d.id, title: d.title, itemType: 'chart', draft: d });
         } else {
-          const m = allMeta.find(m => m.id === song.id);
+          const m = allMeta.find(m => m.id === song.id && !m.deleted);
           if (m) items.push({ id: m.id, title: m.title, itemType: 'sheet', meta: m });
         }
       }
     }
   } else {
-    for (const d of allDrafts) {
+    for (const d of allDrafts.filter(d => !d.deleted)) {
       const f = folders.find(f => f.songs?.find(s => s.id === d.id));
       items.push({ id: d.id, title: d.title, itemType: 'chart', draft: d, folderName: f?.name });
     }
-    for (const m of allMeta) {
+    for (const m of allMeta.filter(m => !m.deleted)) {
       const f = folders.find(f => f.songs?.find(s => s.id === m.id));
       items.push({ id: m.id, title: m.title, itemType: 'sheet', meta: m, folderName: f?.name });
     }
@@ -515,13 +629,11 @@ function filterList(panel, query) {
     return false;
   });
 
-  const list = panel.querySelector('#sheet-list');
-
   if (!items.length) {
     const folderName = activeFolder ? folders.find(f=>f.id===activeFolder)?.name : null;
     list.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2)">
       <div style="font-size:2.5rem;margin-bottom:12px">📭</div>
-      <div style="font-size:0.9rem;font-weight:600;margin-bottom:6px">${folderName ? `"${folderName}" 폴더가 비어있습니다` : '항목이 없습니다'}</div>
+      <div style="font-size:0.9rem;font-weight:600;margin-bottom:6px">${folderName ? '"'+folderName+'" 폴더가 비어있습니다' : '항목이 없습니다'}</div>
       <div style="font-size:0.78rem">악보 파일을 업로드하거나 곡진행 탭에서 차트를 저장하세요.</div>
     </div>`;
     return;
@@ -564,16 +676,21 @@ function filterList(panel, query) {
     return sel;
   }
 
-  // 공통 삭제 핸들러
+  // 공통 삭제 핸들러 (소프트 삭제 — 휴지통으로 이동)
   function onDelete(item) {
-    return async e => {
+    return e => {
       e.stopPropagation();
+      if (!confirm('"' + item.title + '"을 휴지통으로 이동합니까?\n휴지통에서 복구하거나 영구 삭제할 수 있습니다.')) return;
       if (item.itemType === 'chart') {
-        if (!confirm('"' + item.title + '" 차트를 삭제하시겠습니까?')) return;
-        localStorage.setItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x => x.id !== item.id)));
+        const drafts = getDrafts();
+        const idx = drafts.findIndex(x => x.id === item.id);
+        if (idx >= 0) { drafts[idx].deleted = true; drafts[idx].deletedAt = Date.now(); }
+        localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
       } else {
-        if (!confirm('"' + item.title + '" 을 삭제하시겠습니까?')) return;
-        await deleteSheetItem(item.id, panel);
+        const meta = getMeta();
+        const idx = meta.findIndex(x => x.id === item.id);
+        if (idx >= 0) { meta[idx].deleted = true; meta[idx].deletedAt = Date.now(); }
+        setMeta(meta);
       }
       const fs = getSetlistFolders();
       fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });

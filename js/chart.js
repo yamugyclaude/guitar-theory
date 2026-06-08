@@ -173,7 +173,8 @@ const CHART_COLORS = [
 function chartGradient(id) { let h=0; for(let c of id) h=(h*31+c.charCodeAt(0))&0xffff; return CHART_COLORS[h%CHART_COLORS.length]; }
 
 function renderDraftList(panel) {
-  const drafts = getDrafts();
+  const allDrafts = getDrafts();
+  const drafts = allDrafts.filter(d => !d.deleted);
   const list = panel.querySelector('#draft-list');
   if (!drafts.length) { list.innerHTML = `<div class="empty-state">저장된 곡진행이 없습니다.</div>`; return; }
 
@@ -284,8 +285,13 @@ function renderDraftList(panel) {
 }
 
 function deleteDraft(panel, id) {
-  if (!confirm('삭제하시겠습니까?')) return;
-  saveDrafts(getDrafts().filter(d => d.id !== id));
+  const draft = getDrafts().find(d => d.id === id);
+  if (!draft) return;
+  if (!confirm('"' + (draft.title||'제목 없음') + '"을 휴지통으로 이동합니까?\n악보 탭 > 휴지통에서 복구할 수 있습니다.')) return;
+  const drafts = getDrafts();
+  const idx = drafts.findIndex(d => d.id === id);
+  if (idx >= 0) { drafts[idx].deleted = true; drafts[idx].deletedAt = Date.now(); }
+  saveDrafts(drafts);
   renderDraftList(panel);
 }
 
