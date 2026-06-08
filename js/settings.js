@@ -115,6 +115,26 @@ export function render(panel) {
     </div>
 
     <div class="card">
+      <div class="section-label">목록 레이아웃</div>
+      <p style="font-size:0.78rem;color:var(--text2);margin:6px 0 12px">악보 · 곡진행 탭의 목록 표시 방식을 선택합니다.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="layout-btns">
+        ${[
+          { id:'card-grid',  label:'카드 그리드', icon:'⊞', desc:'Spotify 스타일' },
+          { id:'list',       label:'리스트',      icon:'☰', desc:'유튜브 스타일' },
+          { id:'mixed',      label:'혼합형',      icon:'◈', desc:'히어로+리스트' },
+        ].map(l => `
+          <button class="layout-btn" data-layout="${l.id}" style="border:2px solid ${(s.layoutStyle||'card-grid')===l.id?'var(--accent)':'var(--border)'};
+            background:${(s.layoutStyle||'card-grid')===l.id?'var(--bg3)':'var(--bg2)'};
+            border-radius:10px;padding:12px 6px;cursor:pointer;color:var(--text);transition:all 0.15s;text-align:center">
+            <div style="font-size:1.4rem">${l.icon}</div>
+            <div style="font-size:0.78rem;font-weight:700;margin-top:4px">${l.label}</div>
+            <div style="font-size:0.65rem;color:var(--text2);margin-top:2px">${l.desc}</div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="card">
       <div class="section-label">기타 설정</div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:8px">
         <input type="checkbox" id="lefthanded-chk" ${curLeft ? 'checked' : ''}>
@@ -297,6 +317,19 @@ create policy "allow_all" on gta_sheets
     document.documentElement.style.fontSize = v + 'px';
     panel.querySelector('#font-val').textContent = v + 'px';
     const s = getSettings(); s.fontSize = v; saveSettings(s);
+  });
+
+  // 레이아웃 선택
+  panel.querySelectorAll('.layout-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const layout = btn.dataset.layout;
+      const s = getSettings(); s.layoutStyle = layout; saveSettings(s);
+      panel.querySelectorAll('.layout-btn').forEach(b => {
+        const active = b.dataset.layout === layout;
+        b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+        b.style.background = active ? 'var(--bg3)' : 'var(--bg2)';
+      });
+    });
   });
 
   // 왼손잡이

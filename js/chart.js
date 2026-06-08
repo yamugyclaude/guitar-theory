@@ -160,24 +160,126 @@ export function render(panel) {
   });
 }
 
+const CHART_COLORS = [
+  'linear-gradient(135deg,#1a2a4a,#0d3b6e)',
+  'linear-gradient(135deg,#2a1a3a,#4a1a6e)',
+  'linear-gradient(135deg,#1a3a2a,#0d6e3b)',
+  'linear-gradient(135deg,#3a2a1a,#6e3b0d)',
+  'linear-gradient(135deg,#2a3a1a,#4a6e0d)',
+  'linear-gradient(135deg,#3a1a1a,#6e0d0d)',
+  'linear-gradient(135deg,#1a3a3a,#0d5e6e)',
+  'linear-gradient(135deg,#3a3a1a,#6e5e0d)',
+];
+function chartGradient(id) { let h=0; for(let c of id) h=(h*31+c.charCodeAt(0))&0xffff; return CHART_COLORS[h%CHART_COLORS.length]; }
+
 function renderDraftList(panel) {
   const drafts = getDrafts();
   const list = panel.querySelector('#draft-list');
   if (!drafts.length) { list.innerHTML = `<div class="empty-state">저장된 곡진행이 없습니다.</div>`; return; }
-  list.innerHTML = drafts.map(d => `
-    <div class="card" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" data-id="${d.id}">
-      <div>
-        <div style="font-weight:600">${d.title || '(제목 없음)'}</div>
-        <div style="font-size:0.8rem;color:var(--text2)">${d.key || ''} ${d.bpm ? d.bpm+'BPM' : ''}</div>
-      </div>
-      <button class="btn btn-secondary del-btn" style="font-size:0.75rem;padding:4px 8px" data-id="${d.id}">삭제</button>
-    </div>
-  `).join('');
-  list.querySelectorAll('[data-id]:not(.del-btn)').forEach(el => {
-    el.addEventListener('click', e => { if (!e.target.classList.contains('del-btn')) openEditor(panel, el.dataset.id); });
-  });
-  list.querySelectorAll('.del-btn').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); deleteDraft(panel, btn.dataset.id); });
+
+  const layoutStyle = (() => { try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').layoutStyle||'card-grid'; } catch { return 'card-grid'; } })();
+
+  list.innerHTML = `<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px;padding:0 2px">${drafts.length}개 곡진행</div><div id="chart-container"></div>`;
+  const container = list.querySelector('#chart-container');
+
+  if (layoutStyle === 'card-grid') {
+    container.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px';
+  } else {
+    container.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+  }
+
+  drafts.forEach((d, idx) => {
+    const subtitle = [d.key, d.bpm ? d.bpm+'BPM' : ''].filter(Boolean).join('  ');
+    const sectionCount = d.sections?.length || 0;
+
+    if (layoutStyle === 'card-grid') {
+      const card = document.createElement('div');
+      card.style.cssText = 'border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);background:var(--bg2);transition:transform 0.15s,box-shadow 0.15s;position:relative';
+      const thumb = document.createElement('div');
+      thumb.style.cssText = `height:100px;background:${chartGradient(d.id)};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative`;
+      thumb.innerHTML = `<span style="font-size:1.8rem">📝</span>${d.key?`<span style="font-size:0.75rem;color:rgba(255,255,255,0.9);font-weight:700">${escHtml(d.key)}</span>`:''}`;
+      const delBtn = document.createElement('button');
+      delBtn.style.cssText = 'position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.55);border:none;color:#fff;border-radius:50%;width:24px;height:24px;font-size:0.7rem;cursor:pointer;opacity:0;transition:opacity 0.15s;display:flex;align-items:center;justify-content:center';
+      delBtn.textContent='✕'; thumb.appendChild(delBtn);
+      const info = document.createElement('div');
+      info.style.cssText = 'padding:8px 9px 10px';
+      info.innerHTML = `<div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.title||'(제목 없음)')}</div>
+        ${subtitle?`<div style="font-size:0.68rem;color:var(--text2);margin-top:2px">${escHtml(subtitle)}</div>`:''}
+        <div style="font-size:0.62rem;color:var(--text2);margin-top:2px">${sectionCount}섹션</div>`;
+      card.appendChild(thumb); card.appendChild(info);
+      card.addEventListener('mouseenter',()=>{ card.style.transform='translateY(-2px)'; card.style.boxShadow='0 4px 16px rgba(0,0,0,0.25)'; delBtn.style.opacity='1'; });
+      card.addEventListener('mouseleave',()=>{ card.style.transform=''; card.style.boxShadow=''; delBtn.style.opacity='0'; });
+      let tt; card.addEventListener('touchstart',()=>{ tt=setTimeout(()=>delBtn.style.opacity='1',600); },{passive:true});
+      card.addEventListener('touchend',()=>clearTimeout(tt),{passive:true});
+      card.addEventListener('click', e=>{ if(e.target.closest('button')) return; openEditor(panel, d.id); });
+      delBtn.addEventListener('click', e=>{ e.stopPropagation(); deleteDraft(panel, d.id); });
+      container.appendChild(card);
+
+    } else if (layoutStyle === 'list') {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg2);border-radius:12px;cursor:pointer;border:1px solid var(--border);transition:transform 0.15s,box-shadow 0.15s';
+      const thumb = document.createElement('div');
+      thumb.style.cssText = `width:48px;height:48px;border-radius:8px;background:${chartGradient(d.id)};display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0`;
+      thumb.textContent='📝';
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1;min-width:0';
+      info.innerHTML = `<div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.title||'(제목 없음)')}</div>
+        <div style="font-size:0.72rem;color:var(--text2);margin-top:3px">차트${subtitle?' · '+escHtml(subtitle):''} · ${sectionCount}섹션</div>`;
+      const delBtn = document.createElement('button');
+      delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:0.9rem;cursor:pointer;padding:4px;flex-shrink:0';
+      delBtn.textContent='✕';
+      row.appendChild(thumb); row.appendChild(info); row.appendChild(delBtn);
+      row.addEventListener('mouseenter',()=>{ row.style.transform='translateY(-1px)'; row.style.boxShadow='0 3px 12px rgba(0,0,0,0.2)'; });
+      row.addEventListener('mouseleave',()=>{ row.style.transform=''; row.style.boxShadow=''; });
+      row.addEventListener('click', e=>{ if(e.target.closest('button')) return; openEditor(panel, d.id); });
+      delBtn.addEventListener('click', e=>{ e.stopPropagation(); deleteDraft(panel, d.id); });
+      container.appendChild(row);
+
+    } else { // mixed
+      if (idx === 0) {
+        const hero = document.createElement('div');
+        hero.style.cssText = 'border-radius:14px;overflow:hidden;cursor:pointer;border:1px solid var(--border);background:var(--bg2);margin-bottom:16px;transition:transform 0.15s,box-shadow 0.15s';
+        const heroThumb = document.createElement('div');
+        heroThumb.style.cssText = `height:140px;background:${chartGradient(d.id)};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative`;
+        heroThumb.innerHTML = `<span style="font-size:2.5rem">📝</span>${d.key?`<span style="font-size:0.85rem;color:rgba(255,255,255,0.9);font-weight:700">${escHtml(d.key)}</span>`:''}
+          <div style="position:absolute;top:8px;left:8px;font-size:0.6rem;padding:2px 8px;border-radius:10px;font-weight:700;background:rgba(0,0,0,0.55);color:#fff">최근 저장</div>`;
+        const info = document.createElement('div');
+        info.style.cssText = 'padding:12px 14px';
+        info.innerHTML = `<div style="font-size:0.65rem;color:var(--accent);font-weight:700;margin-bottom:3px">차트</div>
+          <div style="font-size:1rem;font-weight:700">${escHtml(d.title||'(제목 없음)')}</div>
+          ${subtitle?`<div style="font-size:0.78rem;color:var(--text2);margin-top:4px">${escHtml(subtitle)}</div>`:''}`;
+        hero.appendChild(heroThumb); hero.appendChild(info);
+        hero.addEventListener('click', ()=>openEditor(panel, d.id));
+        hero.addEventListener('mouseenter',()=>{ hero.style.transform='translateY(-2px)'; hero.style.boxShadow='0 6px 20px rgba(0,0,0,0.25)'; });
+        hero.addEventListener('mouseleave',()=>{ hero.style.transform=''; hero.style.boxShadow=''; });
+        container.appendChild(hero);
+        if (drafts.length > 1) {
+          const label = document.createElement('div');
+          label.style.cssText = 'font-size:0.78rem;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px';
+          label.textContent='전체 목록';
+          container.appendChild(label);
+        }
+      } else {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg2);border-radius:12px;cursor:pointer;border:1px solid var(--border);margin-bottom:8px;transition:transform 0.15s,box-shadow 0.15s';
+        const thumb = document.createElement('div');
+        thumb.style.cssText = `width:44px;height:44px;border-radius:8px;background:${chartGradient(d.id)};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0`;
+        thumb.textContent='📝';
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0';
+        info.innerHTML = `<div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.title||'(제목 없음)')}</div>
+          <div style="font-size:0.7rem;color:var(--text2);margin-top:2px">${subtitle||sectionCount+'섹션'}</div>`;
+        const delBtn = document.createElement('button');
+        delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:0.9rem;cursor:pointer;padding:4px;flex-shrink:0';
+        delBtn.textContent='✕';
+        row.appendChild(thumb); row.appendChild(info); row.appendChild(delBtn);
+        row.addEventListener('mouseenter',()=>{ row.style.transform='translateY(-1px)'; row.style.boxShadow='0 3px 12px rgba(0,0,0,0.2)'; });
+        row.addEventListener('mouseleave',()=>{ row.style.transform=''; row.style.boxShadow=''; });
+        row.addEventListener('click', e=>{ if(e.target.closest('button')) return; openEditor(panel, d.id); });
+        delBtn.addEventListener('click', e=>{ e.stopPropagation(); deleteDraft(panel, d.id); });
+        container.appendChild(row);
+      }
+    }
   });
 }
 
