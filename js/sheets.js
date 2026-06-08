@@ -527,195 +527,174 @@ function filterList(panel, query) {
     return;
   }
 
-  // 레이아웃 결정
-  const layoutStyle = (() => { try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').layoutStyle || 'card-grid'; } catch { return 'card-grid'; } })();
+  const layoutStyle = (() => { try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').layoutStyle || 'list-b'; } catch { return 'list-b'; } })();
 
-  // 항목 count
-  list.innerHTML = `<div style="font-size:0.72rem;color:var(--text2);margin-bottom:10px;padding:0 2px">${items.length}개 항목</div><div id="item-container"></div>`;
+  // list-d: 테이블 헤더
+  if (layoutStyle === 'list-d') {
+    list.innerHTML = `
+      <div style="font-size:0.72rem;color:var(--text2);margin-bottom:8px;padding:0 2px">${items.length}개 항목</div>
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1fr 54px 48px;padding:7px 12px;background:var(--bg3);font-size:0.62rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">
+          <span>곡명</span><span>키</span><span>타입</span>
+        </div>
+        <div id="item-container"></div>
+      </div>`;
+  } else {
+    list.innerHTML = `<div style="font-size:0.72rem;color:var(--text2);margin-bottom:8px;padding:0 2px">${items.length}개 항목</div><div id="item-container"></div>`;
+  }
   const container = list.querySelector('#item-container');
 
-  if (layoutStyle === 'card-grid') {
-    container.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px';
-  } else if (layoutStyle === 'list') {
-    container.style.cssText = 'display:flex;flex-direction:column;gap:8px';
-  } else { // mixed
-    container.style.cssText = 'display:flex;flex-direction:column;gap:0';
-  }
-
-  // 공통 썸네일 DOM 생성
-  function makeThumb(item, isChart, d, m, size) {
-    const hasThumbnail = !isChart && m?.thumbnail;
-    const thumb = document.createElement('div');
-    thumb.style.cssText = `width:${size}px;height:${size}px;border-radius:${size>80?'10px':'8px'};overflow:hidden;position:relative;flex-shrink:0;`;
-    if (hasThumbnail) {
-      thumb.innerHTML = `<img src="${m.thumbnail}" style="width:100%;height:100%;object-fit:cover">`;
-    } else {
-      thumb.style.background = cardGradient(item.id);
-      const icon = isChart ? '📝' : (m?.type === 'pdf' ? '📄' : '🖼️');
-      const key = isChart ? (d?.key||'') : (m?.key||'');
-      thumb.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px">
-        <span style="font-size:${size>80?'1.8':'1.2'}rem">${icon}</span>
-        ${key ? `<span style="font-size:${size>80?'0.75':'0.6'}rem;color:rgba(255,255,255,0.9);font-weight:700">${escHtml(key)}</span>` : ''}
-      </div>`;
-    }
-    return thumb;
-  }
-
-  // 공통 이벤트 연결
-  function attachEvents(el, item, delBtn, isChart, m) {
-    el.addEventListener('mouseenter', () => { el.style.transform='translateY(-2px)'; el.style.boxShadow='0 4px 16px rgba(0,0,0,0.25)'; if(delBtn) delBtn.style.opacity='1'; });
-    el.addEventListener('mouseleave', () => { el.style.transform=''; el.style.boxShadow=''; if(delBtn) delBtn.style.opacity='0'; });
-    let tt; el.addEventListener('touchstart', () => { tt=setTimeout(()=>{ if(delBtn) delBtn.style.opacity='1'; },600); },{passive:true});
-    el.addEventListener('touchend', ()=>clearTimeout(tt), {passive:true});
-    el.addEventListener('click', e => {
-      if (e.target.closest('button')) return;
-      if (e.target.closest('select')) return;
-      if (item.itemType === 'chart') goTo(7, { openDraftId: item.id });
-      else openSheet(panel, item.id);
-    });
-    if (delBtn) delBtn.addEventListener('click', async e => {
-      e.stopPropagation();
-      if (item.itemType === 'chart') {
-        if (!confirm(`"${item.title}" 차트를 삭제하시겠습니까?`)) return;
-        localStorage.setItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x=>x.id!==item.id)));
-      } else {
-        if (!confirm(`"${item.title}" 을 삭제하시겠습니까?`)) return;
-        await deleteSheetItem(item.id, panel);
-      }
-      const fs = getSetlistFolders();
-      fs.forEach(f => { f.songs=(f.songs||[]).filter(s=>s.id!==item.id); });
-      saveSetlistFolders(fs);
-      loadList(panel); renderFolderChips(panel);
-    });
-  }
-
-  // 폴더 select HTML
-  function folderSelHtml(item) {
-    const curFolder = folders.find(f=>f.songs?.find(s=>s.id===item.id));
-    if (!folders.length) return { html: '', curFolderId: '' };
-    return {
-      html: `<select class="move-folder-sel" data-id="${item.id}" style="font-size:0.65rem;padding:2px 4px;margin-top:5px;border-radius:4px;width:100%">
-        <option value="">폴더 없음</option>
-        ${folders.map(f=>`<option value="${f.id}">${escHtml(f.name)}</option>`).join('')}
-      </select>`,
-      curFolderId: curFolder?.id || ''
-    };
-  }
-  function attachFolderSel(el, item, isChart, m) {
-    const sel = el.querySelector('.move-folder-sel');
-    if (!sel) return;
-    const curFolder = folders.find(f=>f.songs?.find(s=>s.id===item.id));
-    sel.value = curFolder?.id || '';
+  // 폴더 select 생성 + 이벤트
+  function makeFolderSel(item, isChart, m) {
+    if (!folders.length) return null;
+    const sel = document.createElement('select');
+    sel.className = 'move-folder-sel';
+    sel.style.cssText = 'font-size:0.62rem;padding:2px 4px;margin-top:4px;border-radius:4px;width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text2)';
+    sel.innerHTML = '<option value="">폴더 없음</option>' + folders.map(f => '<option value="' + f.id + '">' + escHtml(f.name) + '</option>').join('');
+    const cur = folders.find(f => f.songs?.find(s => s.id === item.id));
+    sel.value = cur?.id || '';
     sel.addEventListener('change', e => {
       e.stopPropagation();
       const fs = getSetlistFolders();
-      fs.forEach(f => { f.songs=(f.songs||[]).filter(s=>s.id!==item.id); });
-      if (sel.value) { const t=fs.find(f=>f.id===sel.value); if(t) t.songs.push({id:item.id,title:item.title,type:isChart?'chart':(m?.type||'sheet')}); }
+      fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });
+      if (sel.value) { const t = fs.find(f => f.id === sel.value); if (t) t.songs.push({id:item.id, title:item.title, type:isChart?'chart':(m?.type||'sheet')}); }
       saveSetlistFolders(fs); renderFolderChips(panel);
     });
-    sel.addEventListener('click', e=>e.stopPropagation());
+    sel.addEventListener('click', e => e.stopPropagation());
+    return sel;
   }
 
-  items.forEach((item, idx) => {
+  // 공통 삭제 핸들러
+  function onDelete(item) {
+    return async e => {
+      e.stopPropagation();
+      if (item.itemType === 'chart') {
+        if (!confirm('"' + item.title + '" 차트를 삭제하시겠습니까?')) return;
+        localStorage.setItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x => x.id !== item.id)));
+      } else {
+        if (!confirm('"' + item.title + '" 을 삭제하시겠습니까?')) return;
+        await deleteSheetItem(item.id, panel);
+      }
+      const fs = getSetlistFolders();
+      fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });
+      saveSetlistFolders(fs);
+      loadList(panel); renderFolderChips(panel);
+    };
+  }
+
+  // 공통 클릭 핸들러
+  function onClick(item) {
+    return e => {
+      if (e.target.closest('button') || e.target.closest('select')) return;
+      if (item.itemType === 'chart') goTo(7, {openDraftId: item.id});
+      else openSheet(panel, item.id);
+    };
+  }
+
+  // 컬러 사이드바용 accent 색상
+  const ACCENT_COLORS = ['#4a7cff','#9b4aff','#4aff9b','#ff9b4a','#4afff0','#ff4a7c','#ffcc4a','#4affcc'];
+  function accentColor(id) { let h=0; for (const c of id) h=(h*31+c.charCodeAt(0))&0xffff; return ACCENT_COLORS[h%ACCENT_COLORS.length]; }
+
+  items.forEach(item => {
     const isChart = item.itemType === 'chart';
     const d = item.draft;
     const m = item.meta;
-    const subtitle = isChart
-      ? [d?.key, d?.bpm?d.bpm+'BPM':''].filter(Boolean).join('  ')
-      : [m?.artist, m?.bpm?m.bpm+'BPM':''].filter(Boolean).join('  ');
-    const typeLabel = isChart ? '차트' : (m?.type==='pdf'?'PDF':'이미지');
-    const { html: fSelHtml } = folderSelHtml(item);
+    const key = isChart ? (d?.key||'') : (m?.key||'');
+    const artist = isChart ? (d?.artist||'') : (m?.artist||'');
+    const bpm = isChart ? (d?.bpm||'') : (m?.bpm||'');
+    const typeLabel = isChart ? 'Chart' : (m?.type==='pdf' ? 'PDF' : 'IMG');
+    const sub = [artist, bpm ? bpm+'BPM' : ''].filter(Boolean).join(' · ');
 
-    // ── 카드 그리드 ──
-    if (layoutStyle === 'card-grid') {
-      const card = document.createElement('div');
-      card.style.cssText = 'border-radius:10px;overflow:hidden;cursor:pointer;border:1px solid var(--border);background:var(--bg2);transition:transform 0.15s,box-shadow 0.15s;position:relative';
-      const thumbEl = makeThumb(item, isChart, d, m, 110);
-      thumbEl.style.cssText += 'height:110px;width:100%;border-radius:0;';
-      const badge = document.createElement('div');
-      badge.style.cssText = 'position:absolute;top:6px;left:6px;font-size:0.58rem;padding:2px 6px;border-radius:10px;font-weight:600;background:rgba(0,0,0,0.55);color:#fff';
-      badge.textContent = typeLabel; thumbEl.appendChild(badge);
-      const delBtn = document.createElement('button');
-      delBtn.style.cssText = 'position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.55);border:none;color:#fff;border-radius:50%;width:24px;height:24px;font-size:0.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s';
-      delBtn.textContent='✕'; thumbEl.appendChild(delBtn);
-      const info = document.createElement('div');
-      info.style.cssText = 'padding:8px 9px 10px';
-      info.innerHTML = `<div style="font-size:0.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
-        ${subtitle?`<div style="font-size:0.68rem;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(subtitle)}</div>`:''}
-        ${item.folderName?`<div style="font-size:0.6rem;color:var(--accent);margin-top:4px">📁 ${escHtml(item.folderName)}</div>`:''}
-        ${fSelHtml}`;
-      card.appendChild(thumbEl); card.appendChild(info);
-      attachFolderSel(info, item, isChart, m);
-      attachEvents(card, item, delBtn, isChart, m);
-      container.appendChild(card);
-
-    // ── 리스트 ──
-    } else if (layoutStyle === 'list') {
+    // ── list-b: 컬러 사이드바 ──
+    if (layoutStyle === 'list-b') {
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg2);border-radius:12px;cursor:pointer;border:1px solid var(--border);transition:transform 0.15s,box-shadow 0.15s;position:relative';
-      const thumbEl = makeThumb(item, isChart, d, m, 50);
-      const info = document.createElement('div');
-      info.style.cssText = 'flex:1;min-width:0';
-      info.innerHTML = `<div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
-        <div style="font-size:0.72rem;color:var(--text2);margin-top:3px">${typeLabel}${subtitle?' · '+escHtml(subtitle):''}${item.folderName?' · 📁'+escHtml(item.folderName):''}</div>
-        ${fSelHtml}`;
+      row.style.cssText = 'display:flex;align-items:stretch;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s';
+      row.addEventListener('mouseenter', () => { row.style.background = 'var(--bg3)'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
+
+      const bar = document.createElement('div');
+      bar.style.cssText = 'width:3px;flex-shrink:0;border-radius:0 2px 2px 0;background:' + accentColor(item.id);
+
+      const content = document.createElement('div');
+      content.style.cssText = 'flex:1;min-width:0;padding:11px 12px';
+      content.innerHTML = '<div style="font-size:0.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(item.title) + '</div>'
+        + '<div style="font-size:0.7rem;color:var(--text2);margin-top:2px">' + escHtml(sub || key || '—') + '</div>';
+      const sel = makeFolderSel(item, isChart, m);
+      if (sel) content.appendChild(sel);
+
+      const badge = document.createElement('div');
+      badge.style.cssText = 'font-size:0.6rem;padding:0 12px;display:flex;align-items:center;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px;flex-shrink:0';
+      badge.textContent = typeLabel;
+
       const delBtn = document.createElement('button');
-      delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:1rem;cursor:pointer;padding:4px;opacity:0;transition:opacity 0.15s;flex-shrink:0';
-      delBtn.textContent='✕';
-      row.appendChild(thumbEl); row.appendChild(info); row.appendChild(delBtn);
-      attachFolderSel(info, item, isChart, m);
-      attachEvents(row, item, delBtn, isChart, m);
+      delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:0.85rem;cursor:pointer;padding:0 10px;flex-shrink:0;opacity:0;transition:opacity 0.15s';
+      delBtn.textContent = '✕';
+      row.addEventListener('mouseenter', () => { delBtn.style.opacity='1'; });
+      row.addEventListener('mouseleave', () => { delBtn.style.opacity='0'; });
+      let tt; row.addEventListener('touchstart', () => { tt=setTimeout(()=>delBtn.style.opacity='1',600); },{passive:true});
+      row.addEventListener('touchend', () => clearTimeout(tt), {passive:true});
+
+      row.appendChild(bar); row.appendChild(content); row.appendChild(badge); row.appendChild(delBtn);
+      row.addEventListener('click', onClick(item));
+      delBtn.addEventListener('click', onDelete(item));
       container.appendChild(row);
 
-    // ── 혼합형 ──
+    // ── list-c: 풀와이드 타이포 ──
+    } else if (layoutStyle === 'list-c') {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:13px 2px;border-bottom:1px solid var(--border);cursor:pointer;transition:opacity 0.15s';
+      row.addEventListener('mouseenter', () => { row.style.opacity='0.65'; });
+      row.addEventListener('mouseleave', () => { row.style.opacity='1'; });
+
+      const top = document.createElement('div');
+      top.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;gap:8px';
+      const title = document.createElement('div');
+      title.style.cssText = 'font-size:0.92rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0';
+      title.textContent = item.title;
+      const keyEl = document.createElement('div');
+      keyEl.style.cssText = 'font-size:0.78rem;font-weight:600;color:var(--text2);flex-shrink:0';
+      keyEl.textContent = key;
+      top.appendChild(title); top.appendChild(keyEl);
+
+      const bot = document.createElement('div');
+      bot.style.cssText = 'display:flex;justify-content:space-between;margin-top:4px';
+      const artistEl = document.createElement('div');
+      artistEl.style.cssText = 'font-size:0.7rem;color:var(--text2)';
+      artistEl.textContent = artist || '—';
+      const typeEl = document.createElement('div');
+      typeEl.style.cssText = 'font-size:0.62rem;color:var(--border);text-transform:uppercase;letter-spacing:0.5px';
+      typeEl.textContent = typeLabel;
+      bot.appendChild(artistEl); bot.appendChild(typeEl);
+
+      const sel = makeFolderSel(item, isChart, m);
+
+      row.appendChild(top); row.appendChild(bot);
+      if (sel) row.appendChild(sel);
+      row.addEventListener('click', onClick(item));
+      container.appendChild(row);
+
+    // ── list-d: 컴팩트 테이블 ──
     } else {
-      if (idx === 0) {
-        // 첫 번째 항목: 히어로 카드
-        const hero = document.createElement('div');
-        hero.style.cssText = 'border-radius:14px;overflow:hidden;cursor:pointer;border:1px solid var(--border);background:var(--bg2);margin-bottom:16px;transition:transform 0.15s,box-shadow 0.15s;position:relative';
-        const heroThumb = makeThumb(item, isChart, d, m, 160);
-        heroThumb.style.cssText += 'width:100%;height:160px;border-radius:0;';
-        const badge = document.createElement('div');
-        badge.style.cssText = 'position:absolute;top:8px;left:8px;font-size:0.6rem;padding:2px 8px;border-radius:10px;font-weight:700;background:rgba(0,0,0,0.55);color:#fff;text-transform:uppercase;letter-spacing:0.5px';
-        badge.textContent = '최근 열람'; heroThumb.appendChild(badge);
-        const delBtn = document.createElement('button');
-        delBtn.style.cssText = 'position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);border:none;color:#fff;border-radius:50%;width:26px;height:26px;font-size:0.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s';
-        delBtn.textContent='✕'; heroThumb.appendChild(delBtn);
-        const info = document.createElement('div');
-        info.style.cssText = 'padding:12px 14px';
-        info.innerHTML = `<div style="font-size:0.68rem;color:var(--accent);font-weight:700;margin-bottom:3px">${typeLabel}</div>
-          <div style="font-size:1rem;font-weight:700">${escHtml(item.title)}</div>
-          ${subtitle?`<div style="font-size:0.78rem;color:var(--text2);margin-top:4px">${escHtml(subtitle)}</div>`:''}
-          ${fSelHtml}`;
-        hero.appendChild(heroThumb); hero.appendChild(info);
-        attachFolderSel(info, item, isChart, m);
-        attachEvents(hero, item, delBtn, isChart, m);
-        if (idx === 0 && items.length > 1) {
-          const label = document.createElement('div');
-          label.style.cssText = 'font-size:0.78rem;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px';
-          label.textContent = '전체 목록';
-          container.appendChild(hero); container.appendChild(label);
-        } else {
-          container.appendChild(hero);
-        }
-      } else {
-        // 나머지: 리스트 행
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg2);border-radius:12px;cursor:pointer;border:1px solid var(--border);margin-bottom:8px;transition:transform 0.15s,box-shadow 0.15s;position:relative';
-        const thumbEl = makeThumb(item, isChart, d, m, 46);
-        const info = document.createElement('div');
-        info.style.cssText = 'flex:1;min-width:0';
-        info.innerHTML = `<div style="font-size:0.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(item.title)}</div>
-          <div style="font-size:0.7rem;color:var(--text2);margin-top:2px">${typeLabel}${subtitle?' · '+escHtml(subtitle):''}</div>
-          ${fSelHtml}`;
-        const delBtn = document.createElement('button');
-        delBtn.style.cssText = 'background:none;border:none;color:var(--text2);font-size:0.9rem;cursor:pointer;padding:4px;opacity:0;transition:opacity 0.15s;flex-shrink:0';
-        delBtn.textContent='✕';
-        row.appendChild(thumbEl); row.appendChild(info); row.appendChild(delBtn);
-        attachFolderSel(info, item, isChart, m);
-        attachEvents(row, item, delBtn, isChart, m);
-        container.appendChild(row);
-      }
+      const row = document.createElement('div');
+      row.style.cssText = 'display:grid;grid-template-columns:1fr 54px 48px;padding:10px 12px;border-top:1px solid var(--border);cursor:pointer;align-items:center;transition:background 0.15s';
+      row.addEventListener('mouseenter', () => { row.style.background = 'var(--bg3)'; });
+      row.addEventListener('mouseleave', () => { row.style.background = ''; });
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-size:0.84rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0';
+      titleEl.textContent = item.title;
+
+      const keyEl = document.createElement('div');
+      keyEl.style.cssText = 'font-size:0.78rem;font-weight:600;color:var(--text2)';
+      keyEl.textContent = key || '—';
+
+      const typeEl = document.createElement('div');
+      typeEl.style.cssText = 'font-size:0.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.3px';
+      typeEl.textContent = typeLabel;
+
+      row.appendChild(titleEl); row.appendChild(keyEl); row.appendChild(typeEl);
+      row.addEventListener('click', onClick(item));
+      container.appendChild(row);
     }
   });
 }

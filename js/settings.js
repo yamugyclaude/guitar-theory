@@ -119,16 +119,15 @@ export function render(panel) {
       <p style="font-size:0.78rem;color:var(--text2);margin:6px 0 12px">악보 · 곡진행 탭의 목록 표시 방식을 선택합니다.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="layout-btns">
         ${[
-          { id:'card-grid',  label:'카드 그리드', icon:'⊞', desc:'Spotify 스타일' },
-          { id:'list',       label:'리스트',      icon:'☰', desc:'유튜브 스타일' },
-          { id:'mixed',      label:'혼합형',      icon:'◈', desc:'히어로+리스트' },
+          { id:'list-b', label:'사이드바', desc:'컬러 구분선' },
+          { id:'list-c', label:'타이포', desc:'텍스트 중심' },
+          { id:'list-d', label:'테이블', desc:'컴팩트 표' },
         ].map(l => `
-          <button class="layout-btn" data-layout="${l.id}" style="border:2px solid ${(s.layoutStyle||'card-grid')===l.id?'var(--accent)':'var(--border)'};
-            background:${(s.layoutStyle||'card-grid')===l.id?'var(--bg3)':'var(--bg2)'};
+          <button class="layout-btn" data-layout="${l.id}" style="border:2px solid ${(s.layoutStyle||'list-b')===l.id?'var(--accent)':'var(--border)'};
+            background:${(s.layoutStyle||'list-b')===l.id?'var(--bg3)':'var(--bg2)'};
             border-radius:10px;padding:12px 6px;cursor:pointer;color:var(--text);transition:all 0.15s;text-align:center">
-            <div style="font-size:1.4rem">${l.icon}</div>
-            <div style="font-size:0.78rem;font-weight:700;margin-top:4px">${l.label}</div>
-            <div style="font-size:0.65rem;color:var(--text2);margin-top:2px">${l.desc}</div>
+            <div style="font-size:0.78rem;font-weight:700">${l.label}</div>
+            <div style="font-size:0.65rem;color:var(--text2);margin-top:3px">${l.desc}</div>
           </button>
         `).join('')}
       </div>
