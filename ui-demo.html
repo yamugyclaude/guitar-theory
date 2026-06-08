@@ -5,508 +5,589 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UI 스타일 데모</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #0f0f0f;
-    color: #e8e8e8;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    padding-bottom: 60px;
-  }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f0f0f;
+  color: #e8e8e8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding-bottom: 80px;
+}
 
-  /* 헤더 */
-  .demo-header {
-    background: #1a1a1a;
-    border-bottom: 1px solid #333;
-    padding: 16px 20px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  .demo-header h1 { font-size: 1rem; color: #e8e8e8; }
-  .demo-header p { font-size: 0.78rem; color: #999; margin-top: 2px; }
+/* ── 헤더 ── */
+.demo-header {
+  background: #111;
+  border-bottom: 1px solid #222;
+  padding: 14px 18px;
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.demo-header h1 { font-size: 0.95rem; font-weight: 700; }
+.demo-header p { font-size: 0.72rem; color: #666; margin-top: 1px; }
 
-  /* 탭 네비 */
-  .style-nav {
-    display: flex;
-    gap: 6px;
-    padding: 12px 16px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    background: #1a1a1a;
-    border-bottom: 1px solid #333;
-    position: sticky;
-    top: 57px;
-    z-index: 99;
-  }
-  .style-nav::-webkit-scrollbar { display: none; }
-  .style-btn {
-    flex-shrink: 0;
-    padding: 6px 14px;
-    border-radius: 20px;
-    border: 1px solid #444;
-    background: transparent;
-    color: #999;
-    font-size: 0.8rem;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-  }
-  .style-btn.active {
-    background: #4a9eff;
-    border-color: #4a9eff;
-    color: #fff;
-  }
+/* ── 카테고리 탭 ── */
+.cat-nav {
+  display: flex; gap: 0;
+  background: #111;
+  border-bottom: 1px solid #222;
+  position: sticky; top: 49px; z-index: 99;
+  overflow-x: auto; scrollbar-width: none;
+}
+.cat-nav::-webkit-scrollbar { display: none; }
+.cat-btn {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: #666; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  white-space: nowrap; transition: all 0.2s;
+}
+.cat-btn.active { color: #e8e8e8; border-bottom-color: #e8e8e8; }
 
-  /* 섹션 공통 */
-  .demo-section {
-    display: none;
-    padding: 20px 16px;
-  }
-  .demo-section.active { display: block; }
-  .section-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  .section-desc {
-    font-size: 0.78rem;
-    color: #999;
-    margin-bottom: 20px;
-    line-height: 1.5;
-  }
-  .section-desc strong { color: #4a9eff; }
+/* ── 스타일 탭 ── */
+.style-nav {
+  display: flex; gap: 6px; padding: 12px 16px;
+  background: #0f0f0f; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid #1a1a1a;
+}
+.style-nav::-webkit-scrollbar { display: none; }
+.style-btn {
+  flex-shrink: 0; padding: 5px 12px; border-radius: 6px;
+  border: 1px solid #333; background: transparent;
+  color: #888; font-size: 0.75rem; cursor: pointer; white-space: nowrap;
+  transition: all 0.15s;
+}
+.style-btn.active { background: #e8e8e8; border-color: #e8e8e8; color: #0f0f0f; font-weight: 600; }
 
-  /* ───────────────────────────────
-     스타일 1: 카드 그리드
-  ─────────────────────────────── */
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
-  }
-  .card {
-    background: #1a1a1a;
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    border: 1px solid #2a2a2a;
-  }
-  .card:active { transform: scale(0.97); }
-  .card-thumb {
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-  }
-  .card-info { padding: 10px; }
-  .card-title { font-size: 0.85rem; font-weight: 600; }
-  .card-sub { font-size: 0.72rem; color: #999; margin-top: 3px; }
+/* ── 섹션 ── */
+.demo-section { display: none; padding: 16px; }
+.demo-section.active { display: block; }
 
-  /* ───────────────────────────────
-     스타일 2: 가로 스크롤 섹션
-  ─────────────────────────────── */
-  .hscroll-section { margin-bottom: 28px; }
-  .hscroll-label {
-    font-size: 0.9rem;
-    font-weight: 700;
-    margin-bottom: 10px;
-    padding: 0 2px;
-  }
-  .hscroll-row {
-    display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding-bottom: 4px;
-  }
-  .hscroll-row::-webkit-scrollbar { display: none; }
-  .hscroll-card {
-    flex-shrink: 0;
-    width: 130px;
-    background: #1a1a1a;
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid #2a2a2a;
-  }
-  .hscroll-thumb {
-    height: 90px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.8rem;
-  }
-  .hscroll-info { padding: 8px 10px; }
-  .hscroll-title { font-size: 0.8rem; font-weight: 600; }
-  .hscroll-sub { font-size: 0.7rem; color: #999; margin-top: 2px; }
+.section-desc {
+  font-size: 0.75rem; color: #555; margin-bottom: 16px; line-height: 1.5;
+  border-left: 2px solid #333; padding-left: 10px;
+}
+.section-desc strong { color: #888; }
 
-  /* ───────────────────────────────
-     스타일 3: 리스트 + 썸네일
-  ─────────────────────────────── */
-  .list-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    background: #1a1a1a;
-    border-radius: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    border: 1px solid #2a2a2a;
-    transition: background 0.15s;
-  }
-  .list-item:active { background: #252525; }
-  .list-thumb {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    flex-shrink: 0;
-  }
-  .list-info { flex: 1; min-width: 0; }
-  .list-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .list-meta { font-size: 0.72rem; color: #999; margin-top: 3px; }
-  .list-arrow { color: #555; font-size: 0.9rem; }
+/* ═══════════════════════════════════════
+   카드 그리드 — 스타일 A: 미니멀 다크
+═══════════════════════════════════════ */
+.cg-a-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 1px;
+  background: #1a1a1a; border-radius: 4px; overflow: hidden;
+}
+.cg-a-item {
+  background: #111; padding: 16px 14px; cursor: pointer;
+  transition: background 0.15s; position: relative;
+}
+.cg-a-item:active { background: #1a1a1a; }
+.cg-a-bar {
+  width: 24px; height: 3px; border-radius: 2px; margin-bottom: 12px;
+}
+.cg-a-title { font-size: 0.85rem; font-weight: 600; line-height: 1.3; }
+.cg-a-sub { font-size: 0.68rem; color: #555; margin-top: 5px; }
+.cg-a-type {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 0.6rem; color: #444; letter-spacing: 0.5px; text-transform: uppercase;
+}
 
-  /* ───────────────────────────────
-     스타일 4: 큰 카드 세로
-  ─────────────────────────────── */
-  .big-card {
-    background: #1a1a1a;
-    border-radius: 16px;
-    margin-bottom: 14px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid #2a2a2a;
-    transition: transform 0.15s;
-  }
-  .big-card:active { transform: scale(0.99); }
-  .big-thumb {
-    height: 140px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3rem;
-    position: relative;
-  }
-  .big-thumb-label {
-    position: absolute;
-    bottom: 10px;
-    left: 14px;
-    font-size: 0.7rem;
-    background: rgba(0,0,0,0.6);
-    padding: 3px 8px;
-    border-radius: 10px;
-    color: #ccc;
-  }
-  .big-info { padding: 14px 16px; }
-  .big-title { font-size: 1rem; font-weight: 700; }
-  .big-sub { font-size: 0.78rem; color: #999; margin-top: 4px; line-height: 1.5; }
-  .big-tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
-  .big-tag {
-    font-size: 0.7rem;
-    padding: 3px 8px;
-    border-radius: 10px;
-    background: #252525;
-    color: #aaa;
-  }
+/* ═══════════════════════════════════════
+   카드 그리드 — 스타일 B: 앨범아트 포커스
+═══════════════════════════════════════ */
+.cg-b-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 12px;
+}
+.cg-b-item { cursor: pointer; }
+.cg-b-thumb {
+  width: 100%; aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+  margin-bottom: 8px; position: relative;
+}
+.cg-b-thumb img, .cg-b-thumb div { width: 100%; height: 100%; }
+.cg-b-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+  display: flex; align-items: flex-end; padding: 8px;
+}
+.cg-b-key {
+  font-size: 0.7rem; font-weight: 700; color: #fff;
+  background: rgba(255,255,255,0.15); padding: 2px 6px; border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+.cg-b-title { font-size: 0.82rem; font-weight: 600; line-height: 1.2; }
+.cg-b-artist { font-size: 0.68rem; color: #666; margin-top: 2px; }
 
-  /* ───────────────────────────────
-     스타일 5: 혼합형
-  ─────────────────────────────── */
-  .hero-card {
-    background: #1a1a1a;
-    border-radius: 16px;
-    margin-bottom: 20px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid #2a2a2a;
-  }
-  .hero-thumb {
-    height: 160px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 4rem;
-  }
-  .hero-info { padding: 14px 16px; }
-  .hero-badge {
-    font-size: 0.68rem;
-    color: #4a9eff;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-  }
-  .hero-title { font-size: 1.05rem; font-weight: 700; }
-  .hero-sub { font-size: 0.78rem; color: #999; margin-top: 4px; }
+/* ═══════════════════════════════════════
+   카드 그리드 — 스타일 C: 라인 타이포
+═══════════════════════════════════════ */
+.cg-c-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 10px;
+}
+.cg-c-item {
+  border: 1px solid #222; border-radius: 10px; padding: 14px;
+  cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+  position: relative; overflow: hidden;
+}
+.cg-c-item:hover { border-color: #444; transform: translateY(-2px); }
+.cg-c-num {
+  font-size: 2rem; font-weight: 900; color: #1e1e1e;
+  line-height: 1; margin-bottom: 10px; font-variant-numeric: tabular-nums;
+}
+.cg-c-title { font-size: 0.85rem; font-weight: 700; line-height: 1.3; }
+.cg-c-sub { font-size: 0.68rem; color: #555; margin-top: 4px; }
+.cg-c-tag {
+  display: inline-block; margin-top: 8px;
+  font-size: 0.6rem; padding: 2px 7px; border-radius: 3px;
+  border: 1px solid #333; color: #666; text-transform: uppercase; letter-spacing: 0.5px;
+}
 
-  .mix-label {
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: #999;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .mini-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-  .mini-card {
-    background: #1a1a1a;
-    border-radius: 10px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 1px solid #2a2a2a;
-    aspect-ratio: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-  }
-  .mini-emoji { font-size: 1.6rem; }
-  .mini-label { font-size: 0.65rem; color: #999; text-align: center; padding: 0 4px; }
+/* ═══════════════════════════════════════
+   카드 그리드 — 스타일 D: 글라스모피즘
+═══════════════════════════════════════ */
+.cg-d-wrap {
+  position: relative; padding: 20px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(135deg, #0a0a1a, #1a0a2a);
+}
+.cg-d-blob {
+  position: absolute; border-radius: 50%; filter: blur(60px); opacity: 0.25;
+}
+.cg-d-grid {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 10px;
+}
+.cg-d-item {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 14px; cursor: pointer;
+  backdrop-filter: blur(10px); transition: background 0.2s, transform 0.15s;
+}
+.cg-d-item:hover { background: rgba(255,255,255,0.09); transform: translateY(-2px); }
+.cg-d-dot {
+  width: 8px; height: 8px; border-radius: 50%; margin-bottom: 12px;
+}
+.cg-d-title { font-size: 0.83rem; font-weight: 600; color: rgba(255,255,255,0.9); }
+.cg-d-sub { font-size: 0.67rem; color: rgba(255,255,255,0.35); margin-top: 4px; }
 
-  /* 그라디언트 프리셋 */
-  .g1 { background: linear-gradient(135deg, #1a2a4a, #0d3b6e); }
-  .g2 { background: linear-gradient(135deg, #2a1a3a, #4a1a6e); }
-  .g3 { background: linear-gradient(135deg, #1a3a2a, #0d6e3b); }
-  .g4 { background: linear-gradient(135deg, #3a2a1a, #6e3b0d); }
-  .g5 { background: linear-gradient(135deg, #2a3a1a, #4a6e0d); }
-  .g6 { background: linear-gradient(135deg, #3a1a1a, #6e0d0d); }
-  .g7 { background: linear-gradient(135deg, #1a3a3a, #0d5e6e); }
-  .g8 { background: linear-gradient(135deg, #3a3a1a, #6e5e0d); }
+/* ═══════════════════════════════════════
+   리스트 — 스타일 A: 음악앱 클래식
+═══════════════════════════════════════ */
+.ls-a-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 0; border-bottom: 1px solid #181818; cursor: pointer;
+}
+.ls-a-num {
+  width: 22px; text-align: right; font-size: 0.8rem;
+  color: #444; flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.ls-a-thumb {
+  width: 44px; height: 44px; border-radius: 4px; flex-shrink: 0; overflow: hidden;
+}
+.ls-a-info { flex: 1; min-width: 0; }
+.ls-a-title { font-size: 0.88rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls-a-meta { font-size: 0.71rem; color: #555; margin-top: 2px; }
+.ls-a-dur { font-size: 0.75rem; color: #555; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════
+   리스트 — 스타일 B: 세로 구분선
+═══════════════════════════════════════ */
+.ls-b-item {
+  display: flex; align-items: center; gap: 0;
+  border-bottom: 1px solid #141414; cursor: pointer;
+  transition: background 0.15s;
+}
+.ls-b-item:hover { background: #141414; }
+.ls-b-accent {
+  width: 3px; height: 52px; flex-shrink: 0; border-radius: 0 2px 2px 0;
+}
+.ls-b-content { flex: 1; min-width: 0; padding: 12px 14px; }
+.ls-b-title { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls-b-sub { font-size: 0.7rem; color: #555; margin-top: 3px; }
+.ls-b-badge {
+  font-size: 0.6rem; padding: 2px 6px; border-radius: 3px;
+  background: #1a1a1a; color: #555; flex-shrink: 0; margin-right: 14px;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+
+/* ═══════════════════════════════════════
+   리스트 — 스타일 C: 풀와이드 타이포
+═══════════════════════════════════════ */
+.ls-c-item {
+  padding: 14px 0;
+  border-bottom: 1px solid #161616; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.ls-c-item:hover { opacity: 0.7; }
+.ls-c-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ls-c-title { font-size: 0.95rem; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls-c-key { font-size: 0.78rem; color: #666; flex-shrink: 0; font-weight: 600; }
+.ls-c-bot { display: flex; justify-content: space-between; margin-top: 4px; }
+.ls-c-artist { font-size: 0.72rem; color: #555; }
+.ls-c-type { font-size: 0.65rem; color: #3a3a3a; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ═══════════════════════════════════════
+   리스트 — 스타일 D: 컴팩트 테이블
+═══════════════════════════════════════ */
+.ls-d-wrap { border: 1px solid #1e1e1e; border-radius: 8px; overflow: hidden; }
+.ls-d-head {
+  display: grid; grid-template-columns: 1fr 60px 50px;
+  padding: 8px 14px; background: #141414;
+  font-size: 0.65rem; color: #444; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ls-d-item {
+  display: grid; grid-template-columns: 1fr 60px 50px;
+  padding: 10px 14px; border-top: 1px solid #181818; cursor: pointer;
+  align-items: center; transition: background 0.15s;
+}
+.ls-d-item:hover { background: #141414; }
+.ls-d-title { font-size: 0.84rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls-d-key { font-size: 0.78rem; color: #666; font-weight: 600; }
+.ls-d-type { font-size: 0.68rem; color: #444; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* ═══════════════════════════════════════
+   혼합형 — 스타일 A: 에디터리얼
+═══════════════════════════════════════ */
+.mx-a-hero {
+  position: relative; border-radius: 10px; overflow: hidden;
+  margin-bottom: 20px; cursor: pointer;
+}
+.mx-a-hero-thumb {
+  height: 180px; width: 100%;
+}
+.mx-a-hero-info {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 20px 16px 14px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+}
+.mx-a-hero-label {
+  font-size: 0.6rem; letter-spacing: 1.5px; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); margin-bottom: 4px;
+}
+.mx-a-hero-title { font-size: 1.15rem; font-weight: 700; line-height: 1.2; }
+.mx-a-hero-sub { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 3px; }
+.mx-a-list-title {
+  font-size: 0.68rem; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #444; margin-bottom: 10px;
+}
+
+/* ═══════════════════════════════════════
+   혼합형 — 스타일 B: 대시보드
+═══════════════════════════════════════ */
+.mx-b-top { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.mx-b-feat {
+  grid-column: 1/-1; background: #141414; border-radius: 10px;
+  overflow: hidden; cursor: pointer; display: flex; align-items: stretch;
+}
+.mx-b-feat-thumb { width: 90px; flex-shrink: 0; }
+.mx-b-feat-info { padding: 14px; flex: 1; }
+.mx-b-feat-tag { font-size: 0.6rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.mx-b-feat-title { font-size: 0.92rem; font-weight: 700; }
+.mx-b-feat-sub { font-size: 0.72rem; color: #555; margin-top: 3px; }
+.mx-b-mini {
+  background: #141414; border-radius: 10px; overflow: hidden;
+  cursor: pointer; aspect-ratio: 1; display: flex; flex-direction: column;
+}
+.mx-b-mini-thumb { flex: 1; }
+.mx-b-mini-info { padding: 8px; background: #141414; }
+.mx-b-mini-title { font-size: 0.75rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-b-mini-sub { font-size: 0.62rem; color: #555; margin-top: 1px; }
+.mx-b-divider {
+  font-size: 0.65rem; color: #444; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.mx-b-divider::after { content:''; flex:1; height:1px; background:#1e1e1e; }
+
+/* ═══════════════════════════════════════
+   혼합형 — 스타일 C: Tidal / Deezer
+═══════════════════════════════════════ */
+.mx-c-hero {
+  border-radius: 12px; overflow: hidden; margin-bottom: 20px;
+  cursor: pointer; position: relative;
+}
+.mx-c-hero-thumb { height: 200px; width: 100%; position: relative; }
+.mx-c-play {
+  position: absolute; right: 14px; bottom: -18px;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #fff; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; box-shadow: 0 4px 16px rgba(0,0,0,0.5); z-index: 1;
+}
+.mx-c-hero-info { background: #141414; padding: 24px 14px 14px; }
+.mx-c-hero-title { font-size: 1rem; font-weight: 700; }
+.mx-c-hero-sub { font-size: 0.75rem; color: #666; margin-top: 4px; }
+.mx-c-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid #161616; cursor: pointer;
+}
+.mx-c-row-thumb { width: 40px; height: 40px; border-radius: 4px; flex-shrink: 0; overflow: hidden; }
+.mx-c-row-info { flex: 1; min-width: 0; }
+.mx-c-row-title { font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-c-row-sub { font-size: 0.7rem; color: #555; margin-top: 1px; }
+.mx-c-more { font-size: 0.75rem; color: #555; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════
+   혼합형 — 스타일 D: 세로 슬라이드
+═══════════════════════════════════════ */
+.mx-d-scroll {
+  display: flex; gap: 10px; overflow-x: auto; margin-bottom: 20px;
+  scrollbar-width: none; padding-bottom: 4px;
+}
+.mx-d-scroll::-webkit-scrollbar { display: none; }
+.mx-d-big {
+  flex-shrink: 0; width: 200px; border-radius: 10px; overflow: hidden;
+  cursor: pointer; position: relative;
+}
+.mx-d-big-thumb { height: 120px; }
+.mx-d-big-info { padding: 10px; background: #141414; }
+.mx-d-big-title { font-size: 0.82rem; font-weight: 700; }
+.mx-d-big-sub { font-size: 0.68rem; color: #555; margin-top: 2px; }
+.mx-d-label {
+  font-size: 0.68rem; color: #444; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+
+/* 유틸 */
+.g1 { background: linear-gradient(135deg,#0d1b2a,#1b3a5c); }
+.g2 { background: linear-gradient(135deg,#1a0d2e,#3d1a6e); }
+.g3 { background: linear-gradient(135deg,#0d2a1a,#1a6e3b); }
+.g4 { background: linear-gradient(135deg,#2a1a0d,#6e3b1a); }
+.g5 { background: linear-gradient(135deg,#1a2a0d,#3b6e1a); }
+.g6 { background: linear-gradient(135deg,#2a0d0d,#6e1a1a); }
+.g7 { background: linear-gradient(135deg,#0d2a2a,#1a5e6e); }
+.g8 { background: linear-gradient(135deg,#2a250d,#6e5a1a); }
+.dot1{background:#4a7cff} .dot2{background:#9b4aff} .dot3{background:#4aff9b}
+.dot4{background:#ff9b4a} .dot5{background:#4afff0} .dot6{background:#ff4a7c}
+.bar1{background:#4a7cff} .bar2{background:#9b4aff} .bar3{background:#4aff9b}
+.bar4{background:#ff9b4a} .bar5{background:#4afff0} .bar6{background:#ff4a7c}
+.accent1{background:#4a7cff} .accent2{background:#9b4aff} .accent3{background:#4aff9b}
+.accent4{background:#ff9b4a} .accent5{background:#4afff0} .accent6{background:#ff4a7c}
 </style>
 </head>
 <body>
 
 <div class="demo-header">
-  <h1>🎨 UI 스타일 데모</h1>
-  <p>5가지 레이아웃 패턴 — 탭을 눌러서 비교해보세요</p>
-</div>
-
-<div class="style-nav">
-  <button class="style-btn active" onclick="showStyle(1, this)">1. 카드 그리드</button>
-  <button class="style-btn" onclick="showStyle(2, this)">2. 가로 스크롤</button>
-  <button class="style-btn" onclick="showStyle(3, this)">3. 리스트+썸네일</button>
-  <button class="style-btn" onclick="showStyle(4, this)">4. 큰 카드</button>
-  <button class="style-btn" onclick="showStyle(5, this)">5. 혼합형</button>
-</div>
-
-<!-- ── 1. 카드 그리드 ── -->
-<div class="demo-section active" id="style-1">
-  <div class="section-title">1. 카드 그리드</div>
-  <div class="section-desc">
-    <strong>Spotify · 앱스토어</strong> 스타일.<br>
-    항목이 많을 때 한눈에 보기 좋음. 현재 악보 탭에 사용 중.
-  </div>
-  <div class="card-grid">
-    <div class="card"><div class="card-thumb g1">🎸</div><div class="card-info"><div class="card-title">Hotel California</div><div class="card-sub">Eagles · PDF</div></div></div>
-    <div class="card"><div class="card-thumb g2">🎼</div><div class="card-info"><div class="card-title">Comfortably Numb</div><div class="card-sub">Pink Floyd · 악보</div></div></div>
-    <div class="card"><div class="card-thumb g3">📝</div><div class="card-info"><div class="card-title">Little Wing</div><div class="card-sub">Hendrix · 차트</div></div></div>
-    <div class="card"><div class="card-thumb g4">🎵</div><div class="card-info"><div class="card-title">Eruption</div><div class="card-sub">Van Halen · 탭</div></div></div>
-    <div class="card"><div class="card-thumb g5">🎸</div><div class="card-info"><div class="card-title">Cliffs of Dover</div><div class="card-sub">Eric Johnson</div></div></div>
-    <div class="card"><div class="card-thumb g6">🎼</div><div class="card-info"><div class="card-title">Sultans of Swing</div><div class="card-sub">Dire Straits</div></div></div>
-    <div class="card"><div class="card-thumb g7">📝</div><div class="card-info"><div class="card-title">Gravity</div><div class="card-sub">John Mayer</div></div></div>
-    <div class="card"><div class="card-thumb g8">🎵</div><div class="card-info"><div class="card-title">Riviera Paradise</div><div class="card-sub">SRV</div></div></div>
+  <div>
+    <h1>UI 스타일 데모</h1>
+    <p>탭으로 카테고리 선택 → 스타일 버튼으로 비교</p>
   </div>
 </div>
 
-<!-- ── 2. 가로 스크롤 섹션 ── -->
-<div class="demo-section" id="style-2">
-  <div class="section-title">2. 가로 스크롤 섹션</div>
-  <div class="section-desc">
-    <strong>넷플릭스 · Apple Music</strong> 스타일.<br>
-    카테고리(기타리스트/장르)별로 묶어서 가로로 스크롤.
-  </div>
-
-  <div class="hscroll-section">
-    <div class="hscroll-label">🔥 최근 열람</div>
-    <div class="hscroll-row">
-      <div class="hscroll-card"><div class="hscroll-thumb g1">🎸</div><div class="hscroll-info"><div class="hscroll-title">Little Wing</div><div class="hscroll-sub">Hendrix</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g3">🎵</div><div class="hscroll-info"><div class="hscroll-title">Gravity</div><div class="hscroll-sub">John Mayer</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g5">🎼</div><div class="hscroll-info"><div class="hscroll-title">Riviera Paradise</div><div class="hscroll-sub">SRV</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g2">📝</div><div class="hscroll-info"><div class="hscroll-title">Cliffs of Dover</div><div class="hscroll-sub">E.Johnson</div></div></div>
-    </div>
-  </div>
-
-  <div class="hscroll-section">
-    <div class="hscroll-label">🎸 SRV 스타일</div>
-    <div class="hscroll-row">
-      <div class="hscroll-card"><div class="hscroll-thumb g4">🎵</div><div class="hscroll-info"><div class="hscroll-title">Pride and Joy</div><div class="hscroll-sub">SRV</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g6">🎸</div><div class="hscroll-info"><div class="hscroll-title">Texas Flood</div><div class="hscroll-sub">SRV</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g8">🎼</div><div class="hscroll-info"><div class="hscroll-title">Lenny</div><div class="hscroll-sub">SRV</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g1">📝</div><div class="hscroll-info"><div class="hscroll-title">Couldn't Stand</div><div class="hscroll-sub">SRV</div></div></div>
-    </div>
-  </div>
-
-  <div class="hscroll-section">
-    <div class="hscroll-label">🎯 John Mayer</div>
-    <div class="hscroll-row">
-      <div class="hscroll-card"><div class="hscroll-thumb g3">🎵</div><div class="hscroll-info"><div class="hscroll-title">Slow Dancing</div><div class="hscroll-sub">JM</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g5">🎸</div><div class="hscroll-info"><div class="hscroll-title">Neon</div><div class="hscroll-sub">JM</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g7">🎼</div><div class="hscroll-info"><div class="hscroll-title">Gravity</div><div class="hscroll-sub">JM</div></div></div>
-      <div class="hscroll-card"><div class="hscroll-thumb g2">📝</div><div class="hscroll-info"><div class="hscroll-title">Bold As Love</div><div class="hscroll-sub">JM</div></div></div>
-    </div>
-  </div>
+<div class="cat-nav">
+  <button class="cat-btn active" onclick="showCat('card',this)">카드 그리드</button>
+  <button class="cat-btn" onclick="showCat('list',this)">리스트</button>
+  <button class="cat-btn" onclick="showCat('mixed',this)">혼합형</button>
 </div>
 
-<!-- ── 3. 리스트 + 썸네일 ── -->
-<div class="demo-section" id="style-3">
-  <div class="section-title">3. 리스트 + 썸네일</div>
-  <div class="section-desc">
-    <strong>유튜브 · 파일 앱</strong> 스타일.<br>
-    빠르게 스캔하고 바로 열기 좋음. 제목이 긴 곡에 유리.
+<!-- ════════ 카드 그리드 ════════ -->
+<div id="cat-card" class="cat-section">
+  <div class="style-nav">
+    <button class="style-btn active" onclick="showStyle('card','a',this)">A — 미니멀</button>
+    <button class="style-btn" onclick="showStyle('card','b',this)">B — 앨범아트</button>
+    <button class="style-btn" onclick="showStyle('card','c',this)">C — 타이포</button>
+    <button class="style-btn" onclick="showStyle('card','d',this)">D — 글라스</button>
   </div>
 
-  <div class="list-item">
-    <div class="list-thumb g1">🎸</div>
-    <div class="list-info">
-      <div class="list-title">Hotel California</div>
-      <div class="list-meta">Eagles · PDF · 3일 전</div>
+  <!-- A: 미니멀 다크 -->
+  <div class="demo-section active" id="card-a">
+    <div class="section-desc"><strong>A — 미니멀 다크.</strong> 이모지 없음. 컬러 바로 타입 구분. 텍스트 중심.</div>
+    <div class="cg-a-grid">
+      <div class="cg-a-item"><div class="cg-a-bar bar1"></div><div class="cg-a-type">PDF</div><div class="cg-a-title">Hotel California</div><div class="cg-a-sub">Eagles</div></div>
+      <div class="cg-a-item"><div class="cg-a-bar bar2"></div><div class="cg-a-type">Chart</div><div class="cg-a-title">Comfortably Numb</div><div class="cg-a-sub">Pink Floyd</div></div>
+      <div class="cg-a-item"><div class="cg-a-bar bar3"></div><div class="cg-a-type">PDF</div><div class="cg-a-title">Little Wing</div><div class="cg-a-sub">Hendrix</div></div>
+      <div class="cg-a-item"><div class="cg-a-bar bar4"></div><div class="cg-a-type">Chart</div><div class="cg-a-title">Cliffs of Dover</div><div class="cg-a-sub">E. Johnson</div></div>
+      <div class="cg-a-item"><div class="cg-a-bar bar5"></div><div class="cg-a-type">PDF</div><div class="cg-a-title">Riviera Paradise</div><div class="cg-a-sub">SRV</div></div>
+      <div class="cg-a-item"><div class="cg-a-bar bar6"></div><div class="cg-a-type">Chart</div><div class="cg-a-title">Gravity</div><div class="cg-a-sub">John Mayer</div></div>
     </div>
-    <div class="list-arrow">›</div>
-  </div>
-  <div class="list-item">
-    <div class="list-thumb g2">🎼</div>
-    <div class="list-info">
-      <div class="list-title">Comfortably Numb</div>
-      <div class="list-meta">Pink Floyd · 악보 · 1주 전</div>
-    </div>
-    <div class="list-arrow">›</div>
-  </div>
-  <div class="list-item">
-    <div class="list-thumb g3">📝</div>
-    <div class="list-info">
-      <div class="list-title">Little Wing</div>
-      <div class="list-meta">Hendrix · 차트 · 2주 전</div>
-    </div>
-    <div class="list-arrow">›</div>
-  </div>
-  <div class="list-item">
-    <div class="list-thumb g4">🎵</div>
-    <div class="list-info">
-      <div class="list-title">Cliffs of Dover</div>
-      <div class="list-meta">Eric Johnson · 탭 · 1달 전</div>
-    </div>
-    <div class="list-arrow">›</div>
-  </div>
-  <div class="list-item">
-    <div class="list-thumb g5">🎸</div>
-    <div class="list-info">
-      <div class="list-title">Riviera Paradise</div>
-      <div class="list-meta">SRV · PDF · 1달 전</div>
-    </div>
-    <div class="list-arrow">›</div>
-  </div>
-  <div class="list-item">
-    <div class="list-thumb g6">🎼</div>
-    <div class="list-info">
-      <div class="list-title">Gravity</div>
-      <div class="list-meta">John Mayer · 차트 · 2달 전</div>
-    </div>
-    <div class="list-arrow">›</div>
-  </div>
-</div>
-
-<!-- ── 4. 큰 카드 세로 ── -->
-<div class="demo-section" id="style-4">
-  <div class="section-title">4. 큰 카드 세로</div>
-  <div class="section-desc">
-    <strong>Apple Music · Podcast</strong> 스타일.<br>
-    한 항목을 크게 강조. 설명이나 태그가 많을 때 좋음.
   </div>
 
-  <div class="big-card">
-    <div class="big-thumb g1">🎸<span class="big-thumb-label">PDF</span></div>
-    <div class="big-info">
-      <div class="big-title">Hotel California</div>
-      <div class="big-sub">Eagles의 명곡. 12현 기타 인트로부터 Don Felder와 Joe Walsh의 듀얼 기타 솔로까지.</div>
-      <div class="big-tags"><span class="big-tag">Rock</span><span class="big-tag">12현 기타</span><span class="big-tag">듀얼 솔로</span></div>
+  <!-- B: 앨범아트 포커스 -->
+  <div class="demo-section" id="card-b">
+    <div class="section-desc"><strong>B — 앨범아트 포커스.</strong> 정사각 썸네일. 그라디언트 오버레이로 텍스트 자연스럽게.</div>
+    <div class="cg-b-grid">
+      <div class="cg-b-item"><div class="cg-b-thumb g1"><div></div><div class="cg-b-overlay"><span class="cg-b-key">Am</span></div></div><div class="cg-b-title">Hotel California</div><div class="cg-b-artist">Eagles</div></div>
+      <div class="cg-b-item"><div class="cg-b-thumb g2"><div></div><div class="cg-b-overlay"><span class="cg-b-key">Gm</span></div></div><div class="cg-b-title">Comfortably Numb</div><div class="cg-b-artist">Pink Floyd</div></div>
+      <div class="cg-b-item"><div class="cg-b-thumb g3"><div></div><div class="cg-b-overlay"><span class="cg-b-key">E</span></div></div><div class="cg-b-title">Little Wing</div><div class="cg-b-artist">Hendrix</div></div>
+      <div class="cg-b-item"><div class="cg-b-thumb g4"><div></div><div class="cg-b-overlay"><span class="cg-b-key">E</span></div></div><div class="cg-b-title">Cliffs of Dover</div><div class="cg-b-artist">E. Johnson</div></div>
+      <div class="cg-b-item"><div class="cg-b-thumb g5"><div></div><div class="cg-b-overlay"><span class="cg-b-key">E</span></div></div><div class="cg-b-title">Riviera Paradise</div><div class="cg-b-artist">SRV</div></div>
+      <div class="cg-b-item"><div class="cg-b-thumb g6"><div></div><div class="cg-b-overlay"><span class="cg-b-key">Bm</span></div></div><div class="cg-b-title">Gravity</div><div class="cg-b-artist">John Mayer</div></div>
     </div>
   </div>
-  <div class="big-card">
-    <div class="big-thumb g3">🎵<span class="big-thumb-label">차트</span></div>
-    <div class="big-info">
-      <div class="big-title">Gravity — John Mayer</div>
-      <div class="big-sub">블루스-팝 퓨전의 정수. SRV 영향을 받은 벤딩과 코드 보이싱.</div>
-      <div class="big-tags"><span class="big-tag">Blues</span><span class="big-tag">Pop</span><span class="big-tag">JM 스타일</span></div>
+
+  <!-- C: 라인 타이포 -->
+  <div class="demo-section" id="card-c">
+    <div class="section-desc"><strong>C — 라인 타이포.</strong> 번호 + 제목 강조. 테두리만으로 구분. 깔끔한 잡지 느낌.</div>
+    <div class="cg-c-grid">
+      <div class="cg-c-item"><div class="cg-c-num">01</div><div class="cg-c-title">Hotel California</div><div class="cg-c-sub">Eagles</div><span class="cg-c-tag">PDF</span></div>
+      <div class="cg-c-item"><div class="cg-c-num">02</div><div class="cg-c-title">Comfortably Numb</div><div class="cg-c-sub">Pink Floyd</div><span class="cg-c-tag">Chart</span></div>
+      <div class="cg-c-item"><div class="cg-c-num">03</div><div class="cg-c-title">Little Wing</div><div class="cg-c-sub">Hendrix</div><span class="cg-c-tag">PDF</span></div>
+      <div class="cg-c-item"><div class="cg-c-num">04</div><div class="cg-c-title">Cliffs of Dover</div><div class="cg-c-sub">E. Johnson</div><span class="cg-c-tag">Chart</span></div>
+      <div class="cg-c-item"><div class="cg-c-num">05</div><div class="cg-c-title">Riviera Paradise</div><div class="cg-c-sub">SRV</div><span class="cg-c-tag">PDF</span></div>
+      <div class="cg-c-item"><div class="cg-c-num">06</div><div class="cg-c-title">Gravity</div><div class="cg-c-sub">John Mayer</div><span class="cg-c-tag">Chart</span></div>
     </div>
   </div>
-  <div class="big-card">
-    <div class="big-thumb g5">🎼<span class="big-thumb-label">악보</span></div>
-    <div class="big-info">
-      <div class="big-title">Riviera Paradise — SRV</div>
-      <div class="big-sub">텍사스 블루스의 서정적인 면을 보여주는 곡. 슬로우 재즈 코드 진행.</div>
-      <div class="big-tags"><span class="big-tag">Blues</span><span class="big-tag">SRV</span><span class="big-tag">슬로우</span></div>
+
+  <!-- D: 글라스모피즘 -->
+  <div class="demo-section" id="card-d">
+    <div class="section-desc"><strong>D — 글라스모피즘.</strong> 컬러 블러 배경 + 반투명 카드. Frosted glass 느낌.</div>
+    <div class="cg-d-wrap">
+      <div class="cg-d-blob" style="width:200px;height:200px;background:#4a7cff;top:-50px;left:-50px"></div>
+      <div class="cg-d-blob" style="width:160px;height:160px;background:#9b4aff;top:20px;right:-30px"></div>
+      <div class="cg-d-blob" style="width:180px;height:180px;background:#4aff9b;bottom:-40px;left:30%"></div>
+      <div class="cg-d-grid">
+        <div class="cg-d-item"><div class="cg-d-dot dot1"></div><div class="cg-d-title">Hotel California</div><div class="cg-d-sub">Eagles · Am</div></div>
+        <div class="cg-d-item"><div class="cg-d-dot dot2"></div><div class="cg-d-title">Comfortably Numb</div><div class="cg-d-sub">Pink Floyd · Gm</div></div>
+        <div class="cg-d-item"><div class="cg-d-dot dot3"></div><div class="cg-d-title">Little Wing</div><div class="cg-d-sub">Hendrix · E</div></div>
+        <div class="cg-d-item"><div class="cg-d-dot dot4"></div><div class="cg-d-title">Cliffs of Dover</div><div class="cg-d-sub">E. Johnson · E</div></div>
+        <div class="cg-d-item"><div class="cg-d-dot dot5"></div><div class="cg-d-title">Riviera Paradise</div><div class="cg-d-sub">SRV · E</div></div>
+        <div class="cg-d-item"><div class="cg-d-dot dot6"></div><div class="cg-d-title">Gravity</div><div class="cg-d-sub">John Mayer · Bm</div></div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ── 5. 혼합형 ── -->
-<div class="demo-section" id="style-5">
-  <div class="section-title">5. 혼합형</div>
-  <div class="section-desc">
-    <strong>요즘 앱 트렌드</strong> 스타일.<br>
-    중요한 건 크게(히어로), 빠른 접근은 미니 그리드, 나머지는 리스트.
+<!-- ════════ 리스트 ════════ -->
+<div id="cat-list" class="cat-section" style="display:none">
+  <div class="style-nav">
+    <button class="style-btn active" onclick="showStyle('list','a',this)">A — 음악앱</button>
+    <button class="style-btn" onclick="showStyle('list','b',this)">B — 사이드바</button>
+    <button class="style-btn" onclick="showStyle('list','c',this)">C — 타이포</button>
+    <button class="style-btn" onclick="showStyle('list','d',this)">D — 테이블</button>
   </div>
 
-  <div class="mix-label">최근 열람</div>
-  <div class="hero-card">
-    <div class="hero-thumb g1">🎸</div>
-    <div class="hero-info">
-      <div class="hero-badge">마지막으로 열람</div>
-      <div class="hero-title">Little Wing — Jimi Hendrix</div>
-      <div class="hero-sub">3분 전 · 차트</div>
+  <!-- A -->
+  <div class="demo-section active" id="list-a">
+    <div class="section-desc"><strong>A — 음악앱 클래식.</strong> 번호 + 썸네일 + 재생시간. Spotify/Apple Music 느낌.</div>
+    <div class="ls-a-item"><div class="ls-a-num">1</div><div class="ls-a-thumb g1"></div><div class="ls-a-info"><div class="ls-a-title">Hotel California</div><div class="ls-a-meta">Eagles · PDF</div></div><div class="ls-a-dur">Am</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">2</div><div class="ls-a-thumb g2"></div><div class="ls-a-info"><div class="ls-a-title">Comfortably Numb</div><div class="ls-a-meta">Pink Floyd · Chart</div></div><div class="ls-a-dur">Gm</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">3</div><div class="ls-a-thumb g3"></div><div class="ls-a-info"><div class="ls-a-title">Little Wing</div><div class="ls-a-meta">Hendrix · PDF</div></div><div class="ls-a-dur">E</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">4</div><div class="ls-a-thumb g4"></div><div class="ls-a-info"><div class="ls-a-title">Cliffs of Dover</div><div class="ls-a-meta">E. Johnson · Chart</div></div><div class="ls-a-dur">E</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">5</div><div class="ls-a-thumb g5"></div><div class="ls-a-info"><div class="ls-a-title">Riviera Paradise</div><div class="ls-a-meta">SRV · PDF</div></div><div class="ls-a-dur">E</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">6</div><div class="ls-a-thumb g6"></div><div class="ls-a-info"><div class="ls-a-title">Gravity</div><div class="ls-a-meta">John Mayer · Chart</div></div><div class="ls-a-dur">Bm</div></div>
+  </div>
+
+  <!-- B -->
+  <div class="demo-section" id="list-b">
+    <div class="section-desc"><strong>B — 컬러 사이드바.</strong> 왼쪽 컬러 바로 타입/폴더 구분. 호버 시 배경.</div>
+    <div class="ls-b-item"><div class="ls-b-accent accent1"></div><div class="ls-b-content"><div class="ls-b-title">Hotel California</div><div class="ls-b-sub">Eagles · Am</div></div><div class="ls-b-badge">PDF</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent2"></div><div class="ls-b-content"><div class="ls-b-title">Comfortably Numb</div><div class="ls-b-sub">Pink Floyd · Gm</div></div><div class="ls-b-badge">Chart</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent3"></div><div class="ls-b-content"><div class="ls-b-title">Little Wing</div><div class="ls-b-sub">Hendrix · E</div></div><div class="ls-b-badge">PDF</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent4"></div><div class="ls-b-content"><div class="ls-b-title">Cliffs of Dover</div><div class="ls-b-sub">E. Johnson · E</div></div><div class="ls-b-badge">Chart</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent5"></div><div class="ls-b-content"><div class="ls-b-title">Riviera Paradise</div><div class="ls-b-sub">SRV · E</div></div><div class="ls-b-badge">PDF</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent6"></div><div class="ls-b-content"><div class="ls-b-title">Gravity</div><div class="ls-b-sub">John Mayer · Bm</div></div><div class="ls-b-badge">Chart</div></div>
+  </div>
+
+  <!-- C -->
+  <div class="demo-section" id="list-c">
+    <div class="section-desc"><strong>C — 풀와이드 타이포.</strong> 썸네일 없음. 제목/키/아티스트만. 밀도 높고 깔끔.</div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Hotel California</div><div class="ls-c-key">Am</div></div><div class="ls-c-bot"><div class="ls-c-artist">Eagles</div><div class="ls-c-type">PDF</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Comfortably Numb</div><div class="ls-c-key">Gm</div></div><div class="ls-c-bot"><div class="ls-c-artist">Pink Floyd</div><div class="ls-c-type">Chart</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Little Wing</div><div class="ls-c-key">E</div></div><div class="ls-c-bot"><div class="ls-c-artist">Hendrix</div><div class="ls-c-type">PDF</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Cliffs of Dover</div><div class="ls-c-key">E</div></div><div class="ls-c-bot"><div class="ls-c-artist">E. Johnson</div><div class="ls-c-type">Chart</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Riviera Paradise</div><div class="ls-c-key">E</div></div><div class="ls-c-bot"><div class="ls-c-artist">SRV</div><div class="ls-c-type">PDF</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Gravity</div><div class="ls-c-key">Bm</div></div><div class="ls-c-bot"><div class="ls-c-artist">John Mayer</div><div class="ls-c-type">Chart</div></div></div>
+  </div>
+
+  <!-- D -->
+  <div class="demo-section" id="list-d">
+    <div class="section-desc"><strong>D — 컴팩트 테이블.</strong> 헤더 + 그리드. 정보 밀도 최고. 데이터 위주.</div>
+    <div class="ls-d-wrap">
+      <div class="ls-d-head"><span>곡명</span><span>키</span><span>타입</span></div>
+      <div class="ls-d-item"><div class="ls-d-title">Hotel California</div><div class="ls-d-key">Am</div><div class="ls-d-type">PDF</div></div>
+      <div class="ls-d-item"><div class="ls-d-title">Comfortably Numb</div><div class="ls-d-key">Gm</div><div class="ls-d-type">Chart</div></div>
+      <div class="ls-d-item"><div class="ls-d-title">Little Wing</div><div class="ls-d-key">E</div><div class="ls-d-type">PDF</div></div>
+      <div class="ls-d-item"><div class="ls-d-title">Cliffs of Dover</div><div class="ls-d-key">E</div><div class="ls-d-type">Chart</div></div>
+      <div class="ls-d-item"><div class="ls-d-title">Riviera Paradise</div><div class="ls-d-key">E</div><div class="ls-d-type">PDF</div></div>
+      <div class="ls-d-item"><div class="ls-d-title">Gravity</div><div class="ls-d-key">Bm</div><div class="ls-d-type">Chart</div></div>
     </div>
   </div>
+</div>
 
-  <div class="mix-label">빠른 접근</div>
-  <div class="mini-grid">
-    <div class="mini-card g1"><div class="mini-emoji">🎸</div><div class="mini-label">호텔 캘리포니아</div></div>
-    <div class="mini-card g3"><div class="mini-emoji">🎵</div><div class="mini-label">Gravity</div></div>
-    <div class="mini-card g5"><div class="mini-emoji">🎼</div><div class="mini-label">Eruption</div></div>
-    <div class="mini-card g7"><div class="mini-emoji">📝</div><div class="mini-label">Cliffs of Dover</div></div>
+<!-- ════════ 혼합형 ════════ -->
+<div id="cat-mixed" class="cat-section" style="display:none">
+  <div class="style-nav">
+    <button class="style-btn active" onclick="showStyle('mixed','a',this)">A — 에디터리얼</button>
+    <button class="style-btn" onclick="showStyle('mixed','b',this)">B — 대시보드</button>
+    <button class="style-btn" onclick="showStyle('mixed','c',this)">C — Tidal</button>
+    <button class="style-btn" onclick="showStyle('mixed','d',this)">D — 가로+세로</button>
   </div>
 
-  <div class="mix-label">전체 목록</div>
-  <div class="list-item">
-    <div class="list-thumb g2">🎸</div>
-    <div class="list-info"><div class="list-title">Comfortably Numb</div><div class="list-meta">Pink Floyd · 1주 전</div></div>
-    <div class="list-arrow">›</div>
+  <!-- A: 에디터리얼 -->
+  <div class="demo-section active" id="mixed-a">
+    <div class="section-desc"><strong>A — 에디터리얼.</strong> 풀와이드 히어로 + 텍스트 오버레이. 잡지/음악 미디어 느낌.</div>
+    <div class="mx-a-hero">
+      <div class="mx-a-hero-thumb g1"></div>
+      <div class="mx-a-hero-info">
+        <div class="mx-a-hero-label">마지막 열람</div>
+        <div class="mx-a-hero-title">Hotel California</div>
+        <div class="mx-a-hero-sub">Eagles · Am · PDF</div>
+      </div>
+    </div>
+    <div class="mx-a-list-title">전체 목록</div>
+    <div class="ls-a-item"><div class="ls-a-num">2</div><div class="ls-a-thumb g2"></div><div class="ls-a-info"><div class="ls-a-title">Comfortably Numb</div><div class="ls-a-meta">Pink Floyd</div></div><div class="ls-a-dur">Gm</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">3</div><div class="ls-a-thumb g3"></div><div class="ls-a-info"><div class="ls-a-title">Little Wing</div><div class="ls-a-meta">Hendrix</div></div><div class="ls-a-dur">E</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">4</div><div class="ls-a-thumb g4"></div><div class="ls-a-info"><div class="ls-a-title">Cliffs of Dover</div><div class="ls-a-meta">E. Johnson</div></div><div class="ls-a-dur">E</div></div>
+    <div class="ls-a-item"><div class="ls-a-num">5</div><div class="ls-a-thumb g5"></div><div class="ls-a-info"><div class="ls-a-title">Riviera Paradise</div><div class="ls-a-meta">SRV</div></div><div class="ls-a-dur">E</div></div>
   </div>
-  <div class="list-item">
-    <div class="list-thumb g4">🎵</div>
-    <div class="list-info"><div class="list-title">Sultans of Swing</div><div class="list-meta">Dire Straits · 2주 전</div></div>
-    <div class="list-arrow">›</div>
+
+  <!-- B: 대시보드 -->
+  <div class="demo-section" id="mixed-b">
+    <div class="section-desc"><strong>B — 대시보드.</strong> Featured + 2열 미니 + 리스트. 정보 계층이 명확.</div>
+    <div class="mx-b-top">
+      <div class="mx-b-feat">
+        <div class="mx-b-feat-thumb g1"></div>
+        <div class="mx-b-feat-info"><div class="mx-b-feat-tag">최근 열람</div><div class="mx-b-feat-title">Hotel California</div><div class="mx-b-feat-sub">Eagles · Am</div></div>
+      </div>
+      <div class="mx-b-mini"><div class="mx-b-mini-thumb g3"></div><div class="mx-b-mini-info"><div class="mx-b-mini-title">Little Wing</div><div class="mx-b-mini-sub">Hendrix</div></div></div>
+      <div class="mx-b-mini"><div class="mx-b-mini-thumb g4"></div><div class="mx-b-mini-info"><div class="mx-b-mini-title">Cliffs of Dover</div><div class="mx-b-mini-sub">E. Johnson</div></div></div>
+    </div>
+    <div class="mx-b-divider">전체 목록</div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Comfortably Numb</div><div class="ls-c-key">Gm</div></div><div class="ls-c-bot"><div class="ls-c-artist">Pink Floyd</div><div class="ls-c-type">Chart</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Riviera Paradise</div><div class="ls-c-key">E</div></div><div class="ls-c-bot"><div class="ls-c-artist">SRV</div><div class="ls-c-type">PDF</div></div></div>
+    <div class="ls-c-item"><div class="ls-c-top"><div class="ls-c-title">Gravity</div><div class="ls-c-key">Bm</div></div><div class="ls-c-bot"><div class="ls-c-artist">John Mayer</div><div class="ls-c-type">Chart</div></div></div>
   </div>
-  <div class="list-item">
-    <div class="list-thumb g6">🎼</div>
-    <div class="list-info"><div class="list-title">Riviera Paradise</div><div class="list-meta">SRV · 1달 전</div></div>
-    <div class="list-arrow">›</div>
+
+  <!-- C: Tidal -->
+  <div class="demo-section" id="mixed-c">
+    <div class="section-desc"><strong>C — Tidal 스타일.</strong> 큰 히어로 + 플레이 버튼 + 심플 리스트.</div>
+    <div class="mx-c-hero">
+      <div class="mx-c-hero-thumb g2"></div>
+      <button class="mx-c-play">▶</button>
+      <div class="mx-c-hero-info">
+        <div class="mx-c-hero-title">Hotel California</div>
+        <div class="mx-c-hero-sub">Eagles · Am · PDF</div>
+      </div>
+    </div>
+    <div class="mx-c-row"><div class="mx-c-row-thumb g2"></div><div class="mx-c-row-info"><div class="mx-c-row-title">Comfortably Numb</div><div class="mx-c-row-sub">Pink Floyd · Gm</div></div><div class="mx-c-more">›</div></div>
+    <div class="mx-c-row"><div class="mx-c-row-thumb g3"></div><div class="mx-c-row-info"><div class="mx-c-row-title">Little Wing</div><div class="mx-c-row-sub">Hendrix · E</div></div><div class="mx-c-more">›</div></div>
+    <div class="mx-c-row"><div class="mx-c-row-thumb g4"></div><div class="mx-c-row-info"><div class="mx-c-row-title">Cliffs of Dover</div><div class="mx-c-row-sub">E. Johnson · E</div></div><div class="mx-c-more">›</div></div>
+    <div class="mx-c-row"><div class="mx-c-row-thumb g5"></div><div class="mx-c-row-info"><div class="mx-c-row-title">Riviera Paradise</div><div class="mx-c-row-sub">SRV · E</div></div><div class="mx-c-more">›</div></div>
+    <div class="mx-c-row"><div class="mx-c-row-thumb g6"></div><div class="mx-c-row-info"><div class="mx-c-row-title">Gravity</div><div class="mx-c-row-sub">John Mayer · Bm</div></div><div class="mx-c-more">›</div></div>
+  </div>
+
+  <!-- D: 가로 스크롤 + 세로 리스트 -->
+  <div class="demo-section" id="mixed-d">
+    <div class="section-desc"><strong>D — 가로+세로.</strong> 상단 가로 스크롤 큰카드 + 하단 텍스트 리스트.</div>
+    <div class="mx-d-label">최근 열람</div>
+    <div class="mx-d-scroll">
+      <div class="mx-d-big"><div class="mx-d-big-thumb g1"></div><div class="mx-d-big-info"><div class="mx-d-big-title">Hotel California</div><div class="mx-d-big-sub">Eagles · Am</div></div></div>
+      <div class="mx-d-big"><div class="mx-d-big-thumb g3"></div><div class="mx-d-big-info"><div class="mx-d-big-title">Little Wing</div><div class="mx-d-big-sub">Hendrix · E</div></div></div>
+      <div class="mx-d-big"><div class="mx-d-big-thumb g5"></div><div class="mx-d-big-info"><div class="mx-d-big-title">Riviera Paradise</div><div class="mx-d-big-sub">SRV · E</div></div></div>
+    </div>
+    <div class="mx-d-label">전체 목록</div>
+    <div class="ls-b-item"><div class="ls-b-accent accent1"></div><div class="ls-b-content"><div class="ls-b-title">Comfortably Numb</div><div class="ls-b-sub">Pink Floyd · Gm</div></div><div class="ls-b-badge">Chart</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent4"></div><div class="ls-b-content"><div class="ls-b-title">Cliffs of Dover</div><div class="ls-b-sub">E. Johnson · E</div></div><div class="ls-b-badge">Chart</div></div>
+    <div class="ls-b-item"><div class="ls-b-accent accent2"></div><div class="ls-b-content"><div class="ls-b-title">Gravity</div><div class="ls-b-sub">John Mayer · Bm</div></div><div class="ls-b-badge">PDF</div></div>
   </div>
 </div>
 
 <script>
-function showStyle(n, btn) {
-  document.querySelectorAll('.demo-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('style-' + n).classList.add('active');
+function showCat(cat, btn) {
+  document.querySelectorAll('.cat-section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('cat-' + cat).style.display = 'block';
+  btn.classList.add('active');
+}
+function showStyle(cat, style, btn) {
+  const section = document.getElementById('cat-' + cat);
+  section.querySelectorAll('.demo-section').forEach(s => s.classList.remove('active'));
+  section.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(cat + '-' + style).classList.add('active');
   btn.classList.add('active');
 }
 </script>
