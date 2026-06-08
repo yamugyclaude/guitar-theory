@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI 스타일 데모</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f0f0f;
+    color: #e8e8e8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding-bottom: 60px;
+  }
+
+  /* 헤더 */
+  .demo-header {
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .demo-header h1 { font-size: 1rem; color: #e8e8e8; }
+  .demo-header p { font-size: 0.78rem; color: #999; margin-top: 2px; }
+
+  /* 탭 네비 */
+  .style-nav {
+    display: flex;
+    gap: 6px;
+    padding: 12px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    position: sticky;
+    top: 57px;
+    z-index: 99;
+  }
+  .style-nav::-webkit-scrollbar { display: none; }
+  .style-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #444;
+    background: transparent;
+    color: #999;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .style-btn.active {
+    background: #4a9eff;
+    border-color: #4a9eff;
+    color: #fff;
+  }
+
+  /* 섹션 공통 */
+  .demo-section {
+    display: none;
+    padding: 20px 16px;
+  }
+  .demo-section.active { display: block; }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .section-desc {
+    font-size: 0.78rem;
+    color: #999;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .section-desc strong { color: #4a9eff; }
+
+  /* ───────────────────────────────
+     스타일 1: 카드 그리드
+  ─────────────────────────────── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1px solid #2a2a2a;
+  }
+  .card:active { transform: scale(0.97); }
+  .card-thumb {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+  }
+  .card-info { padding: 10px; }
+  .card-title { font-size: 0.85rem; font-weight: 600; }
+  .card-sub { font-size: 0.72rem; color: #999; margin-top: 3px; }
+
+  /* ───────────────────────────────
+     스타일 2: 가로 스크롤 섹션
+  ─────────────────────────────── */
+  .hscroll-section { margin-bottom: 28px; }
+  .hscroll-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    padding: 0 2px;
+  }
+  .hscroll-row {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .hscroll-row::-webkit-scrollbar { display: none; }
+  .hscroll-card {
+    flex-shrink: 0;
+    width: 130px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #2a2a2a;
+  }
+  .hscroll-thumb {
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+  }
+  .hscroll-info { padding: 8px 10px; }
+  .hscroll-title { font-size: 0.8rem; font-weight: 600; }
+  .hscroll-sub { font-size: 0.7rem; color: #999; margin-top: 2px; }
+
+  /* ───────────────────────────────
+     스타일 3: 리스트 + 썸네일
+  ─────────────────────────────── */
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    border: 1px solid #2a2a2a;
+    transition: background 0.15s;
+  }
+  .list-item:active { background: #252525; }
+  .list-thumb {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+  .list-info { flex: 1; min-width: 0; }
+  .list-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .list-meta { font-size: 0.72rem; color: #999; margin-top: 3px; }
+  .list-arrow { color: #555; font-size: 0.9rem; }
+
+  /* ───────────────────────────────
+     스타일 4: 큰 카드 세로
+  ─────────────────────────────── */
+  .big-card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #2a2a2a;
+    transition: transform 0.15s;
+  }
+  .big-card:active { transform: scale(0.99); }
+  .big-thumb {
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    position: relative;
+  }
+  .big-thumb-label {
+    position: absolute;
+    bottom: 10px;
+    left: 14px;
+    font-size: 0.7rem;
+    background: rgba(0,0,0,0.6);
+    padding: 3px 8px;
+    border-radius: 10px;
+    color: #ccc;
+  }
+  .big-info { padding: 14px 16px; }
+  .big-title { font-size: 1rem; font-weight: 700; }
+  .big-sub { font-size: 0.78rem; color: #999; margin-top: 4px; line-height: 1.5; }
+  .big-tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .big-tag {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: #252525;
+    color: #aaa;
+  }
+
+  /* ───────────────────────────────
+     스타일 5: 혼합형
+  ─────────────────────────────── */
+  .hero-card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #2a2a2a;
+  }
+  .hero-thumb {
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+  }
+  .hero-info { padding: 14px 16px; }
+  .hero-badge {
+    font-size: 0.68rem;
+    color: #4a9eff;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .hero-title { font-size: 1.05rem; font-weight: 700; }
+  .hero-sub { font-size: 0.78rem; color: #999; margin-top: 4px; }
+
+  .mix-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #999;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .mini-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .mini-card {
+    background: #1a1a1a;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #2a2a2a;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .mini-emoji { font-size: 1.6rem; }
+  .mini-label { font-size: 0.65rem; color: #999; text-align: center; padding: 0 4px; }
+
+  /* 그라디언트 프리셋 */
+  .g1 { background: linear-gradient(135deg, #1a2a4a, #0d3b6e); }
+  .g2 { background: linear-gradient(135deg, #2a1a3a, #4a1a6e); }
+  .g3 { background: linear-gradient(135deg, #1a3a2a, #0d6e3b); }
+  .g4 { background: linear-gradient(135deg, #3a2a1a, #6e3b0d); }
+  .g5 { background: linear-gradient(135deg, #2a3a1a, #4a6e0d); }
+  .g6 { background: linear-gradient(135deg, #3a1a1a, #6e0d0d); }
+  .g7 { background: linear-gradient(135deg, #1a3a3a, #0d5e6e); }
+  .g8 { background: linear-gradient(135deg, #3a3a1a, #6e5e0d); }
+</style>
+</head>
+<body>
+
+<div class="demo-header">
+  <h1>🎨 UI 스타일 데모</h1>
+  <p>5가지 레이아웃 패턴 — 탭을 눌러서 비교해보세요</p>
+</div>
+
+<div class="style-nav">
+  <button class="style-btn active" onclick="showStyle(1, this)">1. 카드 그리드</button>
+  <button class="style-btn" onclick="showStyle(2, this)">2. 가로 스크롤</button>
+  <button class="style-btn" onclick="showStyle(3, this)">3. 리스트+썸네일</button>
+  <button class="style-btn" onclick="showStyle(4, this)">4. 큰 카드</button>
+  <button class="style-btn" onclick="showStyle(5, this)">5. 혼합형</button>
+</div>
+
+<!-- ── 1. 카드 그리드 ── -->
+<div class="demo-section active" id="style-1">
+  <div class="section-title">1. 카드 그리드</div>
+  <div class="section-desc">
+    <strong>Spotify · 앱스토어</strong> 스타일.<br>
+    항목이 많을 때 한눈에 보기 좋음. 현재 악보 탭에 사용 중.
+  </div>
+  <div class="card-grid">
+    <div class="card"><div class="card-thumb g1">🎸</div><div class="card-info"><div class="card-title">Hotel California</div><div class="card-sub">Eagles · PDF</div></div></div>
+    <div class="card"><div class="card-thumb g2">🎼</div><div class="card-info"><div class="card-title">Comfortably Numb</div><div class="card-sub">Pink Floyd · 악보</div></div></div>
+    <div class="card"><div class="card-thumb g3">📝</div><div class="card-info"><div class="card-title">Little Wing</div><div class="card-sub">Hendrix · 차트</div></div></div>
+    <div class="card"><div class="card-thumb g4">🎵</div><div class="card-info"><div class="card-title">Eruption</div><div class="card-sub">Van Halen · 탭</div></div></div>
+    <div class="card"><div class="card-thumb g5">🎸</div><div class="card-info"><div class="card-title">Cliffs of Dover</div><div class="card-sub">Eric Johnson</div></div></div>
+    <div class="card"><div class="card-thumb g6">🎼</div><div class="card-info"><div class="card-title">Sultans of Swing</div><div class="card-sub">Dire Straits</div></div></div>
+    <div class="card"><div class="card-thumb g7">📝</div><div class="card-info"><div class="card-title">Gravity</div><div class="card-sub">John Mayer</div></div></div>
+    <div class="card"><div class="card-thumb g8">🎵</div><div class="card-info"><div class="card-title">Riviera Paradise</div><div class="card-sub">SRV</div></div></div>
+  </div>
+</div>
+
+<!-- ── 2. 가로 스크롤 섹션 ── -->
+<div class="demo-section" id="style-2">
+  <div class="section-title">2. 가로 스크롤 섹션</div>
+  <div class="section-desc">
+    <strong>넷플릭스 · Apple Music</strong> 스타일.<br>
+    카테고리(기타리스트/장르)별로 묶어서 가로로 스크롤.
+  </div>
+
+  <div class="hscroll-section">
+    <div class="hscroll-label">🔥 최근 열람</div>
+    <div class="hscroll-row">
+      <div class="hscroll-card"><div class="hscroll-thumb g1">🎸</div><div class="hscroll-info"><div class="hscroll-title">Little Wing</div><div class="hscroll-sub">Hendrix</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g3">🎵</div><div class="hscroll-info"><div class="hscroll-title">Gravity</div><div class="hscroll-sub">John Mayer</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g5">🎼</div><div class="hscroll-info"><div class="hscroll-title">Riviera Paradise</div><div class="hscroll-sub">SRV</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g2">📝</div><div class="hscroll-info"><div class="hscroll-title">Cliffs of Dover</div><div class="hscroll-sub">E.Johnson</div></div></div>
+    </div>
+  </div>
+
+  <div class="hscroll-section">
+    <div class="hscroll-label">🎸 SRV 스타일</div>
+    <div class="hscroll-row">
+      <div class="hscroll-card"><div class="hscroll-thumb g4">🎵</div><div class="hscroll-info"><div class="hscroll-title">Pride and Joy</div><div class="hscroll-sub">SRV</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g6">🎸</div><div class="hscroll-info"><div class="hscroll-title">Texas Flood</div><div class="hscroll-sub">SRV</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g8">🎼</div><div class="hscroll-info"><div class="hscroll-title">Lenny</div><div class="hscroll-sub">SRV</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g1">📝</div><div class="hscroll-info"><div class="hscroll-title">Couldn't Stand</div><div class="hscroll-sub">SRV</div></div></div>
+    </div>
+  </div>
+
+  <div class="hscroll-section">
+    <div class="hscroll-label">🎯 John Mayer</div>
+    <div class="hscroll-row">
+      <div class="hscroll-card"><div class="hscroll-thumb g3">🎵</div><div class="hscroll-info"><div class="hscroll-title">Slow Dancing</div><div class="hscroll-sub">JM</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g5">🎸</div><div class="hscroll-info"><div class="hscroll-title">Neon</div><div class="hscroll-sub">JM</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g7">🎼</div><div class="hscroll-info"><div class="hscroll-title">Gravity</div><div class="hscroll-sub">JM</div></div></div>
+      <div class="hscroll-card"><div class="hscroll-thumb g2">📝</div><div class="hscroll-info"><div class="hscroll-title">Bold As Love</div><div class="hscroll-sub">JM</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. 리스트 + 썸네일 ── -->
+<div class="demo-section" id="style-3">
+  <div class="section-title">3. 리스트 + 썸네일</div>
+  <div class="section-desc">
+    <strong>유튜브 · 파일 앱</strong> 스타일.<br>
+    빠르게 스캔하고 바로 열기 좋음. 제목이 긴 곡에 유리.
+  </div>
+
+  <div class="list-item">
+    <div class="list-thumb g1">🎸</div>
+    <div class="list-info">
+      <div class="list-title">Hotel California</div>
+      <div class="list-meta">Eagles · PDF · 3일 전</div>
+    </div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g2">🎼</div>
+    <div class="list-info">
+      <div class="list-title">Comfortably Numb</div>
+      <div class="list-meta">Pink Floyd · 악보 · 1주 전</div>
+    </div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g3">📝</div>
+    <div class="list-info">
+      <div class="list-title">Little Wing</div>
+      <div class="list-meta">Hendrix · 차트 · 2주 전</div>
+    </div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g4">🎵</div>
+    <div class="list-info">
+      <div class="list-title">Cliffs of Dover</div>
+      <div class="list-meta">Eric Johnson · 탭 · 1달 전</div>
+    </div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g5">🎸</div>
+    <div class="list-info">
+      <div class="list-title">Riviera Paradise</div>
+      <div class="list-meta">SRV · PDF · 1달 전</div>
+    </div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g6">🎼</div>
+    <div class="list-info">
+      <div class="list-title">Gravity</div>
+      <div class="list-meta">John Mayer · 차트 · 2달 전</div>
+    </div>
+    <div class="list-arrow">›</div>
+  </div>
+</div>
+
+<!-- ── 4. 큰 카드 세로 ── -->
+<div class="demo-section" id="style-4">
+  <div class="section-title">4. 큰 카드 세로</div>
+  <div class="section-desc">
+    <strong>Apple Music · Podcast</strong> 스타일.<br>
+    한 항목을 크게 강조. 설명이나 태그가 많을 때 좋음.
+  </div>
+
+  <div class="big-card">
+    <div class="big-thumb g1">🎸<span class="big-thumb-label">PDF</span></div>
+    <div class="big-info">
+      <div class="big-title">Hotel California</div>
+      <div class="big-sub">Eagles의 명곡. 12현 기타 인트로부터 Don Felder와 Joe Walsh의 듀얼 기타 솔로까지.</div>
+      <div class="big-tags"><span class="big-tag">Rock</span><span class="big-tag">12현 기타</span><span class="big-tag">듀얼 솔로</span></div>
+    </div>
+  </div>
+  <div class="big-card">
+    <div class="big-thumb g3">🎵<span class="big-thumb-label">차트</span></div>
+    <div class="big-info">
+      <div class="big-title">Gravity — John Mayer</div>
+      <div class="big-sub">블루스-팝 퓨전의 정수. SRV 영향을 받은 벤딩과 코드 보이싱.</div>
+      <div class="big-tags"><span class="big-tag">Blues</span><span class="big-tag">Pop</span><span class="big-tag">JM 스타일</span></div>
+    </div>
+  </div>
+  <div class="big-card">
+    <div class="big-thumb g5">🎼<span class="big-thumb-label">악보</span></div>
+    <div class="big-info">
+      <div class="big-title">Riviera Paradise — SRV</div>
+      <div class="big-sub">텍사스 블루스의 서정적인 면을 보여주는 곡. 슬로우 재즈 코드 진행.</div>
+      <div class="big-tags"><span class="big-tag">Blues</span><span class="big-tag">SRV</span><span class="big-tag">슬로우</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 5. 혼합형 ── -->
+<div class="demo-section" id="style-5">
+  <div class="section-title">5. 혼합형</div>
+  <div class="section-desc">
+    <strong>요즘 앱 트렌드</strong> 스타일.<br>
+    중요한 건 크게(히어로), 빠른 접근은 미니 그리드, 나머지는 리스트.
+  </div>
+
+  <div class="mix-label">최근 열람</div>
+  <div class="hero-card">
+    <div class="hero-thumb g1">🎸</div>
+    <div class="hero-info">
+      <div class="hero-badge">마지막으로 열람</div>
+      <div class="hero-title">Little Wing — Jimi Hendrix</div>
+      <div class="hero-sub">3분 전 · 차트</div>
+    </div>
+  </div>
+
+  <div class="mix-label">빠른 접근</div>
+  <div class="mini-grid">
+    <div class="mini-card g1"><div class="mini-emoji">🎸</div><div class="mini-label">호텔 캘리포니아</div></div>
+    <div class="mini-card g3"><div class="mini-emoji">🎵</div><div class="mini-label">Gravity</div></div>
+    <div class="mini-card g5"><div class="mini-emoji">🎼</div><div class="mini-label">Eruption</div></div>
+    <div class="mini-card g7"><div class="mini-emoji">📝</div><div class="mini-label">Cliffs of Dover</div></div>
+  </div>
+
+  <div class="mix-label">전체 목록</div>
+  <div class="list-item">
+    <div class="list-thumb g2">🎸</div>
+    <div class="list-info"><div class="list-title">Comfortably Numb</div><div class="list-meta">Pink Floyd · 1주 전</div></div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g4">🎵</div>
+    <div class="list-info"><div class="list-title">Sultans of Swing</div><div class="list-meta">Dire Straits · 2주 전</div></div>
+    <div class="list-arrow">›</div>
+  </div>
+  <div class="list-item">
+    <div class="list-thumb g6">🎼</div>
+    <div class="list-info"><div class="list-title">Riviera Paradise</div><div class="list-meta">SRV · 1달 전</div></div>
+    <div class="list-arrow">›</div>
+  </div>
+</div>
+
+<script>
+function showStyle(n, btn) {
+  document.querySelectorAll('.demo-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('style-' + n).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
