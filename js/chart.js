@@ -1859,8 +1859,12 @@ export function buildChartHtml(draft, opts = {}) {
       ? `<div style="font-size:0.78rem;color:var(--accent2,var(--text2));margin-top:4px;font-style:italic">✏️ ${sec.memo}</div>`
       : '';
 
+    const secWrapStyle = sec.color
+      ? `background:${hexToRgba(sec.color,0.07)};border:1px solid ${hexToRgba(sec.color,0.25)};border-radius:8px;padding:8px;`
+      : '';
+
     return `
-      <div style="margin-bottom:18px">
+      <div style="margin-bottom:18px;${secWrapStyle}">
         <div style="font-weight:700;font-size:0.88rem;color:var(--accent);margin-bottom:5px;display:flex;align-items:center;gap:6px">
           ${startMarkHtml}${repeatStartHtml}
           <span>${sec.type || '—'}</span>
