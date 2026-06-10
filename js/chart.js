@@ -776,7 +776,8 @@ function staffLinesHtml() {
 
 // 코드 기호 → 리얼북 스타일 HTML (루트는 일반 크기, 퀄리티/확장음은 위첨자 + 음악 기호)
 function formatChordHtml(str) {
-  const s = String(str).trim();
+  // 유니코드 ♯/♭ 입력도 ASCII로 정규화 후 일괄 처리 (표시 시 다시 ♯/♭로 통일됨)
+  const s = String(str).trim().replace(/♯/g, '#').replace(/♭/g, 'b');
   if (!s) return '';
   const m = s.match(/^([A-G])([#b]?)(.*)$/);
   if (!m) return escHtml(s);
