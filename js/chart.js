@@ -807,8 +807,8 @@ function formatChordHtml(str) {
   const qSup  = qm[2] || '';
 
   let html = escHtml(letter) + symAcc(acc);
-  if (qBase) html += `<span style="font-size:0.92em;font-weight:700">${escHtml(qBase)}</span>`;
-  if (qSup) html += `<sup style="font-size:0.7em;font-weight:700">${escHtml(qSup)}</sup>`;
+  if (qBase) html += `<span style="font-size:0.92em;font-weight:inherit">${escHtml(qBase)}</span>`;
+  if (qSup) html += `<sup style="font-size:0.7em;font-weight:inherit">${escHtml(qSup)}</sup>`;
   if (bass) {
     const bm = bass.match(/^([A-G])([#b]?)$/);
     html += `<span style="font-size:0.85em">/${escHtml(bm[1])}${symAcc(bm[2])}</span>`;
@@ -1786,6 +1786,7 @@ function renderPreview() {}
 // ── 공개 렌더 함수 (live.js에서도 사용) ──────────────────────────
 export function buildChartHtml(draft, opts = {}) {
   const fs = opts.fontSize || '0.95rem';
+  const cw = opts.chordWeight || 700; // 코드 글씨 굵기 (라이브에서 조절)
   const showNums = opts.showBarNumbers !== false;
   let globalBarCount = 0; // 전체 마디 번호 누적
 
@@ -1888,14 +1889,14 @@ export function buildChartHtml(draft, opts = {}) {
             const vBg = b.bgColor ? `background:${hexToRgba(b.bgColor,0.18)};` : '';
             const slotsHtmlS = slots.map(c =>
               `<div style="flex:1;display:flex;align-items:flex-end;justify-content:flex-start;overflow:visible;padding:1px 2px 0 4px">
-                ${c ? `<span style="font-family:var(--chord-font,inherit);font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2};line-height:1.1">${formatChordHtml(c)}</span>`
+                ${c ? `<span style="font-family:var(--chord-font,inherit);font-size:${fs};font-weight:${cw};white-space:nowrap;overflow:visible;color:${chordColor2};line-height:1.1">${formatChordHtml(c)}</span>`
                     : `<span style="display:block;height:1em"></span>`}
               </div>`
             ).join('');
             return `<div style="flex:1;min-width:0;${vBg}${bLft}${bRgt}position:relative;display:flex;flex-direction:column;${rsV?'padding-left:8px;':''}${(reV===':||'||reV===':||:')?'padding-right:8px;':''}${isPickup?'max-width:54px;opacity:0.8;':''}">
               ${rsV ? leftMarkHtml('||:') : ''}${rightMarkHtml(reV)}
               ${showNums ? `<span style="position:absolute;top:0;${rsV?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNumV}</span>` : ''}
-              <div style="display:flex;flex:1;min-height:1.6em;align-items:stretch;padding:8px 2px 0">${slotsHtmlS}</div>
+              <div style="display:flex;height:1.9em;align-items:stretch;padding:8px 2px 0;overflow:visible">${slotsHtmlS}</div>
               ${vbarStyle === 'staff' ? staffLinesHtml() : ''}
             </div>`;
           }
@@ -1904,7 +1905,7 @@ export function buildChartHtml(draft, opts = {}) {
           const vJustify = vbarStyle === 'leadsheet' ? 'center' : 'flex-start';
           const slotsHtml = slots.map((c, si2) =>
             `<div style="flex:1;${si2>0?vDivider:''}display:flex;align-items:center;justify-content:${vJustify};overflow:visible;padding:2px 3px">
-              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2}">${formatChordHtml(c)}</span>`
+              ${c ? `<span style="font-size:${fs};font-weight:${cw};white-space:nowrap;overflow:visible;color:${chordColor2}">${formatChordHtml(c)}</span>`
                   : vbarStyle === 'leadsheet' ? `<span style="font-size:${fs};color:var(--text2);opacity:0.5">／</span>`
                   : `<span style="display:block;height:1em"></span>`}
             </div>`
@@ -1920,10 +1921,10 @@ export function buildChartHtml(draft, opts = {}) {
           const borderR = (re2===':||'||re2===':||:') ? 'border-right:3px solid var(--accent);' : `border-right:1px solid ${barBd2};`;
           const pleft  = rs2                           ? 'padding-left:8px;'  : '';
           const pright = (re2===':||'||re2===':||:')   ? 'padding-right:8px;' : '';
-          return `<div style="flex:1;min-width:0;background:${barBg2};${borderL}${borderR}border-top:1px solid ${barBd2};border-bottom:1px solid ${barBd2};border-radius:4px;position:relative;overflow:hidden;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
+          return `<div style="flex:1;min-width:0;background:${barBg2};${borderL}${borderR}border-top:1px solid ${barBd2};border-bottom:1px solid ${barBd2};border-radius:4px;position:relative;overflow:visible;display:flex;flex-direction:column;${pleft}${pright}${isPickup?'max-width:54px;opacity:0.8;':''}">
             ${rs2 ? leftMarkHtml('||:') : ''}${rightMarkHtml(re2)}
             ${showNums ? `<span style="position:absolute;top:2px;${rs2?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
-            <div style="display:flex;flex:1;min-height:2.2em;align-items:stretch;padding:4px 0">${slotsHtml}</div>
+            <div style="display:flex;height:2.2em;align-items:stretch;padding:4px 0;overflow:visible">${slotsHtml}</div>
           </div>`;
         }).join('')}
         ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.2em"></div>`).join('') : ''}

@@ -59,15 +59,17 @@ let wakeLock = null;
 let pagesPerView = 1;
 let liveZoom = parseFloat(localStorage.getItem('gta_live_zoom') || '1.0');
 let chordScale = parseFloat(localStorage.getItem('gta_live_chordscale') || '1.0');
+let chordWeight = parseInt(localStorage.getItem('gta_live_chordweight') || '700', 10);
 let _contentEl = null;
 function saveZoom(z) { liveZoom = z; localStorage.setItem('gta_live_zoom', z); }
 function saveChordScale(v) { chordScale = v; localStorage.setItem('gta_live_chordscale', v); }
+function saveChordWeight(v) { chordWeight = v; localStorage.setItem('gta_live_chordweight', v); }
 function chartFontSize() { return (liveZoom * 16).toFixed(1) + 'px'; }
 function chordFontSize() { return (liveZoom * 16 * chordScale).toFixed(1) + 'px'; }
 
 function renderChart(container, draft) {
   try {
-    const html = buildChartHtml(draft, { fontSize: chordFontSize(), showBarNumbers: true });
+    const html = buildChartHtml(draft, { fontSize: chordFontSize(), chordWeight, showBarNumbers: true });
     container.innerHTML = `<div style="padding:8px;font-size:${chartFontSize()}">${html}</div>`;
   } catch(e) {
     container.innerHTML = `<div style="color:red;padding:16px">오류: ${e.message}</div>`;
@@ -342,6 +344,10 @@ async function startFullscreen(songs, startIdx = 0) {
       <button id="chord-out" class="btn btn-secondary" style="padding:7px 12px;font-size:0.95rem;line-height:1">−</button>
       <span id="chord-label" style="font-size:0.78rem;color:var(--text2);min-width:40px;text-align:center"></span>
       <button id="chord-in" class="btn btn-secondary" style="padding:7px 12px;font-size:0.95rem;line-height:1">+</button>
+      <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">굵기:</span>
+      <button id="weight-out" class="btn btn-secondary" style="padding:7px 12px;font-size:0.85rem;line-height:1;font-weight:400">가</button>
+      <span id="weight-label" style="font-size:0.78rem;color:var(--text2);min-width:30px;text-align:center"></span>
+      <button id="weight-in" class="btn btn-secondary" style="padding:7px 12px;font-size:0.85rem;line-height:1;font-weight:800">가</button>
       <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">마디:</span>
       ${LIVE_BAR_STYLES.map(t =>
         `<button class="live-barstyle-btn btn btn-secondary" data-barstyle="${t.id}"
@@ -384,6 +390,22 @@ async function startFullscreen(songs, startIdx = 0) {
   nav.querySelector('#chord-in').addEventListener('click', () => {
     const s = CHORD_STEPS.filter(z => z > chordScale);
     if (s.length) { saveChordScale(s[0]); updateChordLabel(); reloadWithZoom(); }
+  });
+
+  // 코드 글씨 굵기
+  const WEIGHT_STEPS = [400, 500, 600, 700, 800];
+  function updateWeightLabel() {
+    const i = WEIGHT_STEPS.indexOf(chordWeight);
+    nav.querySelector('#weight-label').textContent = (i >= 0 ? i + 1 : 4) + '/5';
+  }
+  updateWeightLabel();
+  nav.querySelector('#weight-out').addEventListener('click', () => {
+    const s = WEIGHT_STEPS.filter(w => w < chordWeight);
+    if (s.length) { saveChordWeight(s[s.length-1]); updateWeightLabel(); reloadWithZoom(); }
+  });
+  nav.querySelector('#weight-in').addEventListener('click', () => {
+    const s = WEIGHT_STEPS.filter(w => w > chordWeight);
+    if (s.length) { saveChordWeight(s[0]); updateWeightLabel(); reloadWithZoom(); }
   });
 
   // 마디 표시 스타일
