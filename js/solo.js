@@ -73,6 +73,7 @@ function drawScaleDiagram(rootIdx, intervals) {
 
 export function render(panel) {
   const state = AppState.currentAnalysis;
+  const selKey = ENHARMONIC[state.detectedKey] || state.detectedKey; // Bb → A# 등 플랫 표기 호환
 
   panel.innerHTML = `
     <h1 class="page-title">🎯 솔로 메이킹</h1>
@@ -81,7 +82,7 @@ export function render(panel) {
         <div style="flex:1;min-width:120px">
           <div class="label">키</div>
           <select id="key-select">
-            ${NOTES.map(n => `<option value="${n}" ${state.detectedKey === n ? 'selected' : ''}>${n}</option>`).join('')}
+            ${NOTES.map(n => `<option value="${n}" ${selKey === n ? 'selected' : ''}>${n}</option>`).join('')}
           </select>
         </div>
         <div style="flex:1;min-width:120px">
