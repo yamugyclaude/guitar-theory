@@ -809,7 +809,7 @@ function formatChordHtml(str) {
 
   let html = escHtml(letter) + symAcc(acc);
   if (qBase) html += `<span style="font-size:0.92em;font-weight:inherit">${escHtml(qBase)}</span>`;
-  if (qSup) html += `<sup style="font-size:0.7em;font-weight:inherit">${escHtml(qSup)}</sup>`;
+  if (qSup) html += `<span style="font-size:0.78em;font-weight:inherit">${escHtml(qSup)}</span>`;
   if (bass) {
     const bm = bass.match(/^([A-G])([#b]?)$/);
     html += `<span style="font-size:0.85em">/${escHtml(bm[1])}${symAcc(bm[2])}</span>`;
