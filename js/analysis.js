@@ -22,10 +22,6 @@ const SOLOS = [
         techniques: ['스윕 피킹', '스트링 스키핑', '탭핑'],
       },
     ],
-    licks: [
-      { name: 'Sweep Arpeggio', tab: 'e|-------------12-|\nB|----------12-----|\nG|-------12--------|\nD|----12-----------|\nA|-12--------------|\nE|-----------------|' },
-      { name: 'Legato Run', tab: 'e|-12-14-15-12-14-15-|\nB|--------------------|\nG|--------------------|\nD|--------------------|\nA|--------------------|\nE|--------------------|' },
-    ],
   },
   {
     id: 2,
@@ -47,9 +43,6 @@ const SOLOS = [
         techniques: ['하이브리드 피킹', '치킨피킹'],
       },
     ],
-    licks: [
-      { name: 'Pentatonic Run', tab: 'e|-7-10-7-----------|\nB|--------10-8-7----|\nG|---------------9--|\nD|------------------|\nA|------------------|\nE|------------------|' },
-    ],
   },
   {
     id: 3,
@@ -70,9 +63,6 @@ const SOLOS = [
         notes: '리디안과 믹솔리디안을 넘나드는 유동적 모달 접근.',
         techniques: ['와미바', '스피드 피킹'],
       },
-    ],
-    licks: [
-      { name: 'Lydian Motif', tab: 'e|-9-11-13-14-13-11-9-|\nB|---------------------|\nG|---------------------|\nD|---------------------|\nA|---------------------|\nE|---------------------|' },
     ],
   },
 ];
@@ -115,13 +105,6 @@ function showDetail(panel, solo) {
     </div>
   `).join('');
 
-  const licks = solo.licks.map(l => `
-    <div style="margin-bottom:12px">
-      <div style="font-size:0.85rem;font-weight:600;margin-bottom:6px">${l.name}</div>
-      <pre class="tab" style="background:var(--bg3);padding:10px;border-radius:var(--radius);font-size:0.78rem;overflow-x:auto;border:1px solid var(--border)">${l.tab}</pre>
-    </div>
-  `).join('');
-
   panel.querySelector('#solo-detail').innerHTML = `
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
@@ -134,8 +117,9 @@ function showDetail(panel, solo) {
       <hr class="divider">
       <div class="section-label">섹션 분석</div>
       ${sections}
-      <div class="section-label" style="margin-top:16px">대표 릭 TAB</div>
-      ${licks}
+      <p style="font-size:0.74rem;color:var(--text2);margin-top:12px">
+        정확한 프레이즈는 실제 트랜스크립션으로 학습하세요 — 위 스케일/테크닉 정보를 가이드 삼아 원음과 대조하는 것이 가장 빠릅니다.
+      </p>
     </div>
   `;
   panel.querySelector('#to-library-btn').addEventListener('click', () => goTo(5, { artist: solo.style }));

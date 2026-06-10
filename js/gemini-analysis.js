@@ -190,6 +190,36 @@ export async function callAiRaw(imageBlob, promptText) {
   return text;
 }
 
+// ===== 화성 심층 해석 (이론 탭용 — 텍스트 전용) =====
+const DEEP_HARMONY_PROMPT = `당신은 버클리 음대에서 화성학과 즉흥연주를 가르치는 교수이며, 동시에 투어 경력이 있는 프로 재즈/퓨전 기타리스트입니다.
+학생은 프로급 기타리스트로, 기초 설명은 필요 없습니다. 아래 코드 진행과 1차 기능 분석을 바탕으로 심층 해석을 작성하세요.
+
+응답 형식 (마크다운, 한국어):
+## 화성적 서사
+이 진행이 만들어내는 긴장-해결의 드라마를 흐름으로 설명. 어디서 떠나고 어디로 돌아오는지, 각 전환점의 의미.
+
+## 핵심 포인트 (2~4개)
+프로 연주자가 주목해야 할 화성적 장치들. 1차 분석이 놓친 더 깊은 해석이 있으면 제시 (예: 콜트레인 체인지 단편, 컨스턴트 스트럭처, 베이스 라인 클리셰, 모달 프레임).
+
+## 즉흥연주 전략
+스케일 나열이 아니라 *접근법*: 어느 코드에서 아웃사이드로 나갈지, 가이드 톤 라인 설계, 모티브 개발 지점, 리듬적 텐션 포인트.
+
+## 리하모니제이션 제안 (2~3개)
+실제 적용 가능한 구체적 코드 대체 — 원래 코드 → 대체 코드와 그 이유. 트라이톤 서브, 패싱 디미니시, 모달 인터체인지, 어퍼 스트럭처 등.
+
+## 참고 레퍼토리
+이 진행 또는 유사한 화성 장치를 쓰는 실제 곡 2~3개 (곡명 — 아티스트, 어느 부분인지).
+
+규칙: 추측으로 곡을 지어내지 말 것. 확실한 곡만 언급. 전문 용어는 한국어 관용 표기 사용 (예: 트라이톤 서브, 가이드 톤).`;
+
+export async function deepHarmonyAnalysis(progressionText, engineSummary) {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('API 키가 설정되지 않았습니다. 설정 탭에서 AI API 키를 등록해주세요.');
+  const prompt = `${DEEP_HARMONY_PROMPT}\n\n--- 코드 진행 ---\n${progressionText}\n\n--- 1차 기능 분석 (앱 엔진) ---\n${engineSummary}`;
+  const { text } = await callAi(apiKey, [], prompt);
+  return text;
+}
+
 export async function analyzeSheet(imageBlob) {
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API 키가 설정되지 않았습니다.');

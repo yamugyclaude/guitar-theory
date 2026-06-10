@@ -684,6 +684,29 @@ const FUNC_COLORS = {
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// 간단 마크다운 → HTML (AI 해석 표시용)
+function mdToHtml(md) {
+  const lines = esc(md).split('\n');
+  let html = '', inList = false;
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^#{2,3}\s/.test(t)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<div style="font-weight:700;color:var(--accent);margin:14px 0 6px;font-size:0.9rem">${t.replace(/^#+\s*/,'')}</div>`;
+    } else if (/^[-*]\s/.test(t)) {
+      if (!inList) { html += '<ul style="margin:4px 0;padding-left:18px">'; inList = true; }
+      html += `<li style="margin-bottom:4px">${t.replace(/^[-*]\s*/,'')}</li>`;
+    } else if (t === '') {
+      if (inList) { html += '</ul>'; inList = false; }
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="margin:6px 0">${t}</p>`;
+    }
+  }
+  if (inList) html += '</ul>';
+  return html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
+}
+
 function showResult(panel, r) {
   const tonality = r.isBlues
     ? `${r.keyName} 블루스 토널리티 <span style="font-size:0.72rem;color:var(--text2)">(도미넌트 I — 기능화성과 블루스 어법이 공존)</span>`
@@ -740,6 +763,12 @@ function showResult(panel, r) {
       <div class="section-label">키 전체 스케일 (솔로용 베이스)</div>
       <table class="scale-table"><tbody>${globalHtml}</tbody></table>
     </div>
+    <div class="card">
+      <div class="section-label">🤖 AI 심층 해석</div>
+      <p style="font-size:0.76rem;color:var(--text2);margin:4px 0 10px">엔진 분석을 바탕으로 화성적 서사 · 즉흥연주 전략 · 리하모니제이션 · 참고 레퍼토리를 해석합니다.</p>
+      <button class="btn btn-primary" id="deep-ai-btn">심층 해석 요청</button>
+      <div id="deep-ai-result" style="margin-top:12px"></div>
+    </div>
     <div class="btn-row">
       <button class="btn btn-link" id="to-voicing">코드 보이싱 보기 →</button>
       <button class="btn btn-link" id="to-solo">솔로 메이킹 →</button>
@@ -749,6 +778,27 @@ function showResult(panel, r) {
       .scale-table td { padding:6px 0; border-bottom:1px solid var(--border); }
     </style>
   `;
+
+  panel.querySelector('#deep-ai-btn').addEventListener('click', async () => {
+    const btn = panel.querySelector('#deep-ai-btn');
+    const box = panel.querySelector('#deep-ai-result');
+    btn.disabled = true; btn.textContent = '해석 중...';
+    try {
+      const { deepHarmonyAnalysis } = await import('./gemini-analysis.js');
+      const progText = r.chords.map(c => c.raw).join(' - ');
+      const summary = [
+        `키: ${r.keyName} ${r.isMinor ? '마이너' : '메이저'}${r.isBlues ? ' (블루스 토널리티)' : ''}`,
+        '코드별 기능: ' + r.perChord.map(pc => `${pc.chord.raw}=${pc.analysis.degree}(${pc.analysis.label})`).join(', '),
+        r.units.length ? '진행 단위: ' + r.units.map(u => u.text).join(' / ') : '',
+        r.cadences.length ? '캐던스: ' + r.cadences.map(cd => `${cd.type} ${cd.text}`).join(' / ') : '',
+      ].filter(Boolean).join('\n');
+      const text = await deepHarmonyAnalysis(progText, summary);
+      box.innerHTML = `<div style="font-size:0.84rem;line-height:1.7;background:var(--bg3);border-radius:8px;padding:14px 16px">${mdToHtml(text)}</div>`;
+    } catch (e) {
+      box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">⚠️ ${esc(e.message)}</div>`;
+    }
+    btn.disabled = false; btn.textContent = '심층 해석 요청';
+  });
 
   panel.querySelector('#to-voicing').addEventListener('click', () => {
     const first = r.chords[0];
