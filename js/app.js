@@ -49,6 +49,8 @@ export function goTo(tab, payload = null) {
 }
 
 function switchTab(tab) {
+  // 재생 중인 사운드 정지
+  import('./audio.js').then(a => a.stopAll()).catch(() => {});
   // 이전 탭 DOM 비우기
   document.getElementById(`tab-${activeTab}`).innerHTML = '';
   document.querySelector(`.tab-btn[data-tab="${activeTab}"]`).classList.remove('active');

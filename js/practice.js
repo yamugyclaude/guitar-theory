@@ -1,4 +1,4 @@
-import { spellInterval } from './theory.js';
+import { spellInterval, parseChord } from './theory.js';
 
 // ═══════════════════════════════════════════════════════════════════
 //  연습 탭 — 고급 화성 어법 트레이닝
@@ -557,12 +557,31 @@ function renderChips(panel) {
       border:1px solid ${k === activeKey ? 'var(--accent)' : 'var(--border)'};
       background:${k === activeKey ? 'var(--bg3)' : 'var(--bg2)'};
       color:${k === activeKey ? 'var(--accent)' : 'var(--text2)'}">${k}</button>
-  `).join('');
+  `).join('') + `
+    <button id="drone-btn" style="min-width:70px;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:0.74rem;
+      border:1px dashed var(--border);background:var(--bg2);color:var(--text2)">𝄐 드론</button>`;
+
+  // 드론 토글 (키 루트 + 5도)
+  kc.querySelector('#drone-btn').addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    const audio = await import('./audio.js');
+    if (audio.isDroning()) {
+      audio.stopDrone();
+      btn.style.borderColor = 'var(--border)'; btn.style.color = 'var(--text2)'; btn.style.borderStyle = 'dashed';
+      btn.textContent = '𝄐 드론';
+    } else {
+      audio.startDrone(36 + NOTE_IDX[activeKey]); // C2 기준 낮은 드론
+      btn.style.borderColor = 'var(--accent)'; btn.style.color = 'var(--accent)'; btn.style.borderStyle = 'solid';
+      btn.textContent = `𝄐 ${activeKey} 드론 중`;
+    }
+  });
 
   tc.querySelectorAll('.topic-chip').forEach(b => b.addEventListener('click', () => {
+    import('./audio.js').then(a => a.stopAll()).catch(() => {});
     activeTopic = b.dataset.id; renderChips(panel); renderBody(panel);
   }));
   kc.querySelectorAll('.key-chip').forEach(b => b.addEventListener('click', () => {
+    import('./audio.js').then(a => a.stopAll()).catch(() => {});
     activeKey = b.dataset.key; renderChips(panel); renderBody(panel);
   }));
 }
@@ -573,10 +592,13 @@ function renderBody(panel) {
 
   const exHtml = exercises.map((ex, i) => `
     <div class="card">
-      <div style="font-weight:700;font-size:0.95rem;color:var(--accent)">연습 ${i+1}. ${ex.title}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="font-weight:700;font-size:0.95rem;color:var(--accent)">연습 ${i+1}. ${ex.title}</div>
+        <button class="btn btn-secondary ex-play-btn" data-exi="${i}" style="font-size:0.74rem;padding:5px 12px;flex-shrink:0">▶ 루프 재생</button>
+      </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0">
         ${ex.prog.map((ch, j) => `
-          <div style="flex:1;min-width:70px;text-align:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px">
+          <div class="ex-bar" data-exi="${i}" data-bar="${j}" style="flex:1;min-width:70px;text-align:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 4px;transition:border-color 0.15s">
             <div style="font-weight:700;font-size:0.95rem">${ch}</div>
             <div style="font-size:0.65rem;color:var(--text2);margin-top:2px">${ex.roman[j]}</div>
           </div>`).join('')}
@@ -629,4 +651,38 @@ function renderBody(panel) {
       </div>
     </div>
   `;
+
+  // ── 연습 진행 루프 재생 ──
+  panel.querySelectorAll('.ex-play-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const audio = await import('./audio.js');
+      const wasPlaying = btn.dataset.playing === '1';
+      // 모든 버튼 초기화
+      audio.stopSequence();
+      panel.querySelectorAll('.ex-play-btn').forEach(b => { b.textContent = '▶ 루프 재생'; b.dataset.playing = ''; });
+      panel.querySelectorAll('.ex-bar').forEach(el => { el.style.borderColor = 'var(--border)'; });
+      if (wasPlaying) return;
+
+      const exi = +btn.dataset.exi;
+      const ex = exercises[exi];
+      const midis = ex.prog.map(ch => {
+        const p = parseChord(ch);
+        return p ? audio.chordToMidi(p) : null;
+      });
+      if (midis.some(m => !m)) return;
+      btn.textContent = '■ 정지';
+      btn.dataset.playing = '1';
+      audio.playProgression(midis, {
+        bpm: 72, beatsPerChord: 4, loop: true,
+        onStep: idx => {
+          panel.querySelectorAll(`.ex-bar`).forEach(el => { el.style.borderColor = 'var(--border)'; });
+          if (idx >= 0) {
+            const cur = panel.querySelector(`.ex-bar[data-exi="${exi}"][data-bar="${idx}"]`);
+            if (cur) cur.style.borderColor = 'var(--accent)';
+          }
+        }
+      });
+    });
+  });
 }
+

@@ -348,7 +348,7 @@ export function render(panel) {
         moveHtml = `<div style="font-size:0.64rem;color:var(--text2);margin-top:2px">공통음 ${common} · 이동 ${totalMove}반음</div>`;
       }
       return `
-        <div style="text-align:center;flex-shrink:0">
+        <div class="vl-cell" data-vli="${i}" style="text-align:center;flex-shrink:0;border-radius:8px;padding:4px;transition:background 0.15s">
           <div style="font-weight:700;font-size:0.88rem">${chords[i].raw}</div>
           <div style="font-size:0.62rem;color:var(--text2)">${v.setLabel} · ${v.bassDeg} 베이스</div>
           ${drawDiagram(v.frets, v.degs, leftHanded)}
@@ -358,10 +358,41 @@ export function render(panel) {
 
     box.innerHTML = `
       ${anyExtended ? '<div style="font-size:0.7rem;color:var(--link);margin-bottom:6px">트라이어드는 7th로 확장해 연결했습니다.</div>' : ''}
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <button class="btn btn-secondary" id="vl-play" style="font-size:0.78rem;padding:6px 14px">▶ 재생</button>
+        <label style="font-size:0.74rem;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="vl-loop" checked> 루프
+        </label>
+      </div>
       <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;align-items:flex-start">${cells}</div>
       <div style="font-size:0.72rem;color:var(--text2);margin-top:6px;line-height:1.5">
         성부 4개가 각각 최소 거리로 움직이도록 인버전·현 세트를 선택했습니다. 같은 색 점(도수)이 코드마다 어떻게 이동하는지 따라가 보세요 — 그것이 보이스 리딩입니다.
       </div>`;
+
+    const playBtn = box.querySelector('#vl-play');
+    playBtn.addEventListener('click', async () => {
+      const audio = await import('./audio.js');
+      if (audio.isPlaying()) {
+        audio.stopSequence();
+        playBtn.textContent = '▶ 재생';
+        box.querySelectorAll('.vl-cell').forEach(el => el.style.background = '');
+        return;
+      }
+      const loop = box.querySelector('#vl-loop').checked;
+      playBtn.textContent = '■ 정지';
+      audio.playProgression(path.map(v => v.pitches), {
+        bpm: 76, beatsPerChord: 2, loop,
+        onStep: idx => {
+          box.querySelectorAll('.vl-cell').forEach(el => el.style.background = '');
+          if (idx >= 0) {
+            const cur = box.querySelector(`.vl-cell[data-vli="${idx}"]`);
+            if (cur) cur.style.background = 'var(--bg3)';
+          } else {
+            playBtn.textContent = '▶ 재생';
+          }
+        }
+      });
+    });
   }
   panel.querySelector('#vl-btn').addEventListener('click', runVoiceLead);
   panel.querySelector('#vl-input').addEventListener('keydown', e => { if (e.key === 'Enter') runVoiceLead(); });
