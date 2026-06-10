@@ -51,6 +51,26 @@ const SCALES = {
     letters: [0,1,2,3,4,5,6], color: ['b7'],
     parent: () => '메이저 스케일의 5번째 모드',
   },
+  'Melodic Minor': {
+    semis: [0,2,3,5,7,9,11], degs: ['R','9','b3','11','5','13','7'],
+    letters: [0,1,2,3,4,5,6], color: ['b3','7'],
+    parent: () => '도리안의 b7을 ♮7로 — "마이너인데 메이저처럼 끝나는" 스케일',
+  },
+  'Locrian ♮2': {
+    semis: [0,2,3,5,6,8,10], degs: ['R','9','b3','11','b5','b13','b7'],
+    letters: [0,1,2,3,4,5,6], color: ['9'],
+    parent: (root) => `${spellInterval(root, 3, 2)} 멜로딕 마이너의 6번째 모드`,
+  },
+  'Bebop Dominant': {
+    semis: [0,2,4,5,7,9,10,11], degs: ['R','9','3','11','5','13','b7','7'],
+    letters: [0,1,2,3,4,5,6,6], color: ['7'],
+    parent: () => '믹솔리디안 + 경과 ♮7 — 8음이라 코드 톤이 항상 정박에 떨어진다',
+  },
+  'Dorian (Quartal)': {
+    semis: [0,2,3,5,7,9,10], degs: ['R','9','b3','11','5','13','b7'],
+    letters: [0,1,2,3,4,5,6], color: ['11','b7'],
+    parent: () => '쿼털 보이싱의 모판 — 4도 쌓기가 모두 스케일 안에 있다',
+  },
 };
 
 function scaleNotes(root, scaleName) {
@@ -338,6 +358,169 @@ const TOPICS = [
       '루트 반음 위 dim7 아르페지오 = V7b9 사고 변환 (12키 즉답)',
       'b9+13 동시 사용 프레이즈 3개 작곡 → 12키 이동',
       '착지음 선지정 훈련: 시작 전 "다음 코드 3도"를 소리 내어 말하고 연주',
+    ],
+  },
+  {
+    id: 'melmin',
+    title: '멜로딕 마이너 시스템',
+    intro: '하나의 스케일에서 7개의 모드가 나오는 "현대 재즈의 모판". 리디안 도미넌트(4모드)·얼터드(7모드)·로크리안 ♮2(6모드)가 전부 여기서 나온다 — 핑거링 하나로 세 가지 고급 사운드를 모두 얻는 시스템.',
+    when: [
+      'm6 · m(maj7) 코드 — 멜로딕 마이너 그 자체 (마이너 토닉의 모던한 색)',
+      'm7b5 코드 — 로크리안 ♮2 (b3 위 멜로딕 마이너)로 9th 텐션 확보',
+      '7#11 — 리디안 도미넌트 (5도 위 멜로딕 마이너)',
+      '7alt — 얼터드 (반음 위 멜로딕 마이너)',
+    ],
+    how: [
+      '핵심 사고: "어떤 멜로딕 마이너를 빌릴 것인가". 코드 → 모(母) 멜로딕 마이너 변환표를 즉답 수준으로 — m7b5는 b3 위, 7alt는 반음 위, 7#11은 5도 위.',
+      '특성음은 b3와 ♮7의 공존 — 마이너의 어두움과 메이저의 상승감이 한 스케일에 있다. 이 모순이 모던 사운드의 원천.',
+      '마이너 ii–V–i 전체를 멜로딕 마이너 3개로 처리: IIm7b5(b3 위) → V7alt(반음 위) → Im6(그 자체). 핑거링은 하나, 위치만 이동.',
+      'm(maj7) 아르페지오(R–b3–5–7)를 독립 어휘로 — 제임스 본드 테마의 마지막 코드가 이 소리다.',
+    ],
+    exercises: (key) => {
+      const r = key;
+      const two = spellInterval(r,2,1);
+      const five = spellInterval(r,7,4);
+      return [
+        {
+          title: '마이너 토닉 — m6/m(maj7) 사운드',
+          prog: [chordFrom(r,0,0,'m6'), chordFrom(r,0,0,'m(maj7)'), chordFrom(r,0,0,'m7'), chordFrom(r,0,0,'m6')],
+          roman: ['Im6','Im(maj7)','Im7','Im6'],
+          guide: `같은 마이너 토닉의 색 변화(6→7→b7→6)를 멜로디로 직접 연주 — 클리셰 라인의 본체. ${r} 멜로딕 마이너에서 13과 ♮7을 정점에 배치하면 영화음악적 마이너가 된다. b7(도리안)과 ♮7(멜로딕)을 의도적으로 구분해서 칠 것.`,
+          scaleRoot: r, scaleName: 'Melodic Minor',
+          scaleNote: `${r} 멜로딕 마이너 — 주황 b3(마이너 정체성)와 ♮7(상승감)의 공존이 핵심.`,
+        },
+        {
+          title: '마이너 ii–V–i를 멜로딕 마이너 3개로',
+          prog: [chordFrom(r,2,1,'m7b5'), chordFrom(r,7,4,'7alt'), chordFrom(r,0,0,'m6')],
+          roman: ['IIm7b5','V7alt','Im6'],
+          guide: `사고 변환: ${two}m7b5 = ${spellInterval(two,3,2)} 멜로딕 마이너(b3 위) / ${five}7alt = ${spellInterval(five,1,1)} 멜로딕 마이너(반음 위) / ${r}m6 = ${r} 멜로딕 마이너. 같은 핑거링이 ${spellInterval(two,3,2)}→${spellInterval(five,1,1)}→${r}로 이동할 뿐이다. 위치 이동을 소리 내어 말하면서 연주할 것.`,
+          scaleRoot: two, scaleName: 'Locrian ♮2',
+          scaleNote: `IIm7b5 위: ${two} 로크리안 ♮2. 주황 9가 일반 로크리안에 없는 텐션 — 이 음 때문에 멜로딕 마이너 시스템을 쓴다.`,
+        },
+        {
+          title: 'm(maj7) 아르페지오 어휘',
+          prog: [chordFrom(r,0,0,'m(maj7)'), chordFrom(r,0,0,'m(maj7)'), chordFrom(r,5,3,'7#11'), chordFrom(r,0,0,'m(maj7)')],
+          roman: ['Im(maj7)','Im(maj7)','IV7#11','Im(maj7)'],
+          guide: `R–b3–5–♮7 아르페지오를 모든 인버전으로. IV7#11 구간은 같은 ${r} 멜로딕 마이너가 그대로 통한다(${spellInterval(r,5,3)}7#11 = ${r} 멜로딕 마이너의 4모드) — 코드가 바뀌어도 스케일이 안 바뀌는 경험이 이 시스템의 핵심 통찰.`,
+          scaleRoot: r, scaleName: 'Melodic Minor',
+          scaleNote: `두 코드 모두 ${r} 멜로딕 마이너 하나로 — 모드 시스템의 경제성.`,
+        },
+      ];
+    },
+    routine: [
+      '멜로딕 마이너 1포지션을 12키 (5도권 순환)',
+      '변환표 즉답 드릴: 코드명 보고 모 멜로딕 마이너 말하기 (m7b5→b3 위, alt→반음 위, 7#11→5도 위)',
+      '마이너 ii–V–i를 "핑거링 하나 + 위치 3개"로 12키',
+      'm(maj7) 아르페지오 4인버전 → 클리셰 라인(6-7-b7-6)과 결합',
+    ],
+  },
+  {
+    id: 'quartal',
+    title: '쿼털 보이싱',
+    intro: '3도 대신 4도로 쌓는 보이싱 — 맥코이 타이너, 빌 에반스가 정착시킨 모달 재즈의 사운드. 장르 표식이 약해 "코드가 아니라 색"처럼 들리는 것이 무기.',
+    when: [
+      '모달 뱀프 (도리안/믹솔리디안 원코드) — So What 스타일 컴핑',
+      'm7 코드에서 3도 보이싱이 너무 "설명적"으로 들릴 때',
+      '록/퓨전에서 파워코드보다 세련된 미니멀 보이싱이 필요할 때',
+      '솔로 중 셀프 컴핑 — 4도 2~3음 스탭은 한 손가락 모양으로 이동 가능',
+    ],
+    how: [
+      '기본 단위는 스케일 안의 4도 3음 스택. 도리안에서 R–4–b7, 2–5–R, b3–13–9… 모두 같은 손모양(완전4도 2개)이거나 한 음만 다르다.',
+      '"So What 보이싱" = 4도 3개 + 위에 장3도 하나 (예: Dm7: D–G–C–E–A... 기타에선 x-5-5-5-5-5 형태). 이 한 폼을 스케일 따라 평행 이동하는 것이 맥코이 어법.',
+      '쿼털은 기능이 모호해서 "해결"이 아니라 "이동"으로 쓴다 — 스케일 안에서 2도씩 평행 이동하는 것 자체가 진행이다.',
+      '솔로 어휘로도 사용: 4도 인터벌 라인(연속 4도 도약)은 즉시 모던한 멜로디가 된다.',
+    ],
+    exercises: (key) => {
+      const r = key;
+      const two = spellInterval(r,2,1);
+      return [
+        {
+          title: '도리안 쿼털 평행 이동 (So What 어법)',
+          prog: [chordFrom(r,0,0,'m7'), chordFrom(r,0,0,'m7'), chordFrom(r,0,0,'m7'), chordFrom(r,0,0,'m7')],
+          roman: ['Im7 (도리안 뱀프)','—','—','—'],
+          guide: `${r} 도리안 안에서 4도 3음 스택을 만들어 스케일 음 따라 위아래로 평행 이동. 기타 폼: 4·3·2번 현에서 같은 프렛 누르기(완전4도 2개) — 도리안 위에서 한 음씩 올리면 자동으로 쿼털 하모니가 흐른다. 2도 이동이 "코드 체인지"처럼 들리는 걸 확인할 것.`,
+          scaleRoot: r, scaleName: 'Dorian (Quartal)',
+          scaleNote: `${r} 도리안 — 주황 11·b7이 4도 스택의 뼈대.`,
+        },
+        {
+          title: 'ii–V를 쿼털로 컴핑',
+          prog: [chordFrom(r,2,1,'m11'), chordFrom(r,7,4,'7sus4'), chordFrom(r,0,0,'maj7'), chordFrom(r,0,0,'6')],
+          roman: ['IIm11','V7sus4','Imaj7','I6'],
+          guide: `m11과 7sus4는 본질적으로 쿼털 코드다 — ${two}m11(${two}–${spellInterval(two,5,3)}–${spellInterval(two,10,6)}–${spellInterval(two,15,2)} 4도 연쇄). ii–V 전체를 4도 스택 평행 이동으로 컴핑하면 베이스 없이도 모던 재즈 콰르텟 사운드. I 도착에서만 3도 보이싱으로 풀어 "도착감"을 만든다.`,
+          scaleRoot: two, scaleName: 'Dorian (Quartal)',
+          scaleNote: `${two} 도리안 — m11 쿼털 스택의 재료.`,
+        },
+        {
+          title: '4도 인터벌 솔로 라인',
+          prog: [chordFrom(r,0,0,'m7'), chordFrom(r,5,3,'7'), chordFrom(r,0,0,'m7'), chordFrom(r,10,6,'maj7')],
+          roman: ['Im7','IV7','Im7','bVIImaj7'],
+          guide: `도리안 모달 진행 위에서 연속 4도 도약 라인(예: R↗4↗b7↗b3) — 3도 멜로디에 익숙한 귀에 즉시 "모던"으로 들린다. 규칙: 4도 도약 2~3개 후 반드시 2도 스텝으로 숨 고르기. 도약만 계속되면 음악이 아니라 연습이 된다.`,
+          scaleRoot: r, scaleName: 'Dorian (Quartal)',
+          scaleNote: `4도 라인도 같은 도리안 안 — 인터벌 선택이 사운드를 바꾼다.`,
+        },
+      ];
+    },
+    routine: [
+      '4·3·2번 현 동일 프렛 폼으로 도리안 전체를 수평 이동 (12프렛까지)',
+      'So What 보이싱(쿼털+장3도) 2위치 암기 → 2도 평행 이동',
+      'ii–V–I를 쿼털 컴핑 → I에서만 3도 보이싱 해결, 12키',
+      '4도 도약 라인 작곡 3개 — "도약 2~3개 + 스텝 숨고르기" 규칙으로',
+    ],
+  },
+  {
+    id: 'bebop',
+    title: '비밥 어휘',
+    intro: '찰리 파커가 체계화한 선율 문법 — 크로매틱 경과음으로 코드 톤을 정박에 정렬하는 기술. 스케일이 아니라 "타이밍 시스템"이다.',
+    when: [
+      '8분음표 라인이 코드와 어긋나게 들릴 때 — 비밥 스케일이 정렬을 복원한다',
+      'ii–V–I에서 "재즈답게" 들리고 싶을 때 — 인클로저와 3→9 아르페지오',
+      '스윙/스트레이트 무관 — 펑크·퓨전·록 솔로에도 크로매틱 어프로치는 그대로 통한다',
+      '솔로가 스케일 런처럼 들린다는 느낌이 들 때 (가장 흔한 처방전)',
+    ],
+    how: [
+      '비밥 도미넌트 = 믹솔리디안 + ♮7 경과음. 8음이 되면서 코드 톤(R·3·5·b7)이 전부 정박에 떨어진다 — 하행 8분음표로 직접 확인할 것.',
+      '인클로저: 목표 코드 톤을 반음 위 + 스케일 음 아래(또는 그 반대)로 감싸고 착지. 모든 코드 톤에 적용 가능한 만능 장식.',
+      '3→9 아르페지오: m7 코드에서 3도부터 쌓는 아르페지오(b3–5–b7–9)는 자동으로 9th 텐션 라인이 된다. Dm7에서 F–A–C–E = Fmaj7 아르페지오를 치는 것.',
+      '프레이즈는 "업비트 출발"이 기본 — 1박 정박이 아니라 1박 뒤 8분에서 시작하면 같은 음들도 재즈로 들린다.',
+    ],
+    exercises: (key) => {
+      const r = key;
+      const two = spellInterval(r,2,1);
+      const five = spellInterval(r,7,4);
+      const threeUp = spellInterval(two,3,2);
+      return [
+        {
+          title: '비밥 도미넌트 하행 — 정박 정렬 체험',
+          prog: [chordFrom(r,7,4,'7'), chordFrom(r,7,4,'7'), chordFrom(r,0,0,'maj7'), chordFrom(r,0,0,'maj7')],
+          roman: ['V7','V7','Imaj7','Imaj7'],
+          guide: `${five} 비밥 도미넌트를 루트에서 하행 8분음표로 — R·b7·13·5… 짝수 위치에 경과음이 끼면서 코드 톤이 전부 정박(1·2·3·4박)에 떨어진다. 먼저 믹솔리디안(7음)으로 하행해서 "어긋나는" 걸 듣고, ♮7을 추가해 "정렬되는" 걸 비교 청취할 것.`,
+          scaleRoot: five, scaleName: 'Bebop Dominant',
+          scaleNote: `${five} 비밥 도미넌트 — 주황 ♮7이 경과음. 화성음이 아니라 타이밍 장치다.`,
+        },
+        {
+          title: 'ii–V–I 인클로저 + 3→9',
+          prog: [chordFrom(r,2,1,'m7'), chordFrom(r,7,4,'7'), chordFrom(r,0,0,'maj7'), chordFrom(r,0,0,'6')],
+          roman: ['IIm7','V7','Imaj7','I6'],
+          guide: `${two}m7에서 3→9 아르페지오(${threeUp}maj7 아르페지오와 동일) → ${five}7의 3도(${spellInterval(five,4,2)})를 인클로저로 감싸 착지 → ${r}maj7의 3도로 해결. 이 한 문장이 비밥 ii–V 어휘의 골격이다. 처음엔 느리게, 음이름을 말하면서.`,
+          scaleRoot: five, scaleName: 'Bebop Dominant',
+          scaleNote: `V7 구간 스케일. 인클로저 목표음 = 3도(${spellInterval(five,4,2)}).`,
+        },
+        {
+          title: '연속 ii–V 체인 — 어휘 이식 훈련',
+          prog: [chordFrom(r,4,2,'m7'), chordFrom(r,9,5,'7'), chordFrom(r,2,1,'m7'), chordFrom(r,7,4,'7')],
+          roman: ['IIIm7','V7/II','IIm7','V7'],
+          guide: `같은 ii–V 프레이즈를 온음 아래로 이식(${spellInterval(r,4,2)}m7–${spellInterval(r,9,5)}7 → ${two}m7–${five}7). 비밥 어휘는 "한 번 만든 문장을 모든 ii–V에 이식"하는 방식으로 는다. 한 프레이즈를 12키 ii–V에서 즉시 재생할 수 있을 때 비로소 어휘가 된 것.`,
+          scaleRoot: spellInterval(r,9,5), scaleName: 'Bebop Dominant',
+          scaleNote: `첫 V7(${spellInterval(r,9,5)}7) 구간 스케일 — 같은 모양이 온음 아래로 복제된다.`,
+        },
+      ];
+    },
+    routine: [
+      '비밥 도미넌트 하행을 메트로놈 2·4 클릭으로 — 코드 톤 정박 확인',
+      '인클로저를 메이저 트라이어드 전 코드 톤에 적용, 12키',
+      '3→9 사고 변환: m7 코드 보면 "3도 위 maj7 아르페지오" 즉답',
+      'ii–V 프레이즈 1개 작곡 → 12키 이식 (5도권 하행)',
+      '업비트 출발 훈련: 같은 프레이즈를 정박/업비트 두 버전으로 녹음 비교',
     ],
   },
 ];
