@@ -750,20 +750,19 @@ function voltaHtml(volta) {
   </div>`;
 }
 
-// 마디 표시 스타일: 'slots'(4분할) | 'leadsheet'(빈 박 슬래시) | 'minimal'(코드만)
-//                  | 'staff'(리얼북 오선지) | 'barsonly'(세로 마디선만)
+// 마디 표시 스타일: 'slots'(4분할) | 'staff'(리얼북 오선지) | 'barsonly'(세로 마디선만)
 // 섹션에 renderStyle이 지정되면 전역 설정보다 우선 — 한 곡 안에서 스타일 혼합 가능
+// 폐기된 구 스타일(leadsheet/minimal)은 slots로 정규화
+function normBarStyle(v) { return (v==='leadsheet'||v==='minimal') ? 'slots' : v; }
 function getBarStyle(sec) {
-  if (sec?.renderStyle) return sec.renderStyle;
-  try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').barStyle || 'slots'; } catch { return 'slots'; }
+  if (sec?.renderStyle) return normBarStyle(sec.renderStyle);
+  try { return normBarStyle(JSON.parse(localStorage.getItem('gta_settings')||'{}').barStyle || 'slots'); } catch { return 'slots'; }
 }
 
 const BAR_STYLE_OPTIONS = [
-  { id:'slots',     label:'4분할' },
-  { id:'leadsheet', label:'리드시트' },
-  { id:'minimal',   label:'심플' },
-  { id:'staff',     label:'오선지' },
-  { id:'barsonly',  label:'마디선' },
+  { id:'slots',    label:'4분할' },
+  { id:'staff',    label:'오선지' },
+  { id:'barsonly', label:'마디선' },
 ];
 
 function isStaffLike(style) { return style === 'staff' || style === 'barsonly'; }
@@ -802,8 +801,14 @@ function formatChordHtml(str) {
     .replace(/b(\d)/g, '♭$1')
     .replace(/#(\d)/g, '♯$1');
 
+  // 표준 표기법: 마이너 m / sus / +(aug)는 루트와 같은 줄, 확장·변화음만 위첨자
+  const qm = q.match(/^(m|sus[24]?|\+)?(.*)$/);
+  const qBase = qm[1] || '';
+  const qSup  = qm[2] || '';
+
   let html = escHtml(letter) + symAcc(acc);
-  if (q) html += `<sup style="font-size:0.7em;font-weight:700">${escHtml(q)}</sup>`;
+  if (qBase) html += `<span style="font-size:0.92em;font-weight:700">${escHtml(qBase)}</span>`;
+  if (qSup) html += `<sup style="font-size:0.7em;font-weight:700">${escHtml(qSup)}</sup>`;
   if (bass) {
     const bm = bass.match(/^([A-G])([#b]?)$/);
     html += `<span style="font-size:0.85em">/${escHtml(bm[1])}${symAcc(bm[2])}</span>`;

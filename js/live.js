@@ -36,40 +36,39 @@ function getSheetMeta() {
   catch { return []; }
 }
 
-// ── 라이브 테마 ──────────────────────────────────────────────────────
-const LIVE_THEMES = [
-  { id:'default', label:'기본',   bg:'',        text:'',        accent:'' },
-  { id:'dark',    label:'다크',   bg:'#0a0a0a', text:'#f0f0f0', accent:'#4a9eff' },
-  { id:'white',   label:'화이트', bg:'#ffffff', text:'#111111', accent:'#1a6ef5' },
-  { id:'sepia',   label:'세피아', bg:'#f4ede0', text:'#3a2a10', accent:'#8a4020' },
-  { id:'green',   label:'그린',   bg:'#0d1f0d', text:'#c8e8c0', accent:'#4caf50' },
-  { id:'night',   label:'나이트', bg:'#1a0a2e', text:'#e0d0ff', accent:'#bf40ff' },
+// ── 마디 표시 스타일 (라이브에서도 변경 가능 — 전역 설정과 공유) ──────
+const LIVE_BAR_STYLES = [
+  { id:'slots',    label:'4분할' },
+  { id:'staff',    label:'오선지' },
+  { id:'barsonly', label:'마디선' },
 ];
-let liveThemeId = localStorage.getItem('gta_live_theme') || 'default';
-function saveLiveTheme(id) { liveThemeId = id; localStorage.setItem('gta_live_theme', id); }
-function getLiveTheme() { return LIVE_THEMES.find(t => t.id === liveThemeId) || LIVE_THEMES[0]; }
+function getGlobalBarStyle() {
+  try {
+    const v = JSON.parse(localStorage.getItem('gta_settings')||'{}').barStyle || 'slots';
+    return (v==='leadsheet'||v==='minimal') ? 'slots' : v;
+  } catch { return 'slots'; }
+}
+function setGlobalBarStyle(id) {
+  const s = JSON.parse(localStorage.getItem('gta_settings')||'{}');
+  s.barStyle = id;
+  localStorage.setItem('gta_settings', JSON.stringify(s));
+}
 
-// ── 줌 ───────────────────────────────────────────────────────────────
+// ── 줌 / 코드 글자 크기 ──────────────────────────────────────────────
 let wakeLock = null;
 let pagesPerView = 1;
 let liveZoom = parseFloat(localStorage.getItem('gta_live_zoom') || '1.0');
+let chordScale = parseFloat(localStorage.getItem('gta_live_chordscale') || '1.0');
 let _contentEl = null;
 function saveZoom(z) { liveZoom = z; localStorage.setItem('gta_live_zoom', z); }
+function saveChordScale(v) { chordScale = v; localStorage.setItem('gta_live_chordscale', v); }
 function chartFontSize() { return (liveZoom * 16).toFixed(1) + 'px'; }
-
-function applyThemeToContainer(container) {
-  const t = getLiveTheme();
-  container.style.background = t.bg || '';
-  container.style.color = t.text || '';
-  if (t.accent) container.style.setProperty('--accent', t.accent);
-  else container.style.removeProperty('--accent');
-}
+function chordFontSize() { return (liveZoom * 16 * chordScale).toFixed(1) + 'px'; }
 
 function renderChart(container, draft) {
   try {
-    const html = buildChartHtml(draft, { fontSize: chartFontSize(), showBarNumbers: true });
+    const html = buildChartHtml(draft, { fontSize: chordFontSize(), showBarNumbers: true });
     container.innerHTML = `<div style="padding:8px;font-size:${chartFontSize()}">${html}</div>`;
-    applyThemeToContainer(container);
   } catch(e) {
     container.innerHTML = `<div style="color:red;padding:16px">오류: ${e.message}</div>`;
   }
@@ -339,10 +338,14 @@ async function startFullscreen(songs, startIdx = 0) {
       <button id="zoom-out" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">−</button>
       <span id="zoom-label" style="font-size:0.78rem;color:var(--text2);min-width:44px;text-align:center"></span>
       <button id="zoom-in" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">+</button>
-      <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">색상:</span>
-      ${LIVE_THEMES.map(t =>
-        `<button class="live-theme-btn btn btn-secondary" data-theme="${t.id}"
-          style="font-size:0.68rem;padding:4px 8px;${t.bg?`background:${t.bg};color:${t.text};`:''}">${t.label}</button>`
+      <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">코드:</span>
+      <button id="chord-out" class="btn btn-secondary" style="padding:7px 12px;font-size:0.95rem;line-height:1">−</button>
+      <span id="chord-label" style="font-size:0.78rem;color:var(--text2);min-width:40px;text-align:center"></span>
+      <button id="chord-in" class="btn btn-secondary" style="padding:7px 12px;font-size:0.95rem;line-height:1">+</button>
+      <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">마디:</span>
+      ${LIVE_BAR_STYLES.map(t =>
+        `<button class="live-barstyle-btn btn btn-secondary" data-barstyle="${t.id}"
+          style="font-size:0.68rem;padding:4px 8px">${t.label}</button>`
       ).join('')}
     </div>
   `;
@@ -370,16 +373,30 @@ async function startFullscreen(songs, startIdx = 0) {
     } else applyZoom();
   }
 
-  // 테마
-  function updateThemeBtns() {
-    nav.querySelectorAll('.live-theme-btn').forEach(b => {
-      b.style.outline = b.dataset.theme === liveThemeId ? '2px solid var(--accent)' : 'none';
+  // 코드 글자 크기
+  const CHORD_STEPS = [0.7,0.8,0.9,1.0,1.1,1.2,1.35,1.5,1.7];
+  function updateChordLabel() { nav.querySelector('#chord-label').textContent = Math.round(chordScale*100)+'%'; }
+  updateChordLabel();
+  nav.querySelector('#chord-out').addEventListener('click', () => {
+    const s = CHORD_STEPS.filter(z => z < chordScale);
+    if (s.length) { saveChordScale(s[s.length-1]); updateChordLabel(); reloadWithZoom(); }
+  });
+  nav.querySelector('#chord-in').addEventListener('click', () => {
+    const s = CHORD_STEPS.filter(z => z > chordScale);
+    if (s.length) { saveChordScale(s[0]); updateChordLabel(); reloadWithZoom(); }
+  });
+
+  // 마디 표시 스타일
+  function updateBarStyleBtns() {
+    const cur = getGlobalBarStyle();
+    nav.querySelectorAll('.live-barstyle-btn').forEach(b => {
+      b.style.outline = b.dataset.barstyle === cur ? '2px solid var(--accent)' : 'none';
     });
   }
-  updateThemeBtns();
-  nav.querySelectorAll('.live-theme-btn').forEach(btn => {
+  updateBarStyleBtns();
+  nav.querySelectorAll('.live-barstyle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      saveLiveTheme(btn.dataset.theme); updateThemeBtns(); applyThemeToContainer(content);
+      setGlobalBarStyle(btn.dataset.barstyle); updateBarStyleBtns(); reloadWithZoom();
     });
   });
 
