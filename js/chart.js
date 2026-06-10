@@ -751,8 +751,28 @@ function voltaHtml(volta) {
 }
 
 // 마디 표시 스타일: 'slots'(4분할) | 'leadsheet'(빈 박 슬래시) | 'minimal'(코드만)
-function getBarStyle() {
+//                  | 'staff'(리얼북 오선지) | 'barsonly'(세로 마디선만)
+// 섹션에 renderStyle이 지정되면 전역 설정보다 우선 — 한 곡 안에서 스타일 혼합 가능
+function getBarStyle(sec) {
+  if (sec?.renderStyle) return sec.renderStyle;
   try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').barStyle || 'slots'; } catch { return 'slots'; }
+}
+
+const BAR_STYLE_OPTIONS = [
+  { id:'slots',     label:'4분할' },
+  { id:'leadsheet', label:'리드시트' },
+  { id:'minimal',   label:'심플' },
+  { id:'staff',     label:'오선지' },
+  { id:'barsonly',  label:'마디선' },
+];
+
+function isStaffLike(style) { return style === 'staff' || style === 'barsonly'; }
+
+// 오선 5선 배경 (8px 간격 × 4칸 = 33px에 선 5개)
+const STAFF_LINE = 'color-mix(in srgb, var(--text) 50%, transparent)';
+const STAFF_BARLINE = 'color-mix(in srgb, var(--text) 65%, transparent)';
+function staffLinesHtml() {
+  return `<div style="height:33px;margin:2px 0 1px;background:repeating-linear-gradient(to bottom, ${STAFF_LINE} 0, ${STAFF_LINE} 1px, transparent 1px, transparent 8px);pointer-events:none"></div>`;
 }
 
 // 코드 기호 → 리얼북 스타일 HTML (루트는 일반 크기, 퀄리티/확장음은 위첨자 + 음악 기호)
@@ -799,7 +819,7 @@ function slotSpanHtml(c, chordColor, barStyle, fontSize) {
 }
 
 // 마디 셀: 순수하게 4박 슬롯 + 반복 테두리만
-function barCellHtml(sec, si, bi, barNum) {
+function barCellHtml(sec, si, bi, barNum, isRowLast = false) {
   const b = sec.bars[bi];
   const isPickup = sec.pickup && bi === 0;
   normalizeBar(b);
@@ -808,7 +828,31 @@ function barCellHtml(sec, si, bi, barNum) {
   const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
 
   const chordColor = b.chordColor || 'inherit';
-  const barStyle = getBarStyle();
+  const barStyle = getBarStyle(sec);
+
+  // ── 리얼북 계열 (오선지 / 마디선만): 박스 없이 세로 마디선 + (오선) ──
+  if (isStaffLike(barStyle)) {
+    const borderLeft  = rs ? 'border-left:3px solid var(--accent);' : `border-left:1.5px solid ${STAFF_BARLINE};`;
+    const borderRight = (re===':||'||re===':||:') ? 'border-right:3px solid var(--accent);'
+                      : (isRowLast ? `border-right:1.5px solid ${STAFF_BARLINE};` : '');
+    const bg = b.bgColor ? `background:${hexToRgba(b.bgColor,0.18)};` : '';
+    const slotsHtml2 = slots.map((c, idx) => `
+      <div class="bar-slot" data-si="${si}" data-bi="${bi}" data-slot="${idx}"
+        style="flex:1;display:flex;align-items:flex-end;justify-content:flex-start;overflow:visible;padding:1px 2px 0 4px;cursor:text;position:relative">
+        ${c ? `<span class="slot-text" style="font-family:var(--chord-font,inherit);font-size:1.08rem;font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${chordColor};line-height:1.1">${formatChordHtml(c)}</span>`
+            : `<span class="slot-text" style="font-size:1.08rem;color:transparent">·</span>`}
+      </div>`
+    ).join('');
+    return `<div class="bar-cell" data-si="${si}" data-bi="${bi}"
+      style="flex:1;min-width:0;${bg}${borderLeft}${borderRight}position:relative;cursor:text;user-select:none;${rs?'padding-left:8px;':''}${(re===':||'||re===':||:')?'padding-right:8px;':''}${isPickup?'max-width:52px;opacity:0.75;':''}display:flex;flex-direction:column;">
+      ${rs ? leftMarkHtml('||:') : ''}
+      ${rightMarkHtml(re)}
+      ${barNum != null ? `<span style="position:absolute;top:0;${rs?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNum}</span>` : ''}
+      <div class="bar-display" style="display:flex;flex:1;min-height:1.7em;align-items:stretch;padding:8px 2px 0">${slotsHtml2}</div>
+      ${barStyle === 'staff' ? staffLinesHtml() : ''}
+    </div>`;
+  }
+
   const divider = barStyle === 'slots' ? 'border-left:1px solid rgba(128,128,128,0.13);' : '';
   const justify = barStyle === 'leadsheet' ? 'center' : 'flex-start';
   const slotsHtml = slots.map((c, idx) => `
@@ -990,8 +1034,10 @@ function sectionRowsHtml(sec, si, barOffset, draft) {
     </div>`;
 
     // ─── 마디 셀 행 ───
-    const cellRow = `<div style="display:flex;gap:3px">
-      ${idxs.map(bi => barCellHtml(sec, si, bi, barOffset + bi + 1)).join('')}
+    const secStyle = getBarStyle(sec);
+    const cellGap = isStaffLike(secStyle) ? '0' : '3px';
+    const cellRow = `<div style="display:flex;gap:${cellGap}">
+      ${idxs.map((bi, pos) => barCellHtml(sec, si, bi, barOffset + bi + 1, pos === idxs.length - 1)).join('')}
       ${missing > 0 ? Array(missing).fill(`<div style="flex:1;min-width:0;visibility:hidden;border:1px solid var(--border);border-radius:4px;min-height:2.6em"></div>`).join('') : ''}
     </div>`;
 
@@ -1123,6 +1169,12 @@ function renderSections(ed, draft) {
         <button class="btn sec-bpr-btn ${bpr===8?'btn-primary':'btn-secondary'}" data-si="${si}" data-val="8" style="font-size:0.7rem;padding:2px 7px">8</button>
         <input type="number" class="inp-bpr" data-si="${si}" min="1" max="16" value="${bpr}"
           style="width:40px;font-size:0.75rem;padding:1px 4px;text-align:center" title="커스텀 마디/행">
+        <!-- 마디 표시 스타일 (섹션별 — 혼합 가능) -->
+        <select class="sec-style-sel" data-si="${si}" title="이 섹션의 마디 표시 스타일"
+          style="font-size:0.7rem;padding:2px 4px;background:var(--bg3);color:${sec.renderStyle?'var(--accent)':'var(--text2)'};border:1px solid ${sec.renderStyle?'var(--accent)':'var(--border)'};border-radius:4px;cursor:pointer">
+          <option value="" ${!sec.renderStyle?'selected':''}>표시:전역</option>
+          ${BAR_STYLE_OPTIONS.map(o=>`<option value="${o.id}" ${sec.renderStyle===o.id?'selected':''}>${o.label}</option>`).join('')}
+        </select>
         <!-- 마디 추가/삭제 -->
         <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="1" style="font-size:0.7rem;padding:2px 7px">+1마디</button>
         <button class="btn btn-secondary add-bar-btn" data-si="${si}" data-unit="row" style="font-size:0.7rem;padding:2px 7px">+1행</button>
@@ -1173,6 +1225,17 @@ function renderSections(ed, draft) {
   // 섹션 이름
   area.querySelectorAll('.sec-type-input').forEach(inp => {
     inp.addEventListener('input', () => { draft.sections[+inp.dataset.si].type = inp.value; autoSave(draft); });
+  });
+
+  // 섹션별 마디 표시 스타일
+  area.querySelectorAll('.sec-style-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const si = +sel.dataset.si;
+      if (sel.value) draft.sections[si].renderStyle = sel.value;
+      else delete draft.sections[si].renderStyle;
+      autoSave(draft);
+      renderSections(ed, draft);
+    });
   });
 
   // 섹션 색상 input (즉시 DOM 업데이트)
@@ -1797,14 +1860,41 @@ export function buildChartHtml(draft, opts = {}) {
       </div>`;
 
       // 마디 셀 행
-      const cellRow = `<div style="display:flex;gap:3px">
-        ${rowIdxs.map(bi => {
+      const vSecStyle = getBarStyle(sec);
+      const vCellGap = isStaffLike(vSecStyle) ? '0' : '3px';
+      const cellRow = `<div style="display:flex;gap:${vCellGap}">
+        ${rowIdxs.map((bi, vPos) => {
           const b = allBars[bi];
           const isPickup = sec.pickup && bi === 0;
           normalizeBar(b);
           const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
           const chordColor2 = b.chordColor || 'inherit';
-          const vbarStyle = getBarStyle();
+          const vbarStyle = vSecStyle;
+          const barNumV = startNum + bi;
+          const rsV = b.repeatStart || false;
+          const reV = b.repeatEnd   || '';
+
+          // 리얼북 계열 (오선지 / 마디선만)
+          if (isStaffLike(vbarStyle)) {
+            const vIsRowLast = vPos === rowIdxs.length - 1;
+            const bLft = rsV ? 'border-left:3px solid var(--accent);' : `border-left:1.5px solid ${STAFF_BARLINE};`;
+            const bRgt = (reV===':||'||reV===':||:') ? 'border-right:3px solid var(--accent);'
+                       : (vIsRowLast ? `border-right:1.5px solid ${STAFF_BARLINE};` : '');
+            const vBg = b.bgColor ? `background:${hexToRgba(b.bgColor,0.18)};` : '';
+            const slotsHtmlS = slots.map(c =>
+              `<div style="flex:1;display:flex;align-items:flex-end;justify-content:flex-start;overflow:visible;padding:1px 2px 0 4px">
+                ${c ? `<span style="font-family:var(--chord-font,inherit);font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2};line-height:1.1">${formatChordHtml(c)}</span>`
+                    : `<span style="display:block;height:1em"></span>`}
+              </div>`
+            ).join('');
+            return `<div style="flex:1;min-width:0;${vBg}${bLft}${bRgt}position:relative;display:flex;flex-direction:column;${rsV?'padding-left:8px;':''}${(reV===':||'||reV===':||:')?'padding-right:8px;':''}${isPickup?'max-width:54px;opacity:0.8;':''}">
+              ${rsV ? leftMarkHtml('||:') : ''}${rightMarkHtml(reV)}
+              ${showNums ? `<span style="position:absolute;top:0;${rsV?'left:12px':'left:3px'};font-size:0.48rem;color:var(--text2);opacity:0.6;line-height:1;pointer-events:none;z-index:1">${isPickup?'↑':barNumV}</span>` : ''}
+              <div style="display:flex;flex:1;min-height:1.6em;align-items:stretch;padding:8px 2px 0">${slotsHtmlS}</div>
+              ${vbarStyle === 'staff' ? staffLinesHtml() : ''}
+            </div>`;
+          }
+
           const vDivider = vbarStyle === 'slots' ? 'border-left:1px solid rgba(128,128,128,0.13);' : '';
           const vJustify = vbarStyle === 'leadsheet' ? 'center' : 'flex-start';
           const slotsHtml = slots.map((c, si2) =>

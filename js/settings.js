@@ -135,12 +135,14 @@ export function render(panel) {
 
     <div class="card">
       <div class="section-label">마디 표시 (곡진행 · 라이브)</div>
-      <p style="font-size:0.78rem;color:var(--text2);margin:6px 0 12px">코드차트에서 한 마디를 그리는 방식을 선택합니다.</p>
+      <p style="font-size:0.78rem;color:var(--text2);margin:6px 0 12px">코드차트에서 한 마디를 그리는 방식을 선택합니다. 곡진행 에디터의 섹션 헤더에서 섹션별로 다른 스타일을 지정해 혼합할 수도 있습니다.</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="barstyle-btns">
         ${[
           { id:'slots',     label:'4분할',   desc:'박 구분선 표시' },
           { id:'leadsheet', label:'리드시트', desc:'빈 박은 ／ 슬래시' },
           { id:'minimal',   label:'심플',    desc:'코드만 깔끔하게' },
+          { id:'staff',     label:'오선지',  desc:'리얼북 스타일 5선' },
+          { id:'barsonly',  label:'마디선',  desc:'세로 마디선만' },
         ].map(l => `
           <button class="barstyle-btn" data-barstyle="${l.id}" style="border:2px solid ${(s.barStyle||'slots')===l.id?'var(--accent)':'var(--border)'};
             background:${(s.barStyle||'slots')===l.id?'var(--bg3)':'var(--bg2)'};
