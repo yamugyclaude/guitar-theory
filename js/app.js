@@ -7,6 +7,7 @@ import { render as renderSheets } from './sheets.js';
 import { render as renderChart } from './chart.js';
 import { render as renderLive } from './live.js';
 import { render as renderSettings } from './settings.js';
+import { render as renderPractice } from './practice.js';
 
 // ===== 중앙 상태 =====
 export const AppState = {
@@ -36,7 +37,8 @@ const renderers = {
   6: renderSheets,
   7: renderChart,
   8: renderLive,
-  9: renderSettings
+  9: renderSettings,
+  10: renderPractice
 };
 
 let activeTab = 1;
