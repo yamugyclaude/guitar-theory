@@ -134,6 +134,25 @@ export function render(panel) {
     </div>
 
     <div class="card">
+      <div class="section-label">마디 표시 (곡진행 · 라이브)</div>
+      <p style="font-size:0.78rem;color:var(--text2);margin:6px 0 12px">코드차트에서 한 마디를 그리는 방식을 선택합니다.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="barstyle-btns">
+        ${[
+          { id:'slots',     label:'4분할',   desc:'박 구분선 표시' },
+          { id:'leadsheet', label:'리드시트', desc:'빈 박은 ／ 슬래시' },
+          { id:'minimal',   label:'심플',    desc:'코드만 깔끔하게' },
+        ].map(l => `
+          <button class="barstyle-btn" data-barstyle="${l.id}" style="border:2px solid ${(s.barStyle||'slots')===l.id?'var(--accent)':'var(--border)'};
+            background:${(s.barStyle||'slots')===l.id?'var(--bg3)':'var(--bg2)'};
+            border-radius:10px;padding:12px 6px;cursor:pointer;color:var(--text);transition:all 0.15s;text-align:center">
+            <div style="font-size:0.78rem;font-weight:700">${l.label}</div>
+            <div style="font-size:0.65rem;color:var(--text2);margin-top:3px">${l.desc}</div>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="card">
       <div class="section-label">기타 설정</div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:8px">
         <input type="checkbox" id="lefthanded-chk" ${curLeft ? 'checked' : ''}>
@@ -325,6 +344,19 @@ create policy "allow_all" on gta_sheets
       const s = getSettings(); s.layoutStyle = layout; saveSettings(s);
       panel.querySelectorAll('.layout-btn').forEach(b => {
         const active = b.dataset.layout === layout;
+        b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+        b.style.background = active ? 'var(--bg3)' : 'var(--bg2)';
+      });
+    });
+  });
+
+  // 마디 표시 스타일
+  panel.querySelectorAll('.barstyle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.barstyle;
+      const s = getSettings(); s.barStyle = v; saveSettings(s);
+      panel.querySelectorAll('.barstyle-btn').forEach(b => {
+        const active = b.dataset.barstyle === v;
         b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
         b.style.background = active ? 'var(--bg3)' : 'var(--bg2)';
       });

@@ -750,6 +750,18 @@ function voltaHtml(volta) {
   </div>`;
 }
 
+// 마디 표시 스타일: 'slots'(4분할) | 'leadsheet'(빈 박 슬래시) | 'minimal'(코드만)
+function getBarStyle() {
+  try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').barStyle || 'slots'; } catch { return 'slots'; }
+}
+
+// 슬롯 내용 HTML (스타일별 빈 슬롯 처리)
+function slotSpanHtml(c, chordColor, barStyle, fontSize) {
+  if (c) return `<span class="slot-text" style="font-size:${fontSize};font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${chordColor}">${c}</span>`;
+  if (barStyle === 'leadsheet') return `<span class="slot-text" style="font-size:${fontSize};font-weight:400;position:relative;z-index:1;color:var(--text2);opacity:0.5">／</span>`;
+  return `<span class="slot-text" style="font-size:${fontSize};font-weight:700;white-space:nowrap;position:relative;z-index:1;color:transparent">·</span>`;
+}
+
 // 마디 셀: 순수하게 4박 슬롯 + 반복 테두리만
 function barCellHtml(sec, si, bi, barNum) {
   const b = sec.bars[bi];
@@ -760,10 +772,13 @@ function barCellHtml(sec, si, bi, barNum) {
   const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
 
   const chordColor = b.chordColor || 'inherit';
+  const barStyle = getBarStyle();
+  const divider = barStyle === 'slots' ? 'border-left:1px solid rgba(128,128,128,0.13);' : '';
+  const justify = barStyle === 'leadsheet' ? 'center' : 'flex-start';
   const slotsHtml = slots.map((c, idx) => `
     <div class="bar-slot" data-si="${si}" data-bi="${bi}" data-slot="${idx}"
-      style="flex:1;${idx>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:visible;padding:1px 2px;cursor:text;position:relative">
-      <span class="slot-text" style="font-size:0.78rem;font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${c?chordColor:'transparent'}">${c||'·'}</span>
+      style="flex:1;${idx>0?divider:''}display:flex;align-items:center;justify-content:${justify};overflow:visible;padding:1px 2px;cursor:text;position:relative">
+      ${slotSpanHtml(c, c?chordColor:'transparent', barStyle, '0.78rem')}
     </div>`
   ).join('');
 
@@ -1514,10 +1529,15 @@ function renderSections(ed, draft) {
         const rt = e2.relatedTarget;
         if (rt && rt.closest('.bar-mark-toolbar')) return;
         inp.remove();
-        // 슬롯 텍스트 즉시 갱신
+        // 슬롯 텍스트 즉시 갱신 (표시 스타일 반영)
         const span = slotDiv.querySelector('.slot-text');
         const val = bar.chords[slotIdx];
-        if (span) { span.textContent = val || '·'; span.style.color = val ? 'inherit' : 'transparent'; }
+        if (span) {
+          const bs = getBarStyle();
+          if (val) { span.textContent = val; span.style.color = 'inherit'; span.style.opacity = ''; span.style.fontWeight = '700'; }
+          else if (bs === 'leadsheet') { span.textContent = '／'; span.style.color = 'var(--text2)'; span.style.opacity = '0.5'; span.style.fontWeight = '400'; }
+          else { span.textContent = '·'; span.style.color = 'transparent'; span.style.opacity = ''; }
+        }
       });
 
       inp.addEventListener('keydown', e2 => {
@@ -1748,9 +1768,14 @@ export function buildChartHtml(draft, opts = {}) {
           normalizeBar(b);
           const slots = Array.isArray(b.chords) ? b.chords : ['','','',''];
           const chordColor2 = b.chordColor || 'inherit';
+          const vbarStyle = getBarStyle();
+          const vDivider = vbarStyle === 'slots' ? 'border-left:1px solid rgba(128,128,128,0.13);' : '';
+          const vJustify = vbarStyle === 'leadsheet' ? 'center' : 'flex-start';
           const slotsHtml = slots.map((c, si2) =>
-            `<div style="flex:1;${si2>0?'border-left:1px solid rgba(128,128,128,0.13);':''}display:flex;align-items:center;justify-content:flex-start;overflow:visible;padding:2px 3px">
-              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2}">${c}</span>` : `<span style="display:block;height:1em"></span>`}
+            `<div style="flex:1;${si2>0?vDivider:''}display:flex;align-items:center;justify-content:${vJustify};overflow:visible;padding:2px 3px">
+              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2}">${c}</span>`
+                  : vbarStyle === 'leadsheet' ? `<span style="font-size:${fs};color:var(--text2);opacity:0.5">／</span>`
+                  : `<span style="display:block;height:1em"></span>`}
             </div>`
           ).join('');
           const barNum = startNum + bi;
