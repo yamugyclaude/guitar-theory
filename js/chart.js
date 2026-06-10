@@ -755,9 +755,45 @@ function getBarStyle() {
   try { return JSON.parse(localStorage.getItem('gta_settings')||'{}').barStyle || 'slots'; } catch { return 'slots'; }
 }
 
+// 코드 기호 → 리얼북 스타일 HTML (루트는 일반 크기, 퀄리티/확장음은 위첨자 + 음악 기호)
+function formatChordHtml(str) {
+  const s = String(str).trim();
+  if (!s) return '';
+  const m = s.match(/^([A-G])([#b]?)(.*)$/);
+  if (!m) return escHtml(s);
+  const letter = m[1];
+  const acc = m[2];
+  let rest = m[3];
+
+  // 슬래시 베이스 분리
+  let bass = '';
+  const slashM = rest.match(/^(.*?)\/([A-G][#b]?)$/);
+  if (slashM) { rest = slashM[1]; bass = slashM[2]; }
+
+  const symAcc = a => a === '#' ? '♯' : a === 'b' ? '♭' : '';
+
+  // 퀄리티/확장음 기호 치환 (m7b5→ø7, dim→°, maj→Δ, aug→+, b9/#11 등 음악 기호화)
+  const q = rest
+    .replace(/m7b5/g, 'ø7')
+    .replace(/dim7/g, '°7')
+    .replace(/dim/g, '°')
+    .replace(/maj/g, 'Δ')
+    .replace(/aug/g, '+')
+    .replace(/b(\d)/g, '♭$1')
+    .replace(/#(\d)/g, '♯$1');
+
+  let html = escHtml(letter) + symAcc(acc);
+  if (q) html += `<sup style="font-size:0.7em;font-weight:700">${escHtml(q)}</sup>`;
+  if (bass) {
+    const bm = bass.match(/^([A-G])([#b]?)$/);
+    html += `<span style="font-size:0.85em">/${escHtml(bm[1])}${symAcc(bm[2])}</span>`;
+  }
+  return html;
+}
+
 // 슬롯 내용 HTML (스타일별 빈 슬롯 처리)
 function slotSpanHtml(c, chordColor, barStyle, fontSize) {
-  if (c) return `<span class="slot-text" style="font-size:${fontSize};font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${chordColor}">${c}</span>`;
+  if (c) return `<span class="slot-text" style="font-size:${fontSize};font-weight:700;white-space:nowrap;position:relative;z-index:1;color:${chordColor}">${formatChordHtml(c)}</span>`;
   if (barStyle === 'leadsheet') return `<span class="slot-text" style="font-size:${fontSize};font-weight:400;position:relative;z-index:1;color:var(--text2);opacity:0.5">／</span>`;
   return `<span class="slot-text" style="font-size:${fontSize};font-weight:700;white-space:nowrap;position:relative;z-index:1;color:transparent">·</span>`;
 }
@@ -1773,7 +1809,7 @@ export function buildChartHtml(draft, opts = {}) {
           const vJustify = vbarStyle === 'leadsheet' ? 'center' : 'flex-start';
           const slotsHtml = slots.map((c, si2) =>
             `<div style="flex:1;${si2>0?vDivider:''}display:flex;align-items:center;justify-content:${vJustify};overflow:visible;padding:2px 3px">
-              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2}">${c}</span>`
+              ${c ? `<span style="font-size:${fs};font-weight:700;white-space:nowrap;overflow:hidden;max-width:100%;color:${chordColor2}">${formatChordHtml(c)}</span>`
                   : vbarStyle === 'leadsheet' ? `<span style="font-size:${fs};color:var(--text2);opacity:0.5">／</span>`
                   : `<span style="display:block;height:1em"></span>`}
             </div>`
