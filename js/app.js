@@ -136,7 +136,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(key, value) {
     _origSetItem(key, value);
-    if (DATA_KEYS.includes(key)) {
+    // 원격에서 받은 데이터를 적는 중이면 push 생략 (에코 루프 방지)
+    if (DATA_KEYS.includes(key) && !window.__gtaApplyingRemote) {
       import('./supabase-sync.js').then(({ isReady, pushData }) => {
         if (isReady()) pushData(key);
       });

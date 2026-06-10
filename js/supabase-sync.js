@@ -119,6 +119,13 @@ export async function pushAllData() {
   for (const k of DATA_KEYS) await pushData(k);
 }
 
+// 원격 데이터를 로컬에 적을 때 자동 push(에코 루프) 방지 — app.js의 setItem 패치가 이 플래그를 확인
+function applyRemote(dataKey, payload) {
+  window.__gtaApplyingRemote = true;
+  try { localStorage.setItem(dataKey, JSON.stringify(payload)); }
+  finally { window.__gtaApplyingRemote = false; }
+}
+
 // Supabase → 로컬
 export async function pullAllData() {
   if (!isReady()) return;
@@ -130,7 +137,7 @@ export async function pullAllData() {
   if (error) { console.error('pullAllData error:', error.message); return; }
   for (const row of (data || [])) {
     if (row.payload !== null) {
-      localStorage.setItem(row.data_key, JSON.stringify(row.payload));
+      applyRemote(row.data_key, row.payload);
     }
   }
 }
@@ -150,7 +157,7 @@ export function subscribeDataChanges(onUpdate) {
     }, payload => {
       const row = payload.new;
       if (row?.data_key && row?.payload !== null) {
-        localStorage.setItem(row.data_key, JSON.stringify(row.payload));
+        applyRemote(row.data_key, row.payload);
         onUpdate?.(row.data_key);
       }
     })
