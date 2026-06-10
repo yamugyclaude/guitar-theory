@@ -801,8 +801,7 @@ function showResult(panel, r) {
   });
 
   panel.querySelector('#to-voicing').addEventListener('click', () => {
-    const first = r.chords[0];
-    goTo(2, { chord: first ? first.raw : '' });
+    goTo(2, { progression: r.chords.map(c => c.raw).join(' ') });
   });
   panel.querySelector('#to-solo').addEventListener('click', () => {
     goTo(3, { key: r.keyName, mode: r.isMinor ? 'minor' : 'major' });

@@ -130,6 +130,82 @@ function buildVoicings(c, kind) {
   return { bySet, extended, tones };
 }
 
+// ═══ 보이스 리딩 엔진 ═══════════════════════════════════════════════
+// 코드별 모든 Drop 2 후보 (전 인버전 × 전 현세트 × 전 옥타브 위치) — 절대 피치 포함
+function drop2Candidates(c) {
+  const fn = fourNoteTones(c);
+  if (!fn) return [];
+  const out = [];
+  for (const set of DROP2_SETS) {
+    for (let inv = 0; inv < 4; inv++) {
+      const stack = closeStack(fn.tones, inv);
+      const voiced = dropTransform(stack, 2);
+      for (let oct = 2; oct <= 6; oct++) {
+        const base = c.idx + oct * 12;
+        const frets = [], pitches = [];
+        let ok = true;
+        for (let i = 0; i < 4; i++) {
+          const midi = base + voiced[i].pitch;
+          const fret = midi - TUNING[set.strings[i]];
+          if (fret < 0 || fret > MAX_FRET) { ok = false; break; }
+          frets.push(fret); pitches.push(midi);
+        }
+        if (!ok) continue;
+        const six = toSixString(set.strings, frets, voiced);
+        out.push({ ...six, pitches, setLabel: set.label, bassDeg: voiced[0].tone.deg,
+          avgFret: frets.reduce((a, b) => a + b, 0) / 4, extended: fn.extended });
+      }
+    }
+  }
+  return out;
+}
+
+// DP로 전체 진행의 최소 움직임 경로 탐색
+function voiceLead(chords) {
+  const cands = chords.map(drop2Candidates);
+  if (cands.some(cs => !cs.length)) return null;
+
+  // 첫 코드: 5~8프렛 중심 선호
+  let prev = cands[0].map(c => ({ cost: Math.abs(c.avgFret - 6) * 0.4, cand: c, back: -1 }));
+  const layers = [prev];
+
+  for (let i = 1; i < cands.length; i++) {
+    const layer = cands[i].map(c => {
+      let best = Infinity, bk = -1;
+      prev.forEach((p, j) => {
+        // 성부별 이동 거리 합 (보이스 리딩의 핵심 지표)
+        const move = c.pitches.reduce((s, pp, k) => s + Math.abs(pp - p.cand.pitches[k]), 0);
+        // 포지션 점프 패널티
+        const jump = Math.abs(c.avgFret - p.cand.avgFret) * 0.6;
+        const cost = p.cost + move + jump;
+        if (cost < best) { best = cost; bk = j; }
+      });
+      return { cost: best, cand: c, back: bk };
+    });
+    layers.push(layer);
+    prev = layer;
+  }
+
+  let idx = prev.reduce((bi, p, i2) => (p.cost < prev[bi].cost ? i2 : bi), 0);
+  const path = [];
+  for (let i = layers.length - 1; i >= 0; i--) {
+    path.unshift(layers[i][idx].cand);
+    idx = layers[i][idx].back;
+  }
+  return path;
+}
+
+// 두 보이싱 간 공통음/이동 요약
+function movementSummary(a, b) {
+  let common = 0, totalMove = 0;
+  for (let k = 0; k < 4; k++) {
+    const d = Math.abs(b.pitches[k] - a.pitches[k]);
+    if (d === 0) common++;
+    totalMove += d;
+  }
+  return { common, totalMove };
+}
+
 // 셸 보이싱: R–7–3 (프레디 그린 스타일)
 function buildShells(c) {
   const fn = fourNoteTones(c);
@@ -234,11 +310,61 @@ export function render(panel) {
         <button class="btn btn-primary" id="search-btn">보이싱 생성</button>
       </div>
     </div>
+    <div class="card">
+      <div class="section-label">보이스 리딩 생성기</div>
+      <p style="font-size:0.76rem;color:var(--text2);margin:4px 0 8px">코드 진행을 입력하면 성부 이동이 최소가 되도록 연결된 Drop 2 컴핑을 자동 설계합니다.</p>
+      <input type="text" id="vl-input" placeholder="예: Dm7 G7 Cmaj7 / Fm7 Bb7 Ebmaj7">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="vl-btn">보이스 리딩 생성</button>
+      </div>
+      <div id="vl-result" style="margin-top:14px"></div>
+    </div>
     <div id="voicing-result"></div>
   `;
 
   const input = panel.querySelector('#chord-input');
   const result = panel.querySelector('#voicing-result');
+
+  // ── 보이스 리딩 ──
+  function runVoiceLead() {
+    const box = panel.querySelector('#vl-result');
+    const raw = panel.querySelector('#vl-input').value.trim();
+    if (!raw) return;
+    const chords = raw.split(/[\s,|]+|(?:\s*-\s*)/).map(s => s.trim()).filter(Boolean)
+      .map(s => ({ raw: s, parsed: parseChord(s) }));
+    const bad = chords.find(c => !c.parsed);
+    if (bad) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">"${bad.raw}" 를 해석할 수 없습니다.</div>`; return; }
+    if (chords.length < 2) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">코드를 2개 이상 입력해주세요.</div>`; return; }
+    if (chords.length > 16) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">최대 16개까지 지원합니다.</div>`; return; }
+
+    const path = voiceLead(chords.map(c => c.parsed));
+    if (!path) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">보이싱을 만들 수 없는 코드가 있습니다.</div>`; return; }
+
+    const anyExtended = path.some(p => p.extended);
+    const cells = path.map((v, i) => {
+      let moveHtml = '';
+      if (i > 0) {
+        const { common, totalMove } = movementSummary(path[i-1], v);
+        moveHtml = `<div style="font-size:0.64rem;color:var(--text2);margin-top:2px">공통음 ${common} · 이동 ${totalMove}반음</div>`;
+      }
+      return `
+        <div style="text-align:center;flex-shrink:0">
+          <div style="font-weight:700;font-size:0.88rem">${chords[i].raw}</div>
+          <div style="font-size:0.62rem;color:var(--text2)">${v.setLabel} · ${v.bassDeg} 베이스</div>
+          ${drawDiagram(v.frets, v.degs, leftHanded)}
+          ${moveHtml}
+        </div>`;
+    }).join('<div style="align-self:center;color:var(--text2);font-size:1.1rem;flex-shrink:0">→</div>');
+
+    box.innerHTML = `
+      ${anyExtended ? '<div style="font-size:0.7rem;color:var(--link);margin-bottom:6px">트라이어드는 7th로 확장해 연결했습니다.</div>' : ''}
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;align-items:flex-start">${cells}</div>
+      <div style="font-size:0.72rem;color:var(--text2);margin-top:6px;line-height:1.5">
+        성부 4개가 각각 최소 거리로 움직이도록 인버전·현 세트를 선택했습니다. 같은 색 점(도수)이 코드마다 어떻게 이동하는지 따라가 보세요 — 그것이 보이스 리딩입니다.
+      </div>`;
+  }
+  panel.querySelector('#vl-btn').addEventListener('click', runVoiceLead);
+  panel.querySelector('#vl-input').addEventListener('keydown', e => { if (e.key === 'Enter') runVoiceLead(); });
 
   function search() {
     const val = input.value.trim();
@@ -318,6 +444,9 @@ export function render(panel) {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
 
   on('route-payload', payload => {
-    if (payload?.chord) { input.value = payload.chord; search(); }
+    if (payload?.progression) {
+      panel.querySelector('#vl-input').value = payload.progression;
+      runVoiceLead();
+    } else if (payload?.chord) { input.value = payload.chord; search(); }
   });
 }
