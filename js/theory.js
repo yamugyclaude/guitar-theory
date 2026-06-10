@@ -60,7 +60,7 @@ const QUALITY_SYNONYMS = {
   'dom7': '7',
 };
 
-function parseChord(str) {
+export function parseChord(str) {
   str = str.trim();
   if (!str) return null;
   const m = str.match(/^([A-G](?:#|b|♯|♭)?)(.*)$/);
@@ -494,7 +494,7 @@ function detectUnits(chords, analyses, keyIdx, NOTES) {
 const LETTERS = ['C','D','E','F','G','A','B'];
 const LETTER_PITCH = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
 
-function spellInterval(rootName, semis, letterSteps) {
+export function spellInterval(rootName, semis, letterSteps) {
   const rl = rootName[0];
   const rootAcc = rootName.length > 1 ? (rootName[1] === '#' ? 1 : -1) : 0;
   const rootPitch = (LETTER_PITCH[rl] + rootAcc + 12) % 12;

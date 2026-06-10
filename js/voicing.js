@@ -1,180 +1,224 @@
 import { goTo, on } from './app.js';
+import { parseChord, spellInterval } from './theory.js';
 
-// 코드 보이싱 DB: [fret, fret, fret, fret, fret, fret] (6현 low E→high e), -1=뮤트, 0=개방
-const VOICINGS = {
-  // C
-  'C':      [[-1,3,2,0,1,0], [-1,3,5,5,5,3], [8,10,10,9,8,8]],
-  'Cm':     [[-1,3,5,5,4,3], [8,10,10,8,8,8]],
-  'Cmaj7':  [[-1,3,2,0,0,0], [-1,3,5,4,5,3]],
-  'Cm7':    [[-1,3,5,3,4,3], [8,10,8,8,8,8]],
-  'C7':     [[-1,3,2,3,1,0], [-1,3,5,3,5,3]],
-  'Csus2':  [-1,3,5,5,3,3],
-  'Csus4':  [-1,3,3,0,1,1],
-  'Cdim':   [-1,3,4,5,4,-1],
-  'Cdim7':  [-1,3,4,2,4,2],
-  'Caug':   [-1,3,2,1,1,0],
-  'Cm9':    [-1,3,1,3,3,-1],
-  'Cmaj9':  [-1,3,2,0,0,2],
-  'C9':     [-1,3,2,3,3,3],
-  // D
-  'D':      [[-1,-1,0,2,3,2], [-1,5,7,7,7,5]],
-  'Dm':     [[-1,-1,0,2,3,1], [-1,5,7,7,6,5]],
-  'Dmaj7':  [[-1,-1,0,2,2,2], [-1,5,7,6,7,5]],
-  'Dm7':    [[-1,-1,0,2,1,1], [-1,5,7,5,6,5]],
-  'D7':     [[-1,-1,0,2,1,2], [-1,5,4,5,3,5]],
-  'Dsus2':  [-1,-1,0,2,3,0],
-  'Dsus4':  [-1,-1,0,2,3,3],
-  'Ddim':   [-1,-1,0,1,0,-1],
-  'Ddim7':  [-1,-1,0,1,0,1],
-  'Daug':   [-1,-1,0,3,3,2],
-  'Dm9':    [-1,5,3,5,5,-1],
-  'Dmaj9':  [-1,-1,0,2,2,0],
-  'D9':     [-1,5,4,5,5,5],
-  // E
-  'E':      [[0,2,2,1,0,0], [7,9,9,8,7,7]],
-  'Em':     [[0,2,2,0,0,0], [7,9,9,7,7,7]],
-  'Emaj7':  [[0,2,1,1,0,0], [7,9,8,8,7,7]],
-  'Em7':    [[0,2,2,0,3,0], [7,9,7,7,7,7]],
-  'E7':     [[0,2,0,1,0,0], [7,9,7,8,7,7]],
-  'Esus2':  [0,2,2,4,0,0],
-  'Esus4':  [0,2,2,2,0,0],
-  'Edim':   [0,1,2,3,-1,-1],
-  'Edim7':  [0,1,2,0,-1,-1],
-  'Eaug':   [0,3,2,1,1,0],
-  'Em9':    [0,2,0,0,0,2],
-  'Emaj9':  [0,2,1,1,0,2],
-  'E9':     [0,2,0,1,3,2],
-  // F
-  'F':      [[1,3,3,2,1,1], [8,10,10,9,8,8]],
-  'Fm':     [[1,3,3,1,1,1], [8,10,10,8,8,8]],
-  'Fmaj7':  [[-1,-1,3,2,1,0], [1,3,3,2,0,0]],
-  'Fm7':    [[1,3,1,1,1,1], [8,10,8,8,8,8]],
-  'F7':     [[1,3,1,2,1,1], [1,3,3,2,4,1]],
-  'Fsus2':  [1,3,3,0,1,1],
-  'Fsus4':  [1,3,3,3,1,1],
-  'Fdim':   [1,2,3,4,-1,-1],
-  'Fdim7':  [1,2,3,1,-1,-1],
-  'Faug':   [1,0,3,2,2,1],
-  'Fm9':    [1,3,1,1,1,3],
-  'Fmaj9':  [-1,-1,3,2,1,3],
-  // F#/Gb
-  'F#':     [2,4,4,3,2,2],
-  'F#m':    [2,4,4,2,2,2],
-  'F#maj7': [2,4,3,3,2,2],
-  'F#m7':   [2,4,2,2,2,2],
-  'F#7':    [2,4,2,3,2,2],
-  'F#dim7': [2,3,4,2,-1,-1],
-  // G
-  'G':      [[3,2,0,0,0,3], [3,5,5,4,3,3]],
-  'Gm':     [[3,5,5,3,3,3], [3,5,5,3,3,3]],
-  'Gmaj7':  [[3,2,0,0,0,2], [3,5,4,4,3,3]],
-  'Gm7':    [[3,5,3,3,3,3], [3,5,5,3,6,3]],
-  'G7':     [[3,2,0,0,0,1], [3,5,3,4,3,3]],
-  'Gsus2':  [3,5,5,2,3,3],
-  'Gsus4':  [3,5,5,5,3,3],
-  'Gdim':   [3,4,5,3,-1,-1],
-  'Gdim7':  [3,4,5,3,2,-1],
-  'Gaug':   [3,2,1,0,0,-1],
-  'Gm9':    [3,5,3,3,3,5],
-  'Gmaj9':  [3,2,0,0,0,0],
-  'G9':     [3,2,0,0,0,1],
-  // Ab/G#
-  'Ab':     [4,6,6,5,4,4],
-  'Abm':    [4,6,6,4,4,4],
-  'Abmaj7': [4,6,5,5,4,4],
-  'Abm7':   [4,6,4,4,4,4],
-  'Ab7':    [4,6,4,5,4,4],
-  // A
-  'A':      [[-1,0,2,2,2,0], [-1,0,7,6,5,5]],
-  'Am':     [[-1,0,2,2,1,0], [-1,0,7,5,5,5]],
-  'Amaj7':  [[-1,0,2,1,2,0], [-1,0,2,1,2,0]],
-  'Am7':    [[-1,0,2,0,1,0], [-1,0,7,5,8,5]],
-  'A7':     [[-1,0,2,0,2,0], [-1,0,7,6,8,5]],
-  'Asus2':  [-1,0,2,2,0,0],
-  'Asus4':  [-1,0,2,2,3,0],
-  'Adim':   [-1,0,1,2,1,-1],
-  'Adim7':  [-1,0,1,2,1,2],
-  'Aaug':   [-1,0,3,2,2,1],
-  'Am9':    [-1,0,2,0,1,3],
-  'Amaj9':  [-1,0,2,1,2,2],
-  'A9':     [-1,0,2,4,2,3],
-  // Bb/A#
-  'Bb':     [-1,1,3,3,3,1],
-  'Bbm':    [-1,1,3,3,2,1],
-  'Bbmaj7': [-1,1,3,2,3,1],
-  'Bbm7':   [-1,1,3,1,2,1],
-  'Bb7':    [-1,1,3,1,3,1],
-  'Bbsus4': [-1,1,3,3,4,1],
-  // B
-  'B':      [[-1,2,4,4,4,2], [7,9,9,8,7,7]],
-  'Bm':     [[-1,2,4,4,3,2], [7,9,9,7,7,7]],
-  'Bmaj7':  [[-1,2,4,3,4,2], [7,9,8,8,7,7]],
-  'Bm7':    [[-1,2,4,2,3,2], [7,9,7,7,7,7]],
-  'B7':     [[-1,2,1,2,0,-1], [7,9,7,8,7,7]],
-  'Bsus2':  [-1,2,4,4,2,2],
-  'Bsus4':  [-1,2,4,4,5,2],
-  'Bdim':   [-1,2,3,4,3,-1],
-  'Bdim7':  [-1,2,3,1,3,1],
-  'Baug':   [-1,2,1,0,0,-1],
-  'Bm9':    [-1,2,4,2,3,4],
-  'Bmaj9':  [-1,2,1,3,2,2],
-};
+// ═══════════════════════════════════════════════════════════════════
+//  보이싱 엔진 — Drop 2 / Drop 3 / 셸 보이싱을 코드 공식에서 자동 계산
+//  버클리/MI 커리큘럼: 4성부 close → drop 변환 → 현 세트별 매핑
+// ═══════════════════════════════════════════════════════════════════
 
-const OPEN_STRINGS = [4,9,2,7,11,4]; // E A D G B e (MIDI 기준 음이름 인덱스)
+// 표준 튜닝 MIDI (low E → high e)
+const TUNING = [40, 45, 50, 55, 59, 64];
+const STRING_NAMES = ['E','A','D','G','B','e'];
+const MAX_FRET = 15;
 
-function getVoicings(chord) {
-  const v = VOICINGS[chord];
-  if (!v) return [];
-  return Array.isArray(v[0]) ? v : [v];
+// ── 4성부 코드 톤 추출 ──────────────────────────────────────────────
+// 반환: [{semi, deg, letterSteps}] × 4 (R, 3rd, 5th, 7th 계열)
+function fourNoteTones(c) {
+  const iv = c.intervals;
+  const pick = (cands) => cands.find(x => iv.includes(x.semi));
+
+  const root  = { semi: 0, deg: 'R', letterSteps: 0 };
+  const third = pick([
+    { semi: 4, deg: '3', letterSteps: 2 }, { semi: 3, deg: 'b3', letterSteps: 2 },
+    { semi: 5, deg: '4', letterSteps: 3 }, { semi: 2, deg: '2', letterSteps: 1 },
+  ]);
+  const fifth = pick([
+    { semi: 7, deg: '5', letterSteps: 4 }, { semi: 6, deg: 'b5', letterSteps: 4 }, { semi: 8, deg: '#5', letterSteps: 4 },
+  ]);
+  const seventh = pick([
+    { semi: 11, deg: '7', letterSteps: 6 }, { semi: 10, deg: 'b7', letterSteps: 6 },
+    { semi: 9,  deg: c.type.includes('dim') ? 'bb7' : '6', letterSteps: c.type.includes('dim') ? 6 : 5 },
+  ]);
+
+  if (!third || !fifth) return null;
+
+  // 트라이어드 → 7th 자동 확장
+  let extended = null;
+  let sev = seventh;
+  if (!sev) {
+    if (third.semi === 3) { sev = { semi: 10, deg: 'b7', letterSteps: 6 }; extended = 'm7'; }
+    else { sev = { semi: 11, deg: '7', letterSteps: 6 }; extended = 'maj7'; }
+  }
+  return { tones: [root, third, fifth, sev], extended };
 }
 
-function drawDiagram(frets, leftHanded = false) {
-  const strings = leftHanded ? [...frets].reverse() : frets;
-  const validFrets = strings.filter(f => f > 0);
-  if (!validFrets.length) { var minFret = 1; var maxFret = 5; }
-  else {
-    var minFret = Math.max(1, Math.min(...validFrets));
-    var maxFret = Math.max(minFret + 4, Math.max(...validFrets));
+// ── close 스택 → 인버전 → drop 변환 ─────────────────────────────────
+// 인버전 i: tones를 i만큼 회전한 순서로 위로 쌓음 → 절대 피치(상대) 배열
+function closeStack(tones, inv) {
+  const order = [...tones.slice(inv), ...tones.slice(0, inv)];
+  const pitches = [];
+  let prev = -1;
+  for (const t of order) {
+    let p = t.semi;
+    while (p <= prev) p += 12;
+    pitches.push({ pitch: p, tone: t });
+    prev = p;
   }
-  const fretCount = Math.min(maxFret - minFret + 1, 5);
-  const W = 200, cellW = 28, cellH = 30;
-  const offsetX = 30, offsetY = 40;
-  const totalW = offsetX + cellW * 5 + 20;
-  const totalH = offsetY + cellH * fretCount + 20;
+  return pitches; // 낮은음 → 높은음 4개
+}
 
-  let svgContent = '';
-  // 세로줄 (현)
+function dropTransform(stack, dropIdxFromTop) {
+  // stack: 오름차순 4음. dropIdxFromTop: 2 → drop2 (위에서 2번째), 3 → drop3
+  const arr = stack.map(x => ({ ...x }));
+  const idx = arr.length - dropIdxFromTop;
+  arr[idx].pitch -= 12;
+  return arr.sort((a, b) => a.pitch - b.pitch);
+}
+
+// ── 현 세트에 매핑 ───────────────────────────────────────────────────
+// voiced: 오름차순 4음 {pitch(상대), tone}; strings: 현 인덱스 4개 (낮은현→높은현)
+function mapToStrings(voiced, strings, rootIdx) {
+  const results = [];
+  for (let oct = 2; oct <= 6; oct++) {
+    const base = rootIdx + oct * 12;
+    const frets = [];
+    let ok = true;
+    for (let i = 0; i < 4; i++) {
+      const midi = base + voiced[i].pitch;
+      const fret = midi - TUNING[strings[i]];
+      if (fret < 0 || fret > MAX_FRET) { ok = false; break; }
+      frets.push(fret);
+    }
+    if (ok) results.push(frets);
+  }
+  if (!results.length) return null;
+  // 가장 낮은 포지션 선택
+  results.sort((a, b) => Math.min(...a) - Math.min(...b));
+  return results[0];
+}
+
+// 6현 프렛 배열로 변환 (-1 = 뮤트)
+function toSixString(strings, frets, tones) {
+  const out = Array(6).fill(-1);
+  const degs = Array(6).fill(null);
+  strings.forEach((s, i) => { out[s] = frets[i]; degs[s] = tones[i].tone.deg; });
+  return { frets: out, degs };
+}
+
+// ── 보이싱 세트 생성 ─────────────────────────────────────────────────
+const DROP2_SETS = [
+  { label: '1~4번 현', strings: [2,3,4,5] },
+  { label: '2~5번 현', strings: [1,2,3,4] },
+  { label: '3~6번 현', strings: [0,1,2,3] },
+];
+const DROP3_SETS = [
+  { label: '6-4-3-2번 현', strings: [0,2,3,4] },
+  { label: '5-3-2-1번 현', strings: [1,3,4,5] },
+];
+
+function buildVoicings(c, kind) {
+  const fn = fourNoteTones(c);
+  if (!fn) return null;
+  const { tones, extended } = fn;
+  const sets = kind === 'drop2' ? DROP2_SETS : DROP3_SETS;
+  const dropN = kind === 'drop2' ? 2 : 3;
+
+  const bySet = sets.map(set => {
+    const inversions = [];
+    for (let inv = 0; inv < 4; inv++) {
+      const stack = closeStack(tones, inv);
+      const voiced = dropTransform(stack, dropN);
+      const mapped = mapToStrings(voiced, set.strings, c.idx);
+      if (!mapped) continue;
+      const six = toSixString(set.strings, mapped, voiced.map((v) => v));
+      const bassDeg = voiced[0].tone.deg;
+      inversions.push({ ...six, bassDeg, inv });
+    }
+    return { ...set, inversions };
+  }).filter(s => s.inversions.length);
+
+  return { bySet, extended, tones };
+}
+
+// 셸 보이싱: R–7–3 (프레디 그린 스타일)
+function buildShells(c) {
+  const fn = fourNoteTones(c);
+  if (!fn) return null;
+  const { tones } = fn;
+  const third = tones[1], seventh = tones[3];
+  const shells = [];
+  // 6번현 루트: 6현 R, 4현 7th, 3현 3rd
+  // 5번현 루트: 5현 R, 3현 7th, 2현 3rd
+  const layouts = [
+    { label: '6번현 루트', strings: [0, 2, 3], order: [tones[0], seventh, third] },
+    { label: '5번현 루트', strings: [1, 3, 4], order: [tones[0], seventh, third] },
+  ];
+  for (const lay of layouts) {
+    for (let oct = 2; oct <= 5; oct++) {
+      const base = c.idx + oct * 12;
+      const frets = [];
+      let prev = -1; let ok = true;
+      const pitches = [];
+      for (const t of lay.order) {
+        let p = t.semi;
+        while (p <= prev) p += 12;
+        pitches.push(p); prev = p;
+      }
+      for (let i = 0; i < 3; i++) {
+        const fret = base + pitches[i] - TUNING[lay.strings[i]];
+        if (fret < 0 || fret > MAX_FRET) { ok = false; break; }
+        frets.push(fret);
+      }
+      if (!ok) continue;
+      const out = Array(6).fill(-1); const degs = Array(6).fill(null);
+      lay.strings.forEach((s, i) => { out[s] = frets[i]; degs[s] = lay.order[i].deg; });
+      shells.push({ label: lay.label, frets: out, degs });
+      break;
+    }
+  }
+  return shells;
+}
+
+// ── 다이어그램 (도수 라벨 포함) ──────────────────────────────────────
+const DEG_COLORS = { 'R': 'var(--accent)', '3': '#f0a500', 'b3': '#f0a500', '5': '#34d399', 'b5': '#34d399', '#5': '#34d399', '7': '#c084fc', 'b7': '#c084fc', 'bb7': '#c084fc', '6': '#c084fc', '4': '#f0a500', '2': '#f0a500' };
+
+function drawDiagram(frets, degs, leftHanded = false) {
+  const F = leftHanded ? [...frets].reverse() : frets;
+  const D = leftHanded ? [...degs].reverse() : degs;
+  const valid = F.filter(f => f > 0);
+  let minFret = valid.length ? Math.max(1, Math.min(...valid)) : 1;
+  let maxFret = valid.length ? Math.max(minFret + 3, Math.max(...valid)) : 4;
+  const fretCount = Math.min(maxFret - minFret + 1, 5);
+  const cellW = 26, cellH = 28, offsetX = 30, offsetY = 36;
+  const totalW = offsetX + cellW * 5 + 16;
+  const totalH = offsetY + cellH * fretCount + 14;
+
+  let svg = '';
   for (let s = 0; s < 6; s++) {
     const x = offsetX + s * cellW;
-    svgContent += `<line x1="${x}" y1="${offsetY}" x2="${x}" y2="${offsetY + cellH * fretCount}" stroke="var(--text2)" stroke-width="1.5"/>`;
+    svg += `<line x1="${x}" y1="${offsetY}" x2="${x}" y2="${offsetY + cellH * fretCount}" stroke="var(--text2)" stroke-width="1.2"/>`;
   }
-  // 가로줄 (프렛)
   for (let f = 0; f <= fretCount; f++) {
     const y = offsetY + f * cellH;
-    const sw = f === 0 ? 3 : 1;
-    svgContent += `<line x1="${offsetX}" y1="${y}" x2="${offsetX + cellW * 5}" y2="${y}" stroke="var(--text)" stroke-width="${sw}"/>`;
+    svg += `<line x1="${offsetX}" y1="${y}" x2="${offsetX + cellW * 5}" y2="${y}" stroke="var(--text)" stroke-width="${f === 0 && minFret === 1 ? 3 : 1}"/>`;
   }
-  // 프렛 번호 (min > 1)
-  if (minFret > 1) {
-    svgContent += `<text x="${offsetX - 8}" y="${offsetY + cellH * 0.7}" fill="var(--text2)" font-size="11" text-anchor="end">${minFret}fr</text>`;
-  }
-  // 운지점 / 개방현 / 뮤트
-  const dotColors = ['var(--danger)', '#4CAF50', '#2196F3', 'var(--link)', 'var(--text2)', 'var(--accent)'];
-  strings.forEach((fret, si) => {
+  if (minFret > 1) svg += `<text x="${offsetX - 6}" y="${offsetY + cellH * 0.65}" fill="var(--text2)" font-size="10" text-anchor="end">${minFret}</text>`;
+
+  F.forEach((fret, si) => {
     const x = offsetX + si * cellW;
     if (fret === -1) {
-      svgContent += `<text x="${x}" y="${offsetY - 10}" fill="var(--danger)" font-size="14" text-anchor="middle" font-weight="bold">×</text>`;
+      svg += `<text x="${x}" y="${offsetY - 8}" fill="var(--text2)" font-size="12" text-anchor="middle">×</text>`;
     } else if (fret === 0) {
-      svgContent += `<circle cx="${x}" cy="${offsetY - 12}" r="6" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+      const color = DEG_COLORS[D[si]] || 'var(--accent)';
+      svg += `<circle cx="${x}" cy="${offsetY - 11}" r="7" fill="${color}"/>`;
+      svg += `<text x="${x}" y="${offsetY - 8}" fill="#fff" font-size="8" text-anchor="middle" font-weight="bold">${D[si]||''}</text>`;
     } else {
-      const relFret = fret - minFret + 1;
-      const cy = offsetY + (relFret - 0.5) * cellH;
-      svgContent += `<circle cx="${x}" cy="${cy}" r="10" fill="${dotColors[si % dotColors.length]}"/>`;
+      const rel = fret - minFret + 1;
+      const cy = offsetY + (rel - 0.5) * cellH;
+      const color = DEG_COLORS[D[si]] || 'var(--accent)';
+      svg += `<circle cx="${x}" cy="${cy}" r="9.5" fill="${color}"/>`;
+      svg += `<text x="${x}" y="${cy + 3}" fill="#fff" font-size="8.5" text-anchor="middle" font-weight="bold">${D[si]||''}</text>`;
     }
   });
-
-  return `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">${svgContent}</svg>`;
+  return `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">${svg}</svg>`;
 }
+
+// 코드 톤 이름 (정확한 철자)
+function toneNames(c, tones) {
+  return tones.map(t => `<span style="margin-right:10px"><span style="color:var(--text2)">${t.deg}:</span> <strong>${t.deg === 'R' ? c.root : spellInterval(c.root, t.semi, t.letterSteps)}</strong></span>`).join('');
+}
+
+const INV_LABELS = { 'R': '루트 포지션', '3': '1st inv (3도 베이스)', 'b3': '1st inv (b3 베이스)', '5': '2nd inv (5도 베이스)', 'b5': '2nd inv (b5 베이스)', '#5': '2nd inv (#5 베이스)', '7': '3rd inv (7도 베이스)', 'b7': '3rd inv (b7 베이스)', '6': '3rd inv (6도 베이스)', 'bb7': '3rd inv', '4': '1st inv (4도 베이스)', '2': '1st inv (2도 베이스)' };
 
 export function render(panel) {
   const settings = JSON.parse(localStorage.getItem('gta_settings') || '{}');
@@ -183,10 +227,11 @@ export function render(panel) {
   panel.innerHTML = `
     <h1 class="page-title">🎼 코드 보이싱</h1>
     <div class="card">
-      <div class="label">코드 검색</div>
-      <input type="text" id="chord-input" placeholder="예: Am7, Gmaj7, D7">
+      <div class="label">코드 입력</div>
+      <input type="text" id="chord-input" placeholder="예: Cmaj7, Dm7, G13, F#m7b5, Bb7#11">
+      <div style="font-size:0.7rem;color:var(--text2);margin-top:4px">모든 코드를 Drop 2 · Drop 3 · 셸 보이싱으로 자동 계산합니다 (텐션 코드 포함)</div>
       <div class="btn-row">
-        <button class="btn btn-primary" id="search-btn">검색</button>
+        <button class="btn btn-primary" id="search-btn">보이싱 생성</button>
       </div>
     </div>
     <div id="voicing-result"></div>
@@ -198,35 +243,80 @@ export function render(panel) {
   function search() {
     const val = input.value.trim();
     if (!val) return;
-    const voicings = getVoicings(val);
-    if (!voicings.length) {
-      result.innerHTML = `<div class="empty-state">코드를 찾을 수 없습니다.<br><small>예: C, Am, Gmaj7, D7</small></div>`;
+    const c = parseChord(val);
+    if (!c) {
+      result.innerHTML = `<div class="empty-state">코드를 해석할 수 없습니다.<br><small>예: Cmaj7, Dm7, G7b9, F#m7b5</small></div>`;
       return;
     }
-    const diagrams = voicings.map((v, i) => `
-      <div style="text-align:center;margin-right:20px">
-        <div style="font-size:0.8rem;color:var(--text2);margin-bottom:4px">보이싱 ${i+1}</div>
-        ${drawDiagram(v, leftHanded)}
-      </div>
-    `).join('');
+
+    const drop2 = buildVoicings(c, 'drop2');
+    const drop3 = buildVoicings(c, 'drop3');
+    const shells = buildShells(c);
+
+    if (!drop2 && !drop3) {
+      result.innerHTML = `<div class="empty-state">이 코드 타입은 4성부 보이싱을 만들 수 없습니다.</div>`;
+      return;
+    }
+
+    const extNote = drop2?.extended
+      ? `<div style="font-size:0.74rem;color:var(--link);margin-top:4px">트라이어드 입력 — 재즈 보이싱 표준에 따라 ${c.root}${drop2.extended}로 확장해 표시합니다.</div>` : '';
+
+    const legendHtml = `<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.72rem;margin:8px 0">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent)"></span> 루트</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f0a500"></span> 3도</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399"></span> 5도</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#c084fc"></span> 7도/6도</span>
+    </div>`;
+
+    const renderSet = (set) => `
+      <div style="margin-bottom:14px">
+        <div style="font-size:0.8rem;font-weight:700;color:var(--text2);margin-bottom:6px">${set.label}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${set.inversions.map(v => `
+            <div style="text-align:center">
+              <div style="font-size:0.68rem;color:var(--text2);margin-bottom:2px">${INV_LABELS[v.bassDeg] || v.bassDeg + ' 베이스'}</div>
+              ${drawDiagram(v.frets, v.degs, leftHanded)}
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    const shellHtml = shells?.length ? `
+      <div class="card">
+        <div class="section-label">셸 보이싱 (R–7–3)</div>
+        <p style="font-size:0.74rem;color:var(--text2);margin:4px 0 10px">3도와 7도만으로 코드의 성격을 표현하는 최소 보이싱 — 프레디 그린 컴핑, 워킹 베이스 위 컴핑의 기본.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          ${shells.map(s => `<div style="text-align:center"><div style="font-size:0.68rem;color:var(--text2)">${s.label}</div>${drawDiagram(s.frets, s.degs, leftHanded)}</div>`).join('')}
+        </div>
+      </div>` : '';
 
     result.innerHTML = `
       <div class="card">
-        <div style="font-size:1.3rem;font-weight:700;color:var(--accent);margin-bottom:12px">${val}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">${diagrams}</div>
-        <hr class="divider">
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${val}</div>
+        <div style="font-size:0.8rem;margin-top:6px">${toneNames(c, drop2?.tones || drop3.tones)}</div>
+        ${extNote}
+        ${legendHtml}
+      </div>
+      ${shellHtml}
+      <div class="card">
+        <div class="section-label">Drop 2</div>
+        <p style="font-size:0.74rem;color:var(--text2);margin:4px 0 10px">close 보이싱의 위에서 2번째 음을 한 옥타브 내린 형태 — 기타에서 가장 실용적인 4성부. 현 세트별 4개 인버전을 모두 익히면 지판 전체에서 컴핑/치드 멜로디가 가능합니다.</p>
+        ${drop2 ? drop2.bySet.map(renderSet).join('') : '<div style="font-size:0.78rem;color:var(--text2)">생성 불가</div>'}
+      </div>
+      <div class="card">
+        <div class="section-label">Drop 3</div>
+        <p style="font-size:0.74rem;color:var(--text2);margin:4px 0 10px">위에서 3번째 음을 옥타브 내린 형태 — 베이스와 상성부가 분리되어 솔로 기타/발라드 컴핑에 적합.</p>
+        ${drop3 ? drop3.bySet.map(renderSet).join('') : '<div style="font-size:0.78rem;color:var(--text2)">생성 불가</div>'}
+      </div>
+      <div class="btn-row">
         <button class="btn btn-link" id="to-chart">코드차트에 추가 →</button>
       </div>
     `;
-    result.querySelector('#to-chart').addEventListener('click', () => {
-      import('./app.js').then(({ goTo }) => goTo(7, { chord: val }));
-    });
+    result.querySelector('#to-chart').addEventListener('click', () => goTo(7, { chord: val }));
   }
 
   panel.querySelector('#search-btn').addEventListener('click', search);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
 
-  // 탭1 연동
   on('route-payload', payload => {
     if (payload?.chord) { input.value = payload.chord; search(); }
   });
