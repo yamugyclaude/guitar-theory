@@ -7,6 +7,7 @@ export function saveApiKey(key) { localStorage.setItem('gta_gemini_key', key.tri
 export function isConfigured() { return !!getApiKey(); }
 export function keyType(key) {
   const k = (key || getApiKey()).trim();
+  if (k.startsWith('gsk_')) return 'groq';
   if (k.startsWith('sk-or-') || k.startsWith('sk-')) return 'openrouter';
   return 'gemini'; // AIza..., AQ..., 기타 Google AI Studio 키 모두 Gemini로 처리
 }
@@ -164,12 +165,48 @@ async function blobToOpenRouterPart(blob) {
   return { type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } };
 }
 
+// ===== Groq (gsk_...) =====
+// 텍스트: gpt-oss-120b / 이미지 입력: llama-4 비전 모델로 자동 전환
+const GROQ_TEXT_MODEL = 'openai/gpt-oss-120b';
+const GROQ_VISION_MODELS = [
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'meta-llama/llama-4-maverick-17b-128e-instruct',
+];
+
+async function callGroq(apiKey, imageParts, promptText) {
+  const models = imageParts.length ? GROQ_VISION_MODELS : [GROQ_TEXT_MODEL];
+  const errors = [];
+  for (const model of models) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: imageParts.length ? [{ type: 'text', text: promptText }, ...imageParts] : promptText }],
+          temperature: 0.1,
+          max_tokens: 4096
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) { errors.push(`[${model}] ${data?.error?.message || res.status}`); continue; }
+      const text = data.choices?.[0]?.message?.content || '';
+      if (!text) { errors.push(`[${model}] 빈 응답`); continue; }
+      return { text, model };
+    } catch (e) { errors.push(`[${model}] ${e.message}`); }
+  }
+  throw new Error('Groq 모델 실패:\n' + errors.join('\n'));
+}
+
 // ===== 통합 호출 =====
 async function callAi(apiKey, blobs, promptText) {
   const type = keyType(apiKey);
   if (type === 'gemini') {
     const parts = await Promise.all(blobs.map(blobToGeminiPart));
     return callGemini(apiKey, parts, promptText);
+  } else if (type === 'groq') {
+    const parts = await Promise.all(blobs.map(blobToOpenRouterPart)); // OpenAI 호환 포맷 공유
+    return callGroq(apiKey, parts, promptText);
   } else {
     const parts = await Promise.all(blobs.map(blobToOpenRouterPart));
     return callOpenRouter(apiKey, parts, promptText);
@@ -241,7 +278,17 @@ export async function testConnection(onStatus) {
   if (!apiKey) throw new Error('API 키를 입력해주세요.');
   const type = keyType(apiKey);
 
-  if (type === 'gemini') {
+  if (type === 'groq') {
+    onStatus(`🔄 Groq ${GROQ_TEXT_MODEL} 테스트 중...`);
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: GROQ_TEXT_MODEL, messages: [{ role: 'user', content: 'hi' }], max_tokens: 5 })
+    });
+    const data = await res.json();
+    if (res.ok) return `✅ 연결 성공! (Groq · ${GROQ_TEXT_MODEL})`;
+    throw new Error(data?.error?.message || `HTTP ${res.status}`);
+  } else if (type === 'gemini') {
     for (const model of GEMINI_MODELS) {
       onStatus(`🔄 Gemini ${model} 테스트 중...`);
       try {

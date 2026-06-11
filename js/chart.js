@@ -786,7 +786,7 @@ function formatChordHtml(str) {
   const m = s.match(/^([A-G])([#b]?)(.*)$/);
   // 루트로 시작하지 않는 입력(/A# 같은 베이스 단독 등)도 임시표는 기호로 통일
   if (!m) {
-    const fb = ch => `<span style="font-family:var(--font,sans-serif);font-size:0.72em;vertical-align:0.18em">${ch}</span>`;
+    const fb = ch => `<span style="font-family:var(--font,sans-serif);font-size:0.72em;vertical-align:0.18em;margin-left:0.1em;margin-right:0.04em">${ch}</span>`;
     return escHtml(s).replace(/([A-G])#/g, (_, l) => l + fb('♯')).replace(/([A-G])b/g, (_, l) => l + fb('♭'));
   }
   const letter = m[1];
@@ -800,9 +800,9 @@ function formatChordHtml(str) {
 
   // 임시표(♯/♭)는 Caveat 등 손글씨 폰트에 글리프가 없어 모양이 제각각이 됨
   // → 항상 기본 폰트로, 크기/위치 통일해서 렌더
-  const accHtml = ch => `<span style="font-family:var(--font,sans-serif);font-size:0.72em;vertical-align:0.18em">${ch}</span>`;
+  const accHtml = ch => `<span style="font-family:var(--font,sans-serif);font-size:0.72em;vertical-align:0.18em;margin-left:0.1em;margin-right:0.04em">${ch}</span>`;
   const symAcc = a => a === '#' ? accHtml('♯') : a === 'b' ? accHtml('♭') : '';
-  const accInline = t => t.replace(/♯/g, `<span style="font-family:var(--font,sans-serif)">♯</span>`).replace(/♭/g, `<span style="font-family:var(--font,sans-serif)">♭</span>`);
+  const accInline = t => t.replace(/♯/g, `<span style="font-family:var(--font,sans-serif);margin-left:0.08em">♯</span>`).replace(/♭/g, `<span style="font-family:var(--font,sans-serif);margin-left:0.08em">♭</span>`);
 
   // 퀄리티/확장음 기호 치환 (m7b5→ø7, dim→°, maj→Δ, aug→+, b9/#11 등 음악 기호화)
   const q = rest

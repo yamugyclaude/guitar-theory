@@ -183,7 +183,7 @@ export function render(panel) {
       </p>
       <div class="label">AI API Key (Gemini: AIza… / OpenRouter: sk-or-…)</div>
       <div style="display:flex;gap:8px">
-        <input type="password" id="gemini-key-input" placeholder="AIza... 또는 sk-or-..." value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
+        <input type="password" id="gemini-key-input" placeholder="AIza... / sk-or-... / gsk_...(Groq)" value="${localStorage.getItem('gta_gemini_key')||''}" style="flex:1">
         <button class="btn btn-secondary" id="gemini-toggle-btn" style="flex-shrink:0;font-size:0.75rem;padding:6px 10px">보기</button>
       </div>
       <div class="btn-row" style="margin-top:8px">
