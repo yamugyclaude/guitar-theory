@@ -131,15 +131,17 @@ function buildVoicings(c, kind) {
 }
 
 // ═══ 보이스 리딩 엔진 ═══════════════════════════════════════════════
-// 코드별 모든 Drop 2 후보 (전 인버전 × 전 현세트 × 전 옥타브 위치) — 절대 피치 포함
-function drop2Candidates(c) {
+// 코드별 모든 후보 (전 인버전 × 전 현세트 × 전 옥타브 위치) — 절대 피치 포함
+function drop2Candidates(c, kind = 'drop2') {
   const fn = fourNoteTones(c);
   if (!fn) return [];
   const out = [];
-  for (const set of DROP2_SETS) {
+  const sets = kind === 'drop3' ? DROP3_SETS : DROP2_SETS;
+  const dropN = kind === 'drop3' ? 3 : 2;
+  for (const set of sets) {
     for (let inv = 0; inv < 4; inv++) {
       const stack = closeStack(fn.tones, inv);
-      const voiced = dropTransform(stack, 2);
+      const voiced = dropTransform(stack, dropN);
       for (let oct = 2; oct <= 6; oct++) {
         const base = c.idx + oct * 12;
         const frets = [], pitches = [];
@@ -161,12 +163,14 @@ function drop2Candidates(c) {
 }
 
 // DP로 전체 진행의 최소 움직임 경로 탐색
-function voiceLead(chords) {
-  const cands = chords.map(drop2Candidates);
+// opts: kind('drop2'|'drop3') / center(선호 프렛 중심) / topDir('down'|'up' 탑노트 라인 방향 유도)
+function voiceLead(chords, opts = {}) {
+  const { kind = 'drop2', center = 6, topDir = null } = opts;
+  const cands = chords.map(c => drop2Candidates(c, kind));
   if (cands.some(cs => !cs.length)) return null;
 
-  // 첫 코드: 5~8프렛 중심 선호
-  let prev = cands[0].map(c => ({ cost: Math.abs(c.avgFret - 6) * 0.4, cand: c, back: -1 }));
+  // 첫 코드: 선호 포지션 중심
+  let prev = cands[0].map(c => ({ cost: Math.abs(c.avgFret - center) * 0.4, cand: c, back: -1 }));
   const layers = [prev];
 
   for (let i = 1; i < cands.length; i++) {
@@ -177,7 +181,12 @@ function voiceLead(chords) {
         const move = c.pitches.reduce((s, pp, k) => s + Math.abs(pp - p.cand.pitches[k]), 0);
         // 포지션 점프 패널티
         const jump = Math.abs(c.avgFret - p.cand.avgFret) * 0.6;
-        const cost = p.cost + move + jump;
+        // 탑노트 라인 방향 유도 (멜로딕 컴핑)
+        const topMove = c.pitches[3] - p.cand.pitches[3];
+        // 반대 방향뿐 아니라 정체(공통음 유지)에도 벌점 → 라인이 실제로 움직이게
+        const topPen = topDir === 'down' ? Math.max(0, topMove + 1) * 4
+                     : topDir === 'up'   ? Math.max(0, 1 - topMove) * 4 : 0;
+        const cost = p.cost + move + jump + topPen;
         if (cost < best) { best = cost; bk = j; }
       });
       return { cost: best, cand: c, back: bk };
@@ -337,60 +346,90 @@ export function render(panel) {
     if (chords.length < 2) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">코드를 2개 이상 입력해주세요.</div>`; return; }
     if (chords.length > 16) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">최대 16개까지 지원합니다.</div>`; return; }
 
-    const path = voiceLead(chords.map(c => c.parsed));
-    if (!path) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">보이싱을 만들 수 없는 코드가 있습니다.</div>`; return; }
+    const parsed = chords.map(c => c.parsed);
+    // 복수 해법: 같은 진행을 여러 관점으로 설계 (실전 컴핑은 상황에 따라 선택)
+    const variants = [
+      { title: 'Drop 2 · 최소 이동',     desc: '성부 4개의 총 이동 거리가 최소가 되는 정석 연결. 컴핑의 기본형.', opts: { kind:'drop2' } },
+      { title: 'Drop 2 · 탑노트 하행',   desc: '맨 윗성부가 내려가는 라인을 그리도록 유도 — 멜로딕 컴핑. 발라드·엔딩에 효과적.', opts: { kind:'drop2', topDir:'down' } },
+      { title: 'Drop 2 · 탑노트 상행',   desc: '탑노트가 올라가며 긴장감을 만드는 연결. 빌드업 구간에 사용.', opts: { kind:'drop2', topDir:'up' } },
+      { title: 'Drop 2 · 로우 포지션',   desc: '같은 원리를 낮은 포지션(1~5프렛)에서. 어둡고 두꺼운 음색.', opts: { kind:'drop2', center:3 } },
+      { title: 'Drop 3 · 최소 이동',     desc: '베이스와 상성부가 분리된 Drop 3 — 솔로 기타·루바토 반주에 적합.', opts: { kind:'drop3' } },
+    ];
 
-    const anyExtended = path.some(p => p.extended);
-    const cells = path.map((v, i) => {
-      let moveHtml = '';
-      if (i > 0) {
-        const { common, totalMove } = movementSummary(path[i-1], v);
-        moveHtml = `<div style="font-size:0.64rem;color:var(--text2);margin-top:2px">공통음 ${common} · 이동 ${totalMove}반음</div>`;
-      }
+    const results = [];
+    const seen = new Set();
+    for (const v of variants) {
+      const path = voiceLead(parsed, v.opts);
+      if (!path) continue;
+      const sig = path.map(p => p.pitches.join('.')).join('|');
+      if (seen.has(sig)) continue; // 동일 결과는 한 번만
+      seen.add(sig);
+      results.push({ ...v, path });
+    }
+    if (!results.length) { box.innerHTML = `<div style="font-size:0.8rem;color:var(--danger)">보이싱을 만들 수 없는 코드가 있습니다.</div>`; return; }
+
+    const anyExtended = results[0].path.some(p => p.extended);
+    const blockHtml = (r, ri) => {
+      const cells = r.path.map((v, i) => {
+        let moveHtml = '';
+        if (i > 0) {
+          const { common, totalMove } = movementSummary(r.path[i-1], v);
+          moveHtml = `<div style="font-size:0.64rem;color:var(--text2);margin-top:2px">공통음 ${common} · 이동 ${totalMove}반음</div>`;
+        }
+        return `
+          <div class="vl-cell" data-vlr="${ri}" data-vli="${i}" style="text-align:center;flex-shrink:0;border-radius:8px;padding:4px;transition:background 0.15s">
+            <div style="font-weight:700;font-size:0.88rem">${chords[i].raw}</div>
+            <div style="font-size:0.62rem;color:var(--text2)">${v.setLabel} · ${v.bassDeg} 베이스</div>
+            ${drawDiagram(v.frets, v.degs, leftHanded)}
+            ${moveHtml}
+          </div>`;
+      }).join('<div style="align-self:center;color:var(--text2);font-size:1.1rem;flex-shrink:0">→</div>');
       return `
-        <div class="vl-cell" data-vli="${i}" style="text-align:center;flex-shrink:0;border-radius:8px;padding:4px;transition:background 0.15s">
-          <div style="font-weight:700;font-size:0.88rem">${chords[i].raw}</div>
-          <div style="font-size:0.62rem;color:var(--text2)">${v.setLabel} · ${v.bassDeg} 베이스</div>
-          ${drawDiagram(v.frets, v.degs, leftHanded)}
-          ${moveHtml}
+        <div style="margin-bottom:18px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:2px">
+            <span style="font-weight:700;font-size:0.85rem;color:var(--accent)">${r.title}</span>
+            <button class="btn btn-secondary vl-play" data-vlr="${ri}" style="font-size:0.72rem;padding:4px 12px">▶ 재생</button>
+          </div>
+          <div style="font-size:0.72rem;color:var(--text2);margin-bottom:8px">${r.desc}</div>
+          <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;align-items:flex-start">${cells}</div>
         </div>`;
-    }).join('<div style="align-self:center;color:var(--text2);font-size:1.1rem;flex-shrink:0">→</div>');
+    };
 
     box.innerHTML = `
       ${anyExtended ? '<div style="font-size:0.7rem;color:var(--link);margin-bottom:6px">트라이어드는 7th로 확장해 연결했습니다.</div>' : ''}
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-        <button class="btn btn-secondary" id="vl-play" style="font-size:0.78rem;padding:6px 14px">▶ 재생</button>
-        <label style="font-size:0.74rem;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer">
-          <input type="checkbox" id="vl-loop" checked> 루프
-        </label>
-      </div>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;align-items:flex-start">${cells}</div>
-      <div style="font-size:0.72rem;color:var(--text2);margin-top:6px;line-height:1.5">
-        성부 4개가 각각 최소 거리로 움직이도록 인버전·현 세트를 선택했습니다. 같은 색 점(도수)이 코드마다 어떻게 이동하는지 따라가 보세요 — 그것이 보이스 리딩입니다.
+      <label style="font-size:0.74rem;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer;margin-bottom:4px">
+        <input type="checkbox" id="vl-loop" checked> 루프 재생
+      </label>
+      ${results.map(blockHtml).join('')}
+      <div style="font-size:0.72rem;color:var(--text2);line-height:1.5">
+        같은 색 점(도수)이 코드마다 어떻게 이동하는지 따라가 보세요 — 그것이 보이스 리딩입니다. 같은 진행도 탑노트 방향·포지션·보이싱 타입에 따라 전혀 다른 사운드가 됩니다.
       </div>`;
 
-    const playBtn = box.querySelector('#vl-play');
-    playBtn.addEventListener('click', async () => {
-      const audio = await import('./audio.js');
-      if (audio.isPlaying()) {
+    box.querySelectorAll('.vl-play').forEach(playBtn => {
+      playBtn.addEventListener('click', async () => {
+        const ri = +playBtn.dataset.vlr;
+        const audio = await import('./audio.js');
+        const wasPlaying = audio.isPlaying();
         audio.stopSequence();
-        playBtn.textContent = '▶ 재생';
+        box.querySelectorAll('.vl-play').forEach(b => b.textContent = '▶ 재생');
         box.querySelectorAll('.vl-cell').forEach(el => el.style.background = '');
-        return;
-      }
-      const loop = box.querySelector('#vl-loop').checked;
-      playBtn.textContent = '■ 정지';
-      audio.playProgression(path.map(v => v.pitches), {
-        bpm: 76, beatsPerChord: 2, loop,
-        onStep: idx => {
-          box.querySelectorAll('.vl-cell').forEach(el => el.style.background = '');
-          if (idx >= 0) {
-            const cur = box.querySelector(`.vl-cell[data-vli="${idx}"]`);
-            if (cur) cur.style.background = 'var(--bg3)';
-          } else {
-            playBtn.textContent = '▶ 재생';
+        if (wasPlaying && playBtn.dataset.active === '1') { playBtn.dataset.active = ''; return; }
+        box.querySelectorAll('.vl-play').forEach(b => b.dataset.active = '');
+        playBtn.dataset.active = '1';
+        playBtn.textContent = '■ 정지';
+        const loop = box.querySelector('#vl-loop').checked;
+        audio.playProgression(results[ri].path.map(v => v.pitches), {
+          bpm: 76, beatsPerChord: 2, loop,
+          onStep: idx => {
+            box.querySelectorAll('.vl-cell').forEach(el => el.style.background = '');
+            if (idx >= 0) {
+              const cur = box.querySelector(`.vl-cell[data-vlr="${ri}"][data-vli="${idx}"]`);
+              if (cur) cur.style.background = 'var(--bg3)';
+            } else {
+              playBtn.textContent = '▶ 재생'; playBtn.dataset.active = '';
+            }
           }
-        }
+        });
       });
     });
   }
