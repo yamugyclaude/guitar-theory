@@ -768,10 +768,14 @@ const BAR_STYLE_OPTIONS = [
 function isStaffLike(style) { return style === 'staff' || style === 'barsonly'; }
 
 // 오선 5선 배경 (8px 간격 × 4칸 = 33px에 선 5개)
+// SVG + crispEdges: 화면 배율과 무관하게 5줄이 항상 또렷하게 표시됨
 const STAFF_LINE = 'color-mix(in srgb, var(--text) 50%, transparent)';
 const STAFF_BARLINE = 'color-mix(in srgb, var(--text) 65%, transparent)';
 function staffLinesHtml() {
-  return `<div style="height:33px;margin:2px 0 1px;background:repeating-linear-gradient(to bottom, ${STAFF_LINE} 0, ${STAFF_LINE} 1px, transparent 1px, transparent 8px);pointer-events:none"></div>`;
+  const lines = [0,1,2,3,4].map(i =>
+    `<line x1="0" x2="100%" y1="${i*8+0.5}" y2="${i*8+0.5}" stroke="currentColor" stroke-width="1"/>`
+  ).join('');
+  return `<div style="height:33px;margin:2px 0 1px;pointer-events:none;color:${STAFF_LINE}"><svg width="100%" height="33" preserveAspectRatio="none" style="display:block;shape-rendering:crispEdges">${lines}</svg></div>`;
 }
 
 // 코드 기호 → 리얼북 스타일 HTML (루트는 일반 크기, 퀄리티/확장음은 위첨자 + 음악 기호)
@@ -780,7 +784,11 @@ function formatChordHtml(str) {
   const s = String(str).trim().replace(/♯/g, '#').replace(/♭/g, 'b');
   if (!s) return '';
   const m = s.match(/^([A-G])([#b]?)(.*)$/);
-  if (!m) return escHtml(s);
+  // 루트로 시작하지 않는 입력(/A# 같은 베이스 단독 등)도 임시표는 기호로 통일
+  if (!m) {
+    const fb = ch => `<span style="font-family:var(--font,sans-serif);font-size:0.72em;vertical-align:0.18em">${ch}</span>`;
+    return escHtml(s).replace(/([A-G])#/g, (_, l) => l + fb('♯')).replace(/([A-G])b/g, (_, l) => l + fb('♭'));
+  }
   const letter = m[1];
   const acc = m[2];
   let rest = m[3];
@@ -790,7 +798,11 @@ function formatChordHtml(str) {
   const slashM = rest.match(/^(.*?)\/([A-G][#b]?)$/);
   if (slashM) { rest = slashM[1]; bass = slashM[2]; }
 
-  const symAcc = a => a === '#' ? '♯' : a === 'b' ? '♭' : '';
+  // 임시표(♯/♭)는 Caveat 등 손글씨 폰트에 글리프가 없어 모양이 제각각이 됨
+  // → 항상 기본 폰트로, 크기/위치 통일해서 렌더
+  const accHtml = ch => `<span style="font-family:var(--font,sans-serif);font-size:0.72em;vertical-align:0.18em">${ch}</span>`;
+  const symAcc = a => a === '#' ? accHtml('♯') : a === 'b' ? accHtml('♭') : '';
+  const accInline = t => t.replace(/♯/g, `<span style="font-family:var(--font,sans-serif)">♯</span>`).replace(/♭/g, `<span style="font-family:var(--font,sans-serif)">♭</span>`);
 
   // 퀄리티/확장음 기호 치환 (m7b5→ø7, dim→°, maj→Δ, aug→+, b9/#11 등 음악 기호화)
   const q = rest
@@ -809,7 +821,7 @@ function formatChordHtml(str) {
 
   let html = escHtml(letter) + symAcc(acc);
   if (qBase) html += `<span style="font-size:0.92em;font-weight:inherit">${escHtml(qBase)}</span>`;
-  if (qSup) html += `<span style="font-size:0.78em;font-weight:inherit">${escHtml(qSup)}</span>`;
+  if (qSup) html += `<span style="font-size:0.78em;font-weight:inherit">${accInline(escHtml(qSup))}</span>`;
   if (bass) {
     const bm = bass.match(/^([A-G])([#b]?)$/);
     html += `<span style="font-size:0.85em">/${escHtml(bm[1])}${symAcc(bm[2])}</span>`;
