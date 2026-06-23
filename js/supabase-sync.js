@@ -4,9 +4,19 @@
 
 let _client = null;
 
+// 기본 내장 설정 — 어느 기기에서든 설정 입력 없이 자동 연결 (개인용)
+const DEFAULT_CFG = {
+  url: 'https://uzkkkmrddarjbevpevod.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a2trbXJkZGFyamJldnBldm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzY0NzksImV4cCI6MjA5NjI1MjQ3OX0.ZeMKpta9fkVVXsRBlojQK2_eD5dVATitPTrSlPNanX0',
+};
+const DEFAULT_SYNC_KEY = 'jackson';
+
 export function getConfig() {
-  try { return JSON.parse(localStorage.getItem('gta_supabase_cfg') || 'null'); }
-  catch { return null; }
+  try {
+    const saved = JSON.parse(localStorage.getItem('gta_supabase_cfg') || 'null');
+    if (saved?.url && saved?.anonKey) return saved;
+  } catch {}
+  return DEFAULT_CFG;
 }
 
 export function saveConfig(url, anonKey) {
@@ -14,7 +24,7 @@ export function saveConfig(url, anonKey) {
 }
 
 export function getSyncKey() {
-  return (JSON.parse(localStorage.getItem('gta_settings') || '{}')).syncKey || '';
+  return (JSON.parse(localStorage.getItem('gta_settings') || '{}')).syncKey || DEFAULT_SYNC_KEY;
 }
 
 export function isReady() { return !!(_client && getSyncKey()); }

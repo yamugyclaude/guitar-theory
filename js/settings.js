@@ -70,7 +70,9 @@ export function render(panel) {
   const curSize = s.fontSize || 16;
   const curLeft = s.leftHanded || false;
   const fbCfgStr = ''; // Firebase 제거됨 (Supabase로 대체)
-  const syncKey = s.syncKey || '';
+  const syncKey = s.syncKey || 'jackson';
+  const sbDefaults = { url: 'https://uzkkkmrddarjbevpevod.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a2trbXJkZGFyamJldnBldm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzY0NzksImV4cCI6MjA5NjI1MjQ3OX0.ZeMKpta9fkVVXsRBlojQK2_eD5dVATitPTrSlPNanX0' };
+  const sbCfg = (() => { try { const c = JSON.parse(localStorage.getItem('gta_supabase_cfg')||'null'); return (c?.url && c?.anonKey) ? c : sbDefaults; } catch { return sbDefaults; } })();
 
   panel.innerHTML = `
     <h1 class="page-title">⚙️ 설정</h1>
@@ -224,9 +226,9 @@ create policy "allow_all" on gta_sheets
         </div>
       </details>
       <div class="label">Project URL</div>
-      <input type="text" id="sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co" value="${JSON.parse(localStorage.getItem('gta_supabase_cfg')||'{}').url||''}">
+      <input type="text" id="sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co" value="${sbCfg.url}">
       <div class="label" style="margin-top:8px">anon public key</div>
-      <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="${JSON.parse(localStorage.getItem('gta_supabase_cfg')||'{}').anonKey||''}" style="font-size:0.72rem">
+      <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="${sbCfg.anonKey}" style="font-size:0.72rem">
       <div class="label" style="margin-top:8px">동기화 키 (같은 키를 입력한 기기끼리 데이터 공유)</div>
       <input type="text" id="sync-key" placeholder="예: myband2024" value="${syncKey}" style="max-width:260px">
       <div class="btn-row" style="margin-top:10px">

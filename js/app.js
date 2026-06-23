@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     location.href = location.pathname + '?v=' + Date.now();
   });
 
-  // Supabase 자동 연결 (설정된 경우)
-  if (localStorage.getItem('gta_supabase_cfg') && settings.syncKey) {
+  // Supabase 자동 연결 (기본 설정 내장 — 어느 기기든 자동 연결)
+  {
     try {
       const { connect, pullAllData, pushAllData, subscribeDataChanges } = await import('./supabase-sync.js');
       const res = await connect();
