@@ -363,7 +363,7 @@ async function uploadSheet(panel) {
 
   const { isReady, connect, pushSheet: fbPush } = await import('./supabase-sync.js');
   let fbReady = isReady();
-  if (!fbReady && localStorage.getItem('gta_supabase_cfg')) {
+  if (!fbReady) {
     const res = await connect();
     fbReady = res.ok;
   }
