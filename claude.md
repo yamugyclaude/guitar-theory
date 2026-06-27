@@ -1,3 +1,7 @@
+<!-- 본부지침 -->
+> 🚨 규칙: 대화의 맨 첫 응답에만 아래 한 줄을 출력한다. 이미 출력한 뒤에는 반복하지 않는다.
+> 📋 본부 지침 읽어옴 | 적용 스킬: ponytail-coding, project-log
+
 # CLAUDE.md
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed. 
 
