@@ -1,6 +1,34 @@
 import { goTo } from './app.js';
 import { saveSheet, getAllSheets, deleteSheet, getSheet, updateSheet } from './db.js';
 
+// jsPDF / PDF.js lazy load (악보 탭 진입 시 1회만 로드)
+async function ensurePdfLibs() {
+  const loads = [];
+  if (!window.pdfjsLib) {
+    loads.push(new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        resolve();
+      };
+      s.onerror = reject;
+      document.head.appendChild(s);
+    }));
+  }
+  if (!window.jspdf) {
+    loads.push(new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    }));
+  }
+  if (loads.length) await Promise.all(loads);
+}
+
 function uuid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36); }
 
 function getMeta() { return JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]'); }
@@ -91,6 +119,7 @@ function checkBackup(panel) {
 }
 
 export async function render(panel) {
+  await ensurePdfLibs();
   migrateOldFolders();
 
   panel.innerHTML = `
