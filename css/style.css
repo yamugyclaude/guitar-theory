@@ -239,6 +239,17 @@ body {
     scrollbar-width: none;
   }
   #tab-nav::-webkit-scrollbar { display: none; }
+  #tab-nav::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 40px;
+    height: var(--nav-height);
+    background: linear-gradient(to right, transparent, var(--bg));
+    pointer-events: none;
+    z-index: 10;
+  }
   .nav-header { display: none !important; }
   .tab-btn {
     flex-direction: column;
@@ -296,6 +307,7 @@ input[type="text"], input[type="password"], input[type="number"], textarea, sele
 }
 input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 textarea { resize: vertical; }
@@ -330,7 +342,7 @@ button.btn-link {
   font-size: 0.8rem;
   padding: 7px 13px;
 }
-button.btn-link:hover { border-color: var(--link); background: color-mix(in srgb, var(--link) 12%, transparent); }
+button.btn-link:hover { border-color: var(--link); background: rgba(96, 165, 250, 0.12); background: color-mix(in srgb, var(--link) 12%, transparent); }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .badge {
   display: inline-block;

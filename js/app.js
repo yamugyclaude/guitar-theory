@@ -42,6 +42,7 @@ const renderers = {
 };
 
 let activeTab = 1;
+const tabScrollCache = {};
 
 export function goTo(tab, payload = null) {
   if (payload) AppState.pendingRoute = { tab, payload };
@@ -51,12 +52,15 @@ export function goTo(tab, payload = null) {
 function switchTab(tab) {
   // 재생 중인 사운드 정지
   import('./audio.js').then(a => a.stopAll()).catch(() => {});
-  // 이전 탭 DOM 비우기
-  document.getElementById(`tab-${activeTab}`).innerHTML = '';
+
+  // 이전 탭 스크롤 위치 저장 후 DOM 비우기
+  const prevPanel = document.getElementById(`tab-${activeTab}`);
+  tabScrollCache[activeTab] = prevPanel.scrollTop;
+  prevPanel.innerHTML = '';
   const prevBtn = document.querySelector(`.tab-btn[data-tab="${activeTab}"]`);
   prevBtn.classList.remove('active');
   prevBtn.setAttribute('aria-selected', 'false');
-  document.getElementById(`tab-${activeTab}`).classList.remove('active');
+  prevPanel.classList.remove('active');
 
   activeTab = tab;
 
@@ -67,6 +71,11 @@ function switchTab(tab) {
   btn.setAttribute('aria-selected', 'true');
 
   renderers[tab](panel);
+
+  // 이전 스크롤 위치 복원
+  if (tabScrollCache[tab]) {
+    requestAnimationFrame(() => { panel.scrollTop = tabScrollCache[tab]; });
+  }
 
   // pendingRoute 소비
   if (AppState.pendingRoute?.tab === tab) {
