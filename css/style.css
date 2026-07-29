@@ -121,6 +121,7 @@ body {
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  height: 100vh;
   height: 100dvh;
   overflow: hidden;
   display: flex;
@@ -195,7 +196,14 @@ body {
   overflow-y: auto;
   padding: 28px 28px 48px;
 }
-.tab-panel.active { display: block; }
+.tab-panel.active {
+  display: block;
+  animation: tab-fade-in 0.18s ease;
+}
+@keyframes tab-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* ===== nav 숨김 (PC/태블릿) ===== */
 @media (min-width: 768px) {
@@ -249,7 +257,7 @@ body {
     background: var(--bg3);
   }
   #main-content { order: 1; }
-  .tab-panel { padding: 18px 16px 32px; }
+  .tab-panel { padding: 18px 16px calc(32px + env(safe-area-inset-bottom)); }
 }
 
 /* ===== 공통 컴포넌트 ===== */

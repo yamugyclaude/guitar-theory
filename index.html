@@ -11,42 +11,44 @@
 </head>
 <body>
   <!-- 메뉴 숨김 토글 버튼 (PC/태블릿) -->
-  <button id="nav-toggle" title="메뉴 숨기기/보이기" style="position:fixed;top:8px;left:8px;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;font-size:1rem;color:var(--text2);display:none">☰</button>
+  <button id="nav-toggle" title="메뉴 숨기기/보이기" aria-label="메뉴 열기" style="position:fixed;top:8px;left:8px;z-index:200;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:pointer;font-size:1rem;color:var(--text2);display:none">☰</button>
 
   <!-- 사이드 탭바 (PC) / 하단 탭바 (모바일) -->
-  <nav id="tab-nav">
+  <nav id="tab-nav" aria-label="탭 네비게이션">
     <div class="nav-header" style="display:flex;align-items:center;justify-content:space-between">
       <span>🎸 GTA</span>
-      <button id="nav-hide-btn" title="메뉴 숨기기" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:0 2px;line-height:1">‹</button>
+      <button id="nav-hide-btn" title="메뉴 숨기기" aria-label="메뉴 숨기기" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:1rem;padding:0 2px;line-height:1">‹</button>
     </div>
-    <button class="tab-btn active" data-tab="1">🎸<span>이론 분석</span></button>
-    <button class="tab-btn" data-tab="2">🎼<span>코드 보이싱</span></button>
-    <button class="tab-btn" data-tab="3">🎯<span>솔로 메이킹</span></button>
-    <button class="tab-btn" data-tab="4">🔍<span>솔로 분석</span></button>
-    <button class="tab-btn" data-tab="5">🌟<span>스타일</span></button>
-    <button class="tab-btn" data-tab="10">🏋️<span>연습</span></button>
-    <button class="tab-btn" data-tab="6">📂<span>악보</span></button>
-    <button class="tab-btn" data-tab="7">📝<span>곡진행</span></button>
-    <button class="tab-btn" data-tab="8">🎬<span>라이브</span></button>
-    <button class="tab-btn" data-tab="9">⚙️<span>설정</span></button>
+    <div role="tablist" aria-label="기능 탭">
+      <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-1" data-tab="1"><span aria-hidden="true">🎸</span><span>이론 분석</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-2" data-tab="2"><span aria-hidden="true">🎼</span><span>코드 보이싱</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-3" data-tab="3"><span aria-hidden="true">🎯</span><span>솔로 메이킹</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-4" data-tab="4"><span aria-hidden="true">🔍</span><span>솔로 분석</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-5" data-tab="5"><span aria-hidden="true">🌟</span><span>스타일</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-10" data-tab="10"><span aria-hidden="true">🏋️</span><span>연습</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-6" data-tab="6"><span aria-hidden="true">📂</span><span>악보</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-7" data-tab="7"><span aria-hidden="true">📝</span><span>곡진행</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-8" data-tab="8"><span aria-hidden="true">🎬</span><span>라이브</span></button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-9" data-tab="9"><span aria-hidden="true">⚙️</span><span>설정</span></button>
+    </div>
     <div style="margin-top:auto;padding:8px">
-      <button id="hard-refresh-btn" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:0.72rem;padding:6px 4px;text-align:center">🔄 강력 새로고침</button>
+      <button id="hard-refresh-btn" aria-label="강력 새로고침" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;color:var(--text2);cursor:pointer;font-size:0.72rem;padding:6px 4px;text-align:center">🔄 강력 새로고침</button>
       <div id="app-version" style="text-align:center;color:var(--text2);opacity:0.6;font-size:0.66rem;margin-top:6px">v2026.06.23</div>
     </div>
   </nav>
 
   <!-- 메인 콘텐츠 -->
   <main id="main-content">
-    <div id="tab-1" class="tab-panel active"></div>
-    <div id="tab-2" class="tab-panel"></div>
-    <div id="tab-3" class="tab-panel"></div>
-    <div id="tab-4" class="tab-panel"></div>
-    <div id="tab-5" class="tab-panel"></div>
-    <div id="tab-6" class="tab-panel"></div>
-    <div id="tab-7" class="tab-panel"></div>
-    <div id="tab-8" class="tab-panel"></div>
-    <div id="tab-9" class="tab-panel"></div>
-    <div id="tab-10" class="tab-panel"></div>
+    <div id="tab-1" class="tab-panel active" role="tabpanel"></div>
+    <div id="tab-2" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-3" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-4" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-5" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-6" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-7" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-8" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-9" class="tab-panel" role="tabpanel"></div>
+    <div id="tab-10" class="tab-panel" role="tabpanel"></div>
   </main>
 
   <!-- jsPDF (이미지→PDF 변환용) -->

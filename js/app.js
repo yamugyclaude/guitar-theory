@@ -53,7 +53,9 @@ function switchTab(tab) {
   import('./audio.js').then(a => a.stopAll()).catch(() => {});
   // 이전 탭 DOM 비우기
   document.getElementById(`tab-${activeTab}`).innerHTML = '';
-  document.querySelector(`.tab-btn[data-tab="${activeTab}"]`).classList.remove('active');
+  const prevBtn = document.querySelector(`.tab-btn[data-tab="${activeTab}"]`);
+  prevBtn.classList.remove('active');
+  prevBtn.setAttribute('aria-selected', 'false');
   document.getElementById(`tab-${activeTab}`).classList.remove('active');
 
   activeTab = tab;
@@ -62,6 +64,7 @@ function switchTab(tab) {
   const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
   panel.classList.add('active');
   btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
 
   renderers[tab](panel);
 
