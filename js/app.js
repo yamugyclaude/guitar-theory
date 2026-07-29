@@ -138,16 +138,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 첫 탭 렌더
   renderers[1](document.getElementById('tab-1'));
 
-  // localStorage 변경 감지 → Supabase 자동 push
-  const DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta'];
-  const _origSetItem = localStorage.setItem.bind(localStorage);
-  localStorage.setItem = function(key, value) {
-    _origSetItem(key, value);
-    // 원격에서 받은 데이터를 적는 중이면 push 생략 (에코 루프 방지)
-    if (DATA_KEYS.includes(key) && !window.__gtaApplyingRemote) {
-      import('./supabase-sync.js').then(({ isReady, pushData }) => {
-        if (isReady()) pushData(key);
-      });
-    }
-  };
+  // localStorage DATA_KEY 변경 감지 → Supabase 자동 push
+  window.addEventListener('gta:storage', ({ detail: key }) => {
+    import('./supabase-sync.js').then(({ isReady, pushData }) => {
+      if (isReady()) pushData(key);
+    });
+  });
 });

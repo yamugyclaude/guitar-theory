@@ -1,4 +1,5 @@
 import { getAllSheets, saveSheet } from './db.js';
+import { gtaSetItem } from './gta-storage.js';
 
 function getSettings() { return JSON.parse(localStorage.getItem('gta_settings') || '{}'); }
 function saveSettings(s) { localStorage.setItem('gta_settings', JSON.stringify(s)); }
@@ -498,9 +499,9 @@ async function importData(file) {
     if (data.version !== 1) { alert('지원하지 않는 백업 파일 형식입니다.'); return; }
     if (!confirm('현재 데이터를 덮어씁니다. 계속하시겠습니까?')) return;
 
-    localStorage.setItem('gta_sheet_meta', JSON.stringify(data.meta || []));
-    localStorage.setItem('gta_setlists', JSON.stringify(data.setlists || []));
-    localStorage.setItem('gta_chart_drafts', JSON.stringify(data.drafts || []));
+    gtaSetItem('gta_sheet_meta', JSON.stringify(data.meta || []));
+    gtaSetItem('gta_setlists', JSON.stringify(data.setlists || []));
+    gtaSetItem('gta_chart_drafts', JSON.stringify(data.drafts || []));
     localStorage.setItem('gta_settings', JSON.stringify(data.settings || {}));
     localStorage.setItem('gta_last_backup', new Date().toISOString());
 

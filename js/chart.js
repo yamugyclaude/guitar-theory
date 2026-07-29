@@ -1,7 +1,8 @@
 import { goTo, on } from './app.js';
+import { gtaSetItem } from './gta-storage.js';
 
 function getDrafts() { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); }
-function saveDrafts(d) { localStorage.setItem('gta_chart_drafts', JSON.stringify(d)); }
+function saveDrafts(d) { gtaSetItem('gta_chart_drafts', JSON.stringify(d)); }
 function saveDraft(draft) {
   const drafts = getDrafts();
   const idx = drafts.findIndex(d => d.id === draft.id);
@@ -457,7 +458,7 @@ function renderEditor(panel, draft) {
           if (song) song.title = draft.title;
         });
       }
-      localStorage.setItem('gta_setlists', JSON.stringify(folders));
+      gtaSetItem('gta_setlists', JSON.stringify(folders));
     } catch(e) { console.warn('setlists update failed:', e); }
     showToast('저장 완료 ✅');
     goTo(6); // 악보 탭으로 이동

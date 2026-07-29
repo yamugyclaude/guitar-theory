@@ -1,5 +1,6 @@
 import { getSheet } from './db.js';
 import { buildChartHtml } from './chart.js';
+import { gtaSetItem } from './gta-storage.js';
 
 // ── 데이터 구조 ─────────────────────────────────────────────────────
 // gta_setlists: [{id, name, songs:[{title,type,id}]}]
@@ -24,7 +25,7 @@ function getFolders() {
 }
 
 function _saveFolders(d) {
-  localStorage.setItem('gta_setlists', JSON.stringify(d));
+  gtaSetItem('gta_setlists', JSON.stringify(d));
 }
 
 function getDrafts() {

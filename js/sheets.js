@@ -1,4 +1,5 @@
 import { goTo } from './app.js';
+import { gtaSetItem } from './gta-storage.js';
 import { saveSheet, getAllSheets, deleteSheet, getSheet, updateSheet } from './db.js';
 
 // jsPDF / PDF.js lazy load (악보 탭 진입 시 1회만 로드)
@@ -32,7 +33,7 @@ async function ensurePdfLibs() {
 function uuid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36); }
 
 function getMeta() { return JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]'); }
-function setMeta(data) { localStorage.setItem('gta_sheet_meta', JSON.stringify(data)); }
+function setMeta(data) { gtaSetItem('gta_sheet_meta', JSON.stringify(data)); }
 function getDrafts() { try { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); } catch { return []; } }
 
 // ===== 통합 폴더 시스템 (gta_setlists) =====
@@ -51,7 +52,7 @@ function getSetlistFolders() {
   } catch { return []; }
 }
 function saveSetlistFolders(data) {
-  localStorage.setItem('gta_setlists', JSON.stringify(data));
+  gtaSetItem('gta_setlists', JSON.stringify(data));
 }
 
 // 아이템을 폴더에 추가 (중복 방지)
@@ -552,7 +553,7 @@ function filterList(panel, query) {
         }
       }
       setMeta(allMeta.filter(m => !m.deleted));
-      localStorage.setItem('gta_chart_drafts', JSON.stringify(allDrafts.filter(d => !d.deleted)));
+      gtaSetItem('gta_chart_drafts', JSON.stringify(allDrafts.filter(d => !d.deleted)));
       renderFolderChips(panel); filterList(panel, '');
     });
 
@@ -583,7 +584,7 @@ function filterList(panel, query) {
           const drafts = getDrafts();
           const idx = drafts.findIndex(x => x.id === item.id);
           if (idx >= 0) { delete drafts[idx].deleted; delete drafts[idx].deletedAt; }
-          localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+          gtaSetItem('gta_chart_drafts', JSON.stringify(drafts));
         } else {
           const meta = getMeta();
           const idx = meta.findIndex(x => x.id === item.id);
@@ -599,7 +600,7 @@ function filterList(panel, query) {
       delBtn.addEventListener('click', async () => {
         if (!confirm('"' + item.title + '"을 영구 삭제합니까? 복구할 수 없습니다.')) return;
         if (isChart) {
-          localStorage.setItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x => x.id !== item.id)));
+          gtaSetItem('gta_chart_drafts', JSON.stringify(getDrafts().filter(x => x.id !== item.id)));
         } else {
           await deleteSheet(item.id);
           setMeta(getMeta().filter(x => x.id !== item.id));
@@ -714,7 +715,7 @@ function filterList(panel, query) {
         const drafts = getDrafts();
         const idx = drafts.findIndex(x => x.id === item.id);
         if (idx >= 0) { drafts[idx].deleted = true; drafts[idx].deletedAt = Date.now(); }
-        localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+        gtaSetItem('gta_chart_drafts', JSON.stringify(drafts));
       } else {
         const meta = getMeta();
         const idx = meta.findIndex(x => x.id === item.id);
@@ -1191,7 +1192,7 @@ function renderExtractResult(meta, sections, container) {
     const draft = buildDraft(meta, sections);
     const drafts = JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]');
     drafts.unshift(draft);
-    localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+    gtaSetItem('gta_chart_drafts', JSON.stringify(drafts));
     goTo(7); // 곡(코드)진행 탭으로 이동
   });
 }
@@ -1213,7 +1214,7 @@ function saveLiveChart(meta, sections) {
   const draft = buildDraft(meta, sections);
   const drafts = JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]');
   drafts.unshift(draft);
-  localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+  gtaSetItem('gta_chart_drafts', JSON.stringify(drafts));
 
   ensureInFolder({ id: draft.id, title: draft.title, type: 'chart' });
 }
@@ -1421,7 +1422,7 @@ function renderAnalysisReview(result, meta, container, panel) {
     };
     const drafts = JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]');
     drafts.unshift(draft);
-    localStorage.setItem('gta_chart_drafts', JSON.stringify(drafts));
+    gtaSetItem('gta_chart_drafts', JSON.stringify(drafts));
 
     ensureInFolder({ id: draftId, title: newMeta.title, type: 'chart' });
 
