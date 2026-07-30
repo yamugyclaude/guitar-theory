@@ -6,7 +6,7 @@ description: >
   "검증해줘", "확인해줘", "제대로 됐어?", "감사해줘" 같은 요청에 사용한다.
   신규 역할: 토큰 효율성 감시 + 모델 선택 적절성 검증.
   감사실장은 비서실장의 지시를 받지 않는다 — 오직 사장에게만 보고한다.
-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep, Bash, mcp__Vercel__get_runtime_errors, mcp__Vercel__get_runtime_logs, mcp__Supabase__get_advisors, mcp__Supabase__get_logs
 model: sonnet
 ---
 
