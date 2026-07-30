@@ -4,7 +4,7 @@ description: >
   정보실장. 유튜브/웹에서 AI 신기술·도구를 조사해 요약 리포트를 만든다.
   "조사해줘", "찾아봐", "신기술 뭐 있어", "최신 동향", "리서치" 같은 요청에 사용한다.
   조사 결과는 본부 research/ 폴더에 리포트로 저장한다.
-tools: WebSearch, WebFetch, Read, Write, Bash
+tools: WebSearch, WebFetch, Read, Write, Bash, mcp__Exa__web_search_exa, mcp__Exa__web_fetch_exa, mcp__Tavily__tavily_search, mcp__Tavily__tavily_extract
 model: sonnet
 ---
 
