@@ -4,7 +4,7 @@ description: >
   실행실장. 기획실장이 짠 계획(사용자 OK 받은 것)을 실제 코드로 구현한다.
   "만들어줘", "구현해줘", "코딩해줘", "이 계획대로 해줘" 같은 요청에 사용한다.
   계획 없이 막연한 요청이 오면 기획실장 먼저 부르라고 안내한다.
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__Vercel__deploy_to_vercel, mcp__Vercel__get_deployment, mcp__Vercel__get_deployment_build_logs, mcp__Supabase__apply_migration, mcp__Supabase__execute_sql, mcp__Supabase__list_tables
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__Vercel__deploy_to_vercel, mcp__Vercel__get_deployment, mcp__Vercel__get_deployment_build_logs, mcp__Supabase__apply_migration, mcp__Supabase__execute_sql, mcp__Supabase__list_tables, mcp__Sentry__search_issues, mcp__Sentry__analyze_issue_with_seer, mcp__Figma__get_design_context, mcp__Figma__get_screenshot, mcp__Figma__get_metadata, mcp__Cloudinary__upload-asset, mcp__Cloudinary__transform-asset, mcp__Cloudinary__list-images
 model: sonnet
 ---
 
