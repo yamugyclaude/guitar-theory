@@ -98,6 +98,7 @@ export async function render(panel) {
       <h1 class="page-title" style="margin-bottom:0;border-bottom:none;padding-bottom:0">📂 악보 보관함</h1>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-secondary" id="sync-btn" style="font-size:0.78rem;padding:6px 10px" title="클라우드 동기화">☁️</button>
+        <button class="btn btn-secondary" id="drive-import-btn" style="font-size:0.78rem;padding:6px 10px" title="구글 드라이브에서 가져오기">📁</button>
         <button class="btn btn-primary" id="upload-fab" style="font-size:0.8rem;padding:6px 14px">＋ 업로드</button>
       </div>
     </div>
@@ -181,6 +182,89 @@ export async function render(panel) {
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
   panel.querySelector('#sync-btn').addEventListener('click', () => syncFromCloud(panel));
+  panel.querySelector('#drive-import-btn').addEventListener('click', () => showDriveImportModal(panel));
+}
+
+// ===== 구글 드라이브에서 가져오기 =====
+async function showDriveImportModal(panel) {
+  document.querySelector('#drive-import-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'drive-import-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML = `
+    <div class="card" style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-weight:700">📁 구글 드라이브에서 가져오기</span>
+        <button id="drive-modal-close" style="background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer">×</button>
+      </div>
+      <div id="drive-modal-body" style="font-size:0.85rem;color:var(--text2)">불러오는 중...</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector('#drive-modal-close').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  const body = modal.querySelector('#drive-modal-body');
+  try {
+    const { listFiles, fetchBlob } = await import('./drive-sync.js');
+    const files = await listFiles();
+    if (!files.length) { body.textContent = '폴더에 파일이 없습니다.'; return; }
+
+    body.innerHTML = files.map((f, i) => `
+      <div class="drive-file-row" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+        <span style="flex:1;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(f.name)}</span>
+        <span style="font-size:0.7rem;color:var(--text2)">가져오기</span>
+      </div>
+    `).join('');
+
+    body.querySelectorAll('.drive-file-row').forEach(row => {
+      row.addEventListener('click', async () => {
+        const f = files[+row.dataset.idx];
+        row.style.opacity = '0.5';
+        row.querySelector('span:last-child').textContent = '다운로드 중...';
+        try {
+          const mimeType = f.mimeType === 'application/pdf' ? 'application/pdf' : f.mimeType;
+          const blob = await fetchBlob(f.id, mimeType);
+          const file = new File([blob], f.name, { type: mimeType });
+          await importDriveFile(file);
+          row.querySelector('span:last-child').textContent = '✅ 완료';
+          loadList(panel);
+        } catch (e) {
+          row.style.opacity = '1';
+          row.querySelector('span:last-child').textContent = '❌ 실패';
+          console.error('drive import failed:', e);
+        }
+      });
+    });
+  } catch (e) {
+    body.textContent = '❌ ' + e.message;
+  }
+}
+
+// 드라이브에서 받은 파일 하나를 기존 업로드 파이프라인(IndexedDB + gta_sheet_meta)에 등록
+async function importDriveFile(file) {
+  const id = uuid();
+  const title = file.name.replace(/\.[^.]+$/, '');
+  const type = file.type === 'application/pdf' ? 'pdf' : 'image';
+
+  let thumbnail = null;
+  if (type === 'image') thumbnail = await fileToDataURL(file);
+  else if (type === 'pdf') thumbnail = await pdfThumbnail(file);
+
+  await saveSheet({ id, file, type, thumbnail, createdAt: Date.now() });
+
+  let pages = null;
+  if (type === 'pdf') {
+    pages = await prerenderPdfPages(file);
+    if (pages?.length) await updateSheet(id, { pages });
+  }
+
+  const meta = getMeta();
+  const metaItem = { id, title, artist: '', key: '', bpm: '', tags: [], type, createdAt: Date.now() };
+  meta.unshift(metaItem);
+  setMeta(meta);
+  ensureInFolder({ id, title, type });
 }
 
 function renderFolderChips(panel) {

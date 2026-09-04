@@ -73,6 +73,7 @@ export function render(panel) {
   const syncKey = s.syncKey || 'jackson';
   const sbDefaults = { url: 'https://uzkkkmrddarjbevpevod.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a2trbXJkZGFyamJldnBldm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzY0NzksImV4cCI6MjA5NjI1MjQ3OX0.ZeMKpta9fkVVXsRBlojQK2_eD5dVATitPTrSlPNanX0' };
   const sbCfg = (() => { try { const c = JSON.parse(localStorage.getItem('gta_supabase_cfg')||'null'); return (c?.url && c?.anonKey) ? c : sbDefaults; } catch { return sbDefaults; } })();
+  const driveCfg = (() => { try { return JSON.parse(localStorage.getItem('gta_drive_cfg')||'null') || {}; } catch { return {}; } })();
 
   panel.innerHTML = `
     <h1 class="page-title">⚙️ 설정</h1>
@@ -236,6 +237,30 @@ create policy "allow_all" on gta_sheets
         <button class="btn btn-secondary" id="sb-clear-btn">연동 해제</button>
       </div>
       <div id="sb-status" style="font-size:0.82rem;margin-top:8px;color:var(--text2)"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">📁 구글 드라이브 악보 폴더</div>
+      <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 4px">
+        구글 드라이브의 공개 공유 폴더에서 악보 파일을 가져올 수 있습니다. 로그인 불필요, 폴더 ID와 API 키만 있으면 됩니다.
+      </p>
+      <details style="margin-bottom:12px">
+        <summary style="cursor:pointer;font-size:0.82rem;color:var(--link);padding:6px 0">📋 설정 방법 펼치기</summary>
+        <div style="font-size:0.8rem;line-height:1.9;padding:10px;background:var(--bg3);border-radius:var(--radius);margin-top:6px">
+          <strong>① 구글 드라이브</strong>에서 악보 폴더 생성 → 공유 → <strong>"링크가 있는 모든 사용자"</strong>로 공개 설정<br>
+          <strong>② 폴더 URL</strong>에서 <code>folders/</code> 뒤의 문자열이 폴더 ID<br>
+          <strong>③ <a href="https://console.cloud.google.com" target="_blank" style="color:var(--link)">Google Cloud Console</a></strong> → 프로젝트 생성 → "API 및 서비스" → <strong>Drive API 활성화</strong><br>
+          <strong>④ 사용자 인증 정보</strong> → API 키 만들기 (도메인 제한 권장) → 아래에 입력
+        </div>
+      </details>
+      <div class="label">폴더 ID</div>
+      <input type="text" id="drive-folder-id" placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz" value="${driveCfg.folderId || ''}">
+      <div class="label" style="margin-top:8px">API 키</div>
+      <input type="text" id="drive-api-key" placeholder="AIza..." value="${driveCfg.apiKey || ''}" style="font-size:0.72rem">
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-primary" id="drive-save-btn">저장</button>
+      </div>
+      <div id="drive-status" style="font-size:0.82rem;margin-top:8px;color:var(--text2)"></div>
     </div>
 
     <div class="card" style="border-color:var(--danger)">
@@ -449,6 +474,17 @@ create policy "allow_all" on gta_sheets
     panel.querySelector('#sb-key').value = '';
     panel.querySelector('#sync-key').value = '';
     panel.querySelector('#sb-status').textContent = '연동이 해제되었습니다.';
+  });
+
+  // 구글 드라이브 설정 저장
+  panel.querySelector('#drive-save-btn').addEventListener('click', async () => {
+    const folderId = panel.querySelector('#drive-folder-id').value.trim();
+    const apiKey = panel.querySelector('#drive-api-key').value.trim();
+    const status = panel.querySelector('#drive-status');
+    if (!folderId || !apiKey) { status.textContent = '⚠️ 폴더 ID와 API 키를 모두 입력해주세요.'; return; }
+    const { saveConfig } = await import('./drive-sync.js');
+    saveConfig(folderId, apiKey);
+    status.textContent = '✅ 저장됐습니다.';
   });
 
   // 초기화
