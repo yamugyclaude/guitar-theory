@@ -130,9 +130,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 강력 새로고침 (localStorage/IndexedDB 안전)
-  document.getElementById('hard-refresh-btn').addEventListener('click', () => {
-    location.href = location.pathname + '?v=' + Date.now();
-  });
+  const hardRefresh = () => { location.href = location.pathname + '?v=' + Date.now(); };
+  document.getElementById('hard-refresh-btn').addEventListener('click', hardRefresh);
+  document.getElementById('mobile-hard-refresh-btn').addEventListener('click', hardRefresh);
 
   // Supabase 자동 연결 (기본 설정 내장 — 어느 기기든 자동 연결)
   {

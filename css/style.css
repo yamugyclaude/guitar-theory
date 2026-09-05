@@ -265,8 +265,18 @@ body {
     font-size: 1.3rem;
     font-weight: 800;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
     color: var(--text);
+  }
+  #mobile-hard-refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 0.72rem;
+    padding: 6px 4px;
+    margin-bottom: 18px;
   }
   .mobile-home-grid {
     display: grid;
