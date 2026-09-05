@@ -250,6 +250,67 @@ body {
   }
   #main-content { order: 1; }
   .tab-panel { padding: 18px 16px 32px; }
+
+  /* 모바일: 하단 탭바 대신 첫 화면 카테고리 그리드 */
+  #tab-nav { display: none; }
+  #main-content { display: none; }
+  #mobile-home {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 24px 16px;
+    overflow-y: auto;
+  }
+  .mobile-home-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+  .mobile-home-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .home-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 22px 10px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .home-btn:active { background: var(--bg3); }
+  #mobile-back-btn {
+    display: none;
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 200;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text2);
+    cursor: pointer;
+  }
+  body.mobile-tab-open #main-content { display: block; }
+  body.mobile-tab-open #mobile-home { display: none; }
+  body.mobile-tab-open #mobile-back-btn { display: block; }
+}
+@media (min-width: 768px) {
+  #mobile-home, #mobile-back-btn { display: none !important; }
 }
 
 /* ===== 공통 컴포넌트 ===== */

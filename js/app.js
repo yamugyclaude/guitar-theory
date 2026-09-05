@@ -62,6 +62,7 @@ function switchTab(tab) {
   const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
   panel.classList.add('active');
   btn.classList.add('active');
+  document.body.classList.add('mobile-tab-open');
 
   renderers[tab](panel);
 
@@ -72,12 +73,27 @@ function switchTab(tab) {
   }
 }
 
+// 모바일: 첫 화면(카테고리 그리드)으로 돌아가기
+function goHome() {
+  import('./audio.js').then(a => a.stopAll()).catch(() => {});
+  document.getElementById(`tab-${activeTab}`).innerHTML = '';
+  document.querySelector(`.tab-btn[data-tab="${activeTab}"]`)?.classList.remove('active');
+  document.getElementById(`tab-${activeTab}`).classList.remove('active');
+  document.body.classList.remove('mobile-tab-open');
+}
+
 // ===== 초기화 =====
 document.addEventListener('DOMContentLoaded', async () => {
   // 탭 버튼 이벤트
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(Number(btn.dataset.tab)));
   });
+
+  // 모바일 첫 화면 카테고리 버튼
+  document.querySelectorAll('.home-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(Number(btn.dataset.tab)));
+  });
+  document.getElementById('mobile-back-btn').addEventListener('click', goHome);
 
   // 설정 불러오기 (테마 등)
   const settings = JSON.parse(localStorage.getItem('gta_settings') || '{}');
