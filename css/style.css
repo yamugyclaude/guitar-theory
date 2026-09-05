@@ -290,27 +290,34 @@ body {
     cursor: pointer;
   }
   .home-btn:active { background: var(--bg3); }
-  #mobile-back-btn {
+  #mobile-back-bar {
     display: none;
     position: fixed;
-    top: 8px;
-    right: 8px;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 38px;
     z-index: 200;
+    align-items: center;
     background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 10px;
+  }
+  #mobile-back-btn {
+    background: none;
+    border: none;
+    padding: 4px 6px;
     font-size: 0.78rem;
     font-weight: 600;
     color: var(--text2);
     cursor: pointer;
   }
-  body.mobile-tab-open #main-content { display: block; }
+  body.mobile-tab-open #main-content { display: block; padding-top: 38px; }
   body.mobile-tab-open #mobile-home { display: none; }
-  body.mobile-tab-open #mobile-back-btn { display: block; }
+  body.mobile-tab-open #mobile-back-bar { display: flex; }
 }
 @media (min-width: 768px) {
-  #mobile-home, #mobile-back-btn { display: none !important; }
+  #mobile-home, #mobile-back-bar { display: none !important; }
 }
 
 /* ===== 공통 컴포넌트 ===== */
