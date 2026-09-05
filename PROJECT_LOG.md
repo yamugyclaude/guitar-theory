@@ -32,6 +32,10 @@
 - `css/style.css` — 모바일 미디어쿼리 내 하단 탭바 숨김 + 홈 그리드/홈 버튼 스타일
 - `js/app.js` — `switchTab`에 `mobile-tab-open` 클래스 토글 추가, `goHome()` 함수 추가
 
+### 후속 수정 (같은 날)
+- 버그: 첫 화면 버튼(플로팅, top:8px right:8px)이 페이지 자체 헤더 버튼(예: 악보 보관함의 ☁️/업로드 버튼)과 겹침
+- 수정: 플로팅 버튼 → 전체 폭 상단 바(`#mobile-back-bar`)로 변경, `#main-content`에 padding-top 38px 부여해 항상 페이지 콘텐츠 아래로 내려서 겹침 방지
+
 ---
 
 ## [2026-06-23] 성공
