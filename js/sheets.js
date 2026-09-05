@@ -1190,6 +1190,46 @@ function saveLiveChart(meta, sections) {
 }
 
 // ===== 클라우드 동기화 =====
+// 원격에만 있고 로컬에는 없는 악보 파일을 내려받는다 (수동/자동 공용 핵심 로직)
+export async function pullMissingSheetFiles(onProgress) {
+  const { isReady, connect, pullAll, fetchBlob } = await import('./supabase-sync.js');
+  let ready = isReady();
+  if (!ready) {
+    const res = await connect();
+    if (!res.ok) throw new Error(res.error);
+    ready = true;
+  }
+
+  const remoteList = await pullAll();
+  if (!remoteList) throw new Error('원격 데이터를 가져올 수 없습니다.');
+
+  const localMeta = getMeta();
+  const localIds = new Set(localMeta.map(m => m.id));
+  const toDownload = remoteList.filter(r => !localIds.has(r.id));
+
+  let downloaded = 0;
+  for (let i = 0; i < toDownload.length; i++) {
+    const remote = toDownload[i];
+    onProgress?.(i + 1, toDownload.length);
+    try {
+      const mime = remote.type === 'pdf' ? 'application/pdf' : 'image/jpeg';
+      const fileBlob = await fetchBlob(remote.fileUrl, mime);
+
+      const pages = [];
+      for (const pUrl of (remote.pagesUrls || [])) {
+        pages.push(await fetchBlob(pUrl, 'image/jpeg'));
+      }
+
+      await saveSheet({ id: remote.id, file: fileBlob, type: remote.type, thumbnail: null, createdAt: remote.createdAt, ...(pages.length ? { pages } : {}) });
+      localMeta.unshift({ id: remote.id, title: remote.title, artist: remote.artist, key: remote.key, bpm: remote.bpm, tags: remote.tags || [], folder: remote.folder || '', type: remote.type, createdAt: remote.createdAt });
+      downloaded++;
+    } catch (e) { console.warn('download failed:', remote.id, e); }
+  }
+
+  setMeta(localMeta);
+  return { downloaded, total: remoteList.length, alreadyHave: localIds.size };
+}
+
 async function syncFromCloud(panel) {
   const syncBtn = panel.querySelector('#sync-btn');
   const orig = syncBtn.textContent;
@@ -1197,44 +1237,12 @@ async function syncFromCloud(panel) {
   syncBtn.textContent = '☁️ 연결 중...';
 
   try {
-    const { isReady, connect, pullAll, fetchBlob } = await import('./supabase-sync.js');
-    let ready = isReady();
-    if (!ready) {
-      const res = await connect();
-      if (!res.ok) { alert('Supabase 연결 실패: ' + res.error + '\n\n설정 탭에서 Supabase URL과 Key를 확인해주세요.'); return; }
-      ready = true;
-    }
-
     syncBtn.textContent = '☁️ 목록 받는 중...';
-    const remoteList = await pullAll();
-    if (!remoteList) { alert('동기화 실패: 원격 데이터를 가져올 수 없습니다.'); return; }
-
-    const localMeta = getMeta();
-    const localIds = new Set(localMeta.map(m => m.id));
-    const toDownload = remoteList.filter(r => !localIds.has(r.id));
-
-    let downloaded = 0;
-    for (let i = 0; i < toDownload.length; i++) {
-      const remote = toDownload[i];
-      syncBtn.textContent = `☁️ 다운로드 중 (${i + 1}/${toDownload.length})...`;
-      try {
-        const mime = remote.type === 'pdf' ? 'application/pdf' : 'image/jpeg';
-        const fileBlob = await fetchBlob(remote.fileUrl, mime);
-
-        const pages = [];
-        for (const pUrl of (remote.pagesUrls || [])) {
-          pages.push(await fetchBlob(pUrl, 'image/jpeg'));
-        }
-
-        await saveSheet({ id: remote.id, file: fileBlob, type: remote.type, thumbnail: null, createdAt: remote.createdAt, ...(pages.length ? { pages } : {}) });
-        localMeta.unshift({ id: remote.id, title: remote.title, artist: remote.artist, key: remote.key, bpm: remote.bpm, tags: remote.tags || [], folder: remote.folder || '', type: remote.type, createdAt: remote.createdAt });
-        downloaded++;
-      } catch (e) { console.warn('download failed:', remote.id, e); }
-    }
-
-    setMeta(localMeta);
+    const result = await pullMissingSheetFiles((done, total) => {
+      syncBtn.textContent = `☁️ 다운로드 중 (${done}/${total})...`;
+    });
     loadList(panel);
-    alert(`동기화 완료!\n새로 받은 파일: ${downloaded}개\n(전체 원격: ${remoteList.length}개, 이미 보유: ${localIds.size}개)`);
+    alert(`동기화 완료!\n새로 받은 파일: ${result.downloaded}개\n(전체 원격: ${result.total}개, 이미 보유: ${result.alreadyHave}개)`);
   } catch (e) {
     alert('동기화 오류: ' + e.message);
   } finally {

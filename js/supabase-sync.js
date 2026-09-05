@@ -107,15 +107,19 @@ export async function pullAll() {
   }));
 }
 
-// ── 앱 데이터 동기화 (gta_chart_drafts / gta_setlists / gta_sheet_meta) ──
-
-const DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta'];
+// ── 앱 데이터 동기화 ──
+// JSON 값으로 저장되는 키 (객체/배열)
+const JSON_DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta', 'gta_settings', 'gta_custom_themes'];
+// JSON.stringify 없이 원시 문자열/숫자로 저장되는 키
+const RAW_DATA_KEYS = ['gta_gemini_key', 'gta_live_zoom', 'gta_live_chordscale', 'gta_live_chordweight'];
+export const DATA_KEYS = [...JSON_DATA_KEYS, ...RAW_DATA_KEYS];
 
 // 로컬 → Supabase
 export async function pushData(dataKey) {
   if (!isReady()) return;
   const key = getSyncKey();
-  const payload = JSON.parse(localStorage.getItem(dataKey) || 'null');
+  const raw = localStorage.getItem(dataKey);
+  const payload = RAW_DATA_KEYS.includes(dataKey) ? raw : JSON.parse(raw || 'null');
   const { error } = await _client.from('gta_data').upsert({
     sync_key: key,
     data_key: dataKey,
@@ -132,8 +136,10 @@ export async function pushAllData() {
 // 원격 데이터를 로컬에 적을 때 자동 push(에코 루프) 방지 — app.js의 setItem 패치가 이 플래그를 확인
 function applyRemote(dataKey, payload) {
   window.__gtaApplyingRemote = true;
-  try { localStorage.setItem(dataKey, JSON.stringify(payload)); }
-  finally { window.__gtaApplyingRemote = false; }
+  try {
+    if (RAW_DATA_KEYS.includes(dataKey)) localStorage.setItem(dataKey, payload ?? '');
+    else localStorage.setItem(dataKey, JSON.stringify(payload));
+  } finally { window.__gtaApplyingRemote = false; }
 }
 
 // Supabase → 로컬

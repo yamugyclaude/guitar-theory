@@ -137,12 +137,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Supabase 자동 연결 (기본 설정 내장 — 어느 기기든 자동 연결)
   {
     try {
-      const { connect, pullAllData, pushAllData, subscribeDataChanges } = await import('./supabase-sync.js');
+      const { connect, pullAllData, subscribeDataChanges } = await import('./supabase-sync.js');
       const res = await connect();
       if (res.ok) {
         await pullAllData(); // 다른 기기 변경사항 가져오기
         subscribeDataChanges(dataKey => {
           window.dispatchEvent(new CustomEvent('gta-data-synced', { detail: { dataKey } }));
+        });
+        // 다른 기기에서 올린 악보 파일 자동 다운로드 (백그라운드, 조용히)
+        import('./sheets.js').then(({ pullMissingSheetFiles }) => {
+          pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
         });
       }
     } catch (e) { console.warn('자동 연결 실패:', e.message); }
@@ -152,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderers[1](document.getElementById('tab-1'));
 
   // localStorage 변경 감지 → Supabase 자동 push
-  const DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta'];
+  const { DATA_KEYS } = await import('./supabase-sync.js');
   const _origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(key, value) {
     _origSetItem(key, value);
