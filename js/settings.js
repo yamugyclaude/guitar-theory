@@ -69,10 +69,8 @@ export function render(panel) {
   const curTheme = s.theme || 'dark-pro';
   const curSize = s.fontSize || 16;
   const curLeft = s.leftHanded || false;
-  const fbCfgStr = ''; // Firebase 제거됨 (Supabase로 대체)
-  const syncKey = s.syncKey || 'jackson';
-  const sbDefaults = { url: 'https://uzkkkmrddarjbevpevod.supabase.co', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6a2trbXJkZGFyamJldnBldm9kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzY0NzksImV4cCI6MjA5NjI1MjQ3OX0.ZeMKpta9fkVVXsRBlojQK2_eD5dVATitPTrSlPNanX0' };
-  const sbCfg = (() => { try { const c = JSON.parse(localStorage.getItem('gta_supabase_cfg')||'null'); return (c?.url && c?.anonKey) ? c : sbDefaults; } catch { return sbDefaults; } })();
+  const driveClientId = localStorage.getItem('gta_drive_client_id') || '';
+  const driveLoggedIn = localStorage.getItem('gta_drive_logged_in') === '1';
 
   panel.innerHTML = `
     <h1 class="page-title">⚙️ 설정</h1>
@@ -199,43 +197,20 @@ export function render(panel) {
     </div>
 
     <div class="card">
-      <div class="section-label">☁️ 클라우드 동기화 (Supabase)</div>
+      <div class="section-label">☁️ 클라우드 동기화 (구글 드라이브)</div>
       <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 4px">
-        모든 기기에서 같은 악보를 공유할 수 있습니다. <strong>무료</strong>이며 URL + Key 2개만 입력하면 됩니다.<br>
-        ⚠️ 무료 플랜은 1주일 미사용 시 일시정지 (접속하면 즉시 재개됨)
+        내 드라이브의 "기타이론" 폴더에 저장됩니다. 아무 기기에서나 로그인하면 불러올 수 있습니다.
       </p>
-      <details style="margin-bottom:12px">
-        <summary style="cursor:pointer;font-size:0.82rem;color:var(--link);padding:6px 0">📋 설정 방법 펼치기</summary>
-        <div style="font-size:0.8rem;line-height:1.9;padding:10px;background:var(--bg3);border-radius:var(--radius);margin-top:6px">
-          <strong>① <a href="https://supabase.com" target="_blank" style="color:var(--link)">supabase.com</a></strong> → 무료 가입 → New Project<br>
-          <strong>② Settings → API</strong> → Project URL과 anon public key 복사<br>
-          <strong>③ SQL Editor</strong> → 아래 SQL 복사 후 실행:<br>
-          <pre style="background:var(--bg);padding:8px;border-radius:4px;font-size:0.72rem;overflow-x:auto;margin:6px 0">create table if not exists gta_sheets (
-  id text primary key,
-  sync_key text not null,
-  title text, artist text, key text,
-  bpm text, tags jsonb default '[]',
-  folder text default '', type text,
-  file_url text, pages_urls jsonb default '[]',
-  created_at bigint, synced_at bigint
-);
-alter table gta_sheets enable row level security;
-create policy "allow_all" on gta_sheets
-  for all using (true) with check (true);</pre>
-          <strong>④ Storage</strong> → New bucket → 이름: <code>gta-sheets</code> → <strong>Public 체크</strong> → Create
-        </div>
-      </details>
-      <div class="label">Project URL</div>
-      <input type="text" id="sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co" value="${sbCfg.url}">
-      <div class="label" style="margin-top:8px">anon public key</div>
-      <input type="text" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="${sbCfg.anonKey}" style="font-size:0.72rem">
-      <div class="label" style="margin-top:8px">동기화 키 (같은 키를 입력한 기기끼리 데이터 공유)</div>
-      <input type="text" id="sync-key" placeholder="예: myband2024" value="${syncKey}" style="max-width:260px">
-      <div class="btn-row" style="margin-top:10px">
-        <button class="btn btn-primary" id="sb-save-btn">저장 및 연결 테스트</button>
-        <button class="btn btn-secondary" id="sb-clear-btn">연동 해제</button>
+      <div class="label">OAuth 클라이언트 ID</div>
+      <input type="text" id="drive-client-id" placeholder="xxxx.apps.googleusercontent.com" value="${driveClientId}">
+      <div id="drive-status" style="font-size:0.82rem;margin:8px 0;color:var(--text2)">
+        ${driveLoggedIn ? '✅ 로그인됨' : '로그인 안 됨'}
       </div>
-      <div id="sb-status" style="font-size:0.82rem;margin-top:8px;color:var(--text2)"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="drive-login-btn">로그인</button>
+        <button class="btn btn-secondary" id="drive-logout-btn">로그아웃</button>
+        <button class="btn btn-secondary" id="drive-sync-btn">지금 동기화</button>
+      </div>
     </div>
 
     <div class="card" style="border-color:var(--danger)">
@@ -409,46 +384,40 @@ create policy "allow_all" on gta_sheets
     geminiStatus.textContent = '키가 삭제됐습니다.';
   });
 
-  // Supabase 설정 저장 + 연결 테스트
-  panel.querySelector('#sb-save-btn').addEventListener('click', async () => {
-    const url = panel.querySelector('#sb-url').value.trim();
-    const anonKey = panel.querySelector('#sb-key').value.trim();
-    const syncKey = panel.querySelector('#sync-key').value.trim();
-    const status = panel.querySelector('#sb-status');
-    if (!url || !anonKey || !syncKey) {
-      status.textContent = '⚠️ URL, Key, 동기화 키를 모두 입력해주세요.'; return;
-    }
-    const { saveConfig, connect, pushAllData, pullAllData, subscribeDataChanges } = await import('./supabase-sync.js');
-    saveConfig(url, anonKey);
-    const s = getSettings(); s.syncKey = syncKey; saveSettings(s);
+  // 구글 드라이브 로그인/로그아웃/동기화
+  panel.querySelector('#drive-login-btn').addEventListener('click', async () => {
+    const clientId = panel.querySelector('#drive-client-id').value.trim();
+    const status = panel.querySelector('#drive-status');
+    if (!clientId) { status.textContent = '⚠️ OAuth 클라이언트 ID를 입력해주세요.'; return; }
+    const { saveClientId, connect, pullAll } = await import('./drive-sync.js');
+    saveClientId(clientId);
     status.textContent = '🔄 연결 중...';
     const res = await connect();
     if (res.ok) {
-      status.textContent = '🔄 데이터 동기화 중...';
-      // 원격 → 로컬 pull (다른 기기 작업 내용 가져오기)
-      await pullAllData();
-      // 로컬 → 원격 push (현재 기기 데이터 올리기)
-      await pushAllData();
-      // 실시간 구독 시작
-      subscribeDataChanges(dataKey => {
-        console.log('실시간 동기화:', dataKey);
-        // 페이지 새로고침 없이 반영이 필요한 경우 이벤트 발생
-        window.dispatchEvent(new CustomEvent('gta-data-synced', { detail: { dataKey } }));
-      });
-      status.textContent = '✅ 연결 성공! 모든 데이터가 실시간으로 동기화됩니다.';
+      await pullAll();
+      status.textContent = '✅ 로그인됨';
     } else {
       status.textContent = `❌ 연결 실패: ${res.error}`;
     }
   });
 
-  panel.querySelector('#sb-clear-btn').addEventListener('click', () => {
-    if (!confirm('Supabase 연동을 해제하시겠습니까?')) return;
-    localStorage.removeItem('gta_supabase_cfg');
-    const s = getSettings(); delete s.syncKey; saveSettings(s);
-    panel.querySelector('#sb-url').value = '';
-    panel.querySelector('#sb-key').value = '';
-    panel.querySelector('#sync-key').value = '';
-    panel.querySelector('#sb-status').textContent = '연동이 해제되었습니다.';
+  panel.querySelector('#drive-logout-btn').addEventListener('click', async () => {
+    const { signOut } = await import('./drive-sync.js');
+    signOut();
+    panel.querySelector('#drive-status').textContent = '로그인 안 됨';
+  });
+
+  panel.querySelector('#drive-sync-btn').addEventListener('click', async () => {
+    const status = panel.querySelector('#drive-status');
+    const { isReady, connect, pushAll, pullAll } = await import('./drive-sync.js');
+    status.textContent = '🔄 동기화 중...';
+    if (!isReady()) {
+      const res = await connect();
+      if (!res.ok) { status.textContent = `❌ 연결 실패: ${res.error}`; return; }
+    }
+    await pullAll();
+    await pushAll();
+    status.textContent = '✅ 동기화 완료';
   });
 
   // 초기화
