@@ -2,15 +2,49 @@
 생성일: 2026-06-23
 배포 URL: https://yamugyclaude.github.io/guitar-theory/
 저장소: https://github.com/yamugyclaude/guitar-theory
-스택: Vanilla JS (ES Modules) · No bundler · GitHub Pages · Supabase
+스택: Vanilla JS (ES Modules) · No bundler · GitHub Pages · Google Drive
 
 ---
 
 ## 반복하면 안 되는 실수
-- localStorage 키 이름 추측 금지 — 반드시 grep으로 확인. 확정 키: `gta_supabase_cfg`, `gta_settings`.syncKey, `gta_gemini_key`, `gta_sheet_meta`, `gta_chart_drafts`, `gta_setlists`
-- `firebase-sync.js` 참조 금지 (폐기 파일)
+- localStorage 키 이름 추측 금지 — 반드시 grep으로 확인. 확정 키: `gta_settings`, `gta_gemini_key`, `gta_sheet_meta`, `gta_chart_drafts`, `gta_setlists`, `gta_drive_logged_in`, `gta_drive_folder_id`
+- `supabase-sync.js` / `firebase-sync.js` 참조 금지 (2026-09-21 삭제됨)
 - 캐시 삭제 안내 시 "사이트 데이터" 체크 경고 필수 — IndexedDB(악보 파일) 유실됨
 - 브랜치: 작업은 `claude/...` 브랜치 → main 머지 → GitHub Pages 자동 배포
+- **동기화 후 화면 갱신 필수** — `pullAll()`은 localStorage만 바꾼다. 갱신하려면 `app.js`의 `refreshCurrentTab()`을 반드시 같이 호출할 것 (2026-09-21 회귀 사고)
+- **악보는 메타데이터와 파일이 따로 논다** — `gta_sheet_meta`(목록)와 IndexedDB(실제 파일)는 별개. 목록만 동기화하고 파일을 빠뜨리면 "악보 없음"이 난다
+- 실패를 `console.warn`으로만 처리 금지 — 사용자가 모른다. `showToast`로 알릴 것
+
+---
+
+## [2026-09-21] 성공
+
+### 작업 내용
+- 사장님 요청: 저장 구조(localStorage + IndexedDB + Supabase)가 복잡하다 → 구글 드라이브 하나로 단순화
+- `supabase-sync.js`, `firebase-sync.js` 삭제 → `drive-sync.js` 신규 (GIS OAuth + Drive REST API v3를 fetch로 직접 호출, gapi 미사용)
+- scope는 `drive.file` (앱이 만들거나 사용자가 피커로 고른 파일만) — 권한 최소화
+- 구글 피커 연동: 드라이브에 올려둔 악보를 **고른 순서대로** 세트리스트에 추가 (사장님 공연 워크플로우)
+- 세트리스트는 기존 `gta_setlists` 구조 재사용 (공연별로 여러 개 저장) — 신규 구조 안 만듦
+- 악보를 열 때 로컬에 없으면 드라이브에서 즉시 받아옴 (`fetchSheetFromDrive`) — 공연 중 안전장치
+
+### 결과
+- 성공: 컴퓨터 → 아이패드 동기화, 악보 다운로드까지 사장님이 실기기로 확인 완료
+- 드라이브 폴더 `기타이론`은 앱이 자동 생성, 사장님이 원하는 위치로 옮겨도 폴더 ID 유지되어 계속 동작
+- 파일명은 곡 제목 + 확장자. 재조회는 이름이 아니라 `appProperties.sheetId`로 하므로 이름 변경에 안 깨짐
+
+### 배운 것 / 반복하면 안 되는 실수
+- **Supabase를 걷어내면서 화면 갱신 기능이 같이 사라진 회귀 발생** — 기능을 제거할 때 그 기능이 제공하던 부수 효과(여기선 `subscribeDataChanges` → UI 갱신)까지 목록으로 확인할 것
+- 새 기기는 localStorage가 비어있어 자동 로그인 조건문을 안 타고 **조용히 옛 데이터를 보여줌** — 신규 기기 진입 경로를 항상 따로 테스트할 것
+- "지금 동기화" 버튼처럼 **경로가 여러 개인 기능은 전부 같은 일을 하는지 확인** — 동기화 경로 3곳 중 1곳만 악보 파일을 빠뜨려 버그가 됨
+- 감사실장이 지적한 `openSheet`의 끊어진 참조(`getFolders`, `renderFolderTree`)는 이번 작업 이전부터 있던 기존 버그였음 — 같이 수정
+
+### 성공 루틴 (재사용 가능한 방법)
+- **브라우저 실행 검증**: `python3 -m http.server 8000` + Playwright(`/opt/node22/lib/node_modules/playwright`)로 탭별 `pageerror` 수집 → 배포 전 JS 에러 0건 확인. OAuth가 필요 없는 범위는 이 방법으로 직접 검증 가능
+- 자격증명(클라이언트 ID·API 키)은 웹에 공개되는 값이라 하드코딩 가능. 단 콘솔에서 origin 제한 필수
+
+### 배포 이력
+- 배포: GitHub Pages (main 자동 배포), 2026-09-21
+- 주요 커밋: `b2b1fc1`(드라이브 전환) → `2cfb7b8`(악보 자동 내려받기)
 
 ---
 
