@@ -134,37 +134,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('hard-refresh-btn').addEventListener('click', hardRefresh);
   document.getElementById('mobile-hard-refresh-btn').addEventListener('click', hardRefresh);
 
-  // Supabase 자동 연결 (기본 설정 내장 — 어느 기기든 자동 연결)
+  // 구글 드라이브 자동 연결 (이전에 로그인한 적 있으면 조용히 재인증 시도)
   {
     try {
-      const { connect, pullAllData, subscribeDataChanges } = await import('./supabase-sync.js');
-      const res = await connect();
-      if (res.ok) {
-        await pullAllData(); // 다른 기기 변경사항 가져오기
-        subscribeDataChanges(dataKey => {
-          window.dispatchEvent(new CustomEvent('gta-data-synced', { detail: { dataKey } }));
-        });
-        // 다른 기기에서 올린 악보 파일 자동 다운로드 (백그라운드, 조용히)
-        import('./sheets.js').then(({ pullMissingSheetFiles }) => {
-          pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
-        });
+      const { connect, isLoggedIn, pullAll } = await import('./drive-sync.js');
+      if (isLoggedIn()) {
+        const res = await connect();
+        if (res.ok) {
+          await pullAll(); // 다른 기기 변경사항 가져오기
+          // 다른 기기에서 올린 악보 파일 자동 다운로드 (백그라운드, 조용히)
+          import('./sheets.js').then(({ pullMissingSheetFiles }) => {
+            pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
+          });
+        }
       }
-    } catch (e) { console.warn('자동 연결 실패:', e.message); }
+    } catch (e) { console.warn('드라이브 자동 연결 실패:', e.message); }
   }
 
   // 첫 탭 렌더
   renderers[1](document.getElementById('tab-1'));
 
-  // localStorage 변경 감지 → Supabase 자동 push
-  const { DATA_KEYS } = await import('./supabase-sync.js');
+  // localStorage 변경 감지 → 드라이브 자동 push (2초 디바운스)
+  const { DATA_KEYS } = await import('./drive-sync.js');
+  let _pushTimer = null;
   const _origSetItem = localStorage.setItem.bind(localStorage);
   localStorage.setItem = function(key, value) {
     _origSetItem(key, value);
     // 원격에서 받은 데이터를 적는 중이면 push 생략 (에코 루프 방지)
     if (DATA_KEYS.includes(key) && !window.__gtaApplyingRemote) {
-      import('./supabase-sync.js').then(({ isReady, pushData }) => {
-        if (isReady()) pushData(key);
-      });
+      clearTimeout(_pushTimer);
+      _pushTimer = setTimeout(() => {
+        import('./drive-sync.js').then(({ isReady, pushAll }) => {
+          if (isReady()) pushAll().catch(async e => {
+            const { showToast } = await import('./chart.js');
+            showToast('⚠️ 드라이브 저장 실패 — 기기에만 저장됨');
+            console.error('드라이브 저장 실패:', e.message);
+          });
+        });
+      }, 2000);
     }
   };
 });

@@ -1,5 +1,6 @@
 import { goTo } from './app.js';
 import { saveSheet, getAllSheets, deleteSheet, getSheet, updateSheet } from './db.js';
+import { showToast } from './chart.js';
 
 function uuid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36); }
 
@@ -98,6 +99,7 @@ export async function render(panel) {
       <h1 class="page-title" style="margin-bottom:0;border-bottom:none;padding-bottom:0">📂 악보 보관함</h1>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn btn-secondary" id="sync-btn" style="font-size:0.78rem;padding:6px 10px" title="클라우드 동기화">☁️</button>
+        <button class="btn btn-secondary" id="drive-import-btn" style="font-size:0.8rem;padding:6px 10px" title="드라이브에서 악보 가져오기">📥</button>
         <button class="btn btn-primary" id="upload-fab" style="font-size:0.8rem;padding:6px 14px">＋ 업로드</button>
       </div>
     </div>
@@ -181,6 +183,7 @@ export async function render(panel) {
   panel.querySelector('#upload-btn').addEventListener('click', () => uploadSheet(panel));
   panel.querySelector('#search-input').addEventListener('input', e => filterList(panel, e.target.value));
   panel.querySelector('#sync-btn').addEventListener('click', () => syncFromCloud(panel));
+  panel.querySelector('#drive-import-btn').addEventListener('click', () => importFromDrive(panel));
 }
 
 function renderFolderChips(panel) {
@@ -361,11 +364,11 @@ async function uploadSheet(panel) {
   const commonTags   = panel.querySelector('#meta-tags').value.split(',').map(t => t.trim()).filter(Boolean);
   const commonFolder = panel.querySelector('#meta-folder').value;
 
-  const { isReady, connect, pushSheet: fbPush } = await import('./supabase-sync.js');
-  let fbReady = isReady();
-  if (!fbReady) {
+  const { isReady, connect, pushSheetFile: driveUpload } = await import('./drive-sync.js');
+  let driveReady = isReady();
+  if (!driveReady) {
     const res = await connect();
-    fbReady = res.ok;
+    driveReady = res.ok;
   }
 
   for (let fi = 0; fi < files.length; fi++) {
@@ -403,12 +406,12 @@ async function uploadSheet(panel) {
       ensureInFolder({ id, title, type: type === 'pdf' ? 'pdf' : 'image' });
     }
 
-    // Supabase 동기화
-    if (fbReady) {
+    // 구글 드라이브 동기화
+    if (driveReady) {
       try {
         btn.textContent = `☁️ 업로드 중... (${fi + 1}/${files.length})`;
-        await fbPush(id, file, pages || [], metaItem);
-      } catch (e) { console.warn('Supabase push failed:', e); }
+        await driveUpload(id, file, metaItem);
+      } catch (e) { console.warn('Drive push failed:', e); }
     }
   }
 
@@ -518,8 +521,6 @@ function filterList(panel, query) {
       for (const item of trashItems) {
         if (item.itemType === 'sheet') {
           await deleteSheet(item.id);
-          const { isReady, removeSheet } = await import('./supabase-sync.js');
-          if (isReady()) removeSheet(item.id).catch(() => {});
         }
       }
       setMeta(allMeta.filter(m => !m.deleted));
@@ -574,8 +575,6 @@ function filterList(panel, query) {
         } else {
           await deleteSheet(item.id);
           setMeta(getMeta().filter(x => x.id !== item.id));
-          const { isReady, removeSheet } = await import('./supabase-sync.js');
-          if (isReady()) removeSheet(item.id).catch(() => {});
         }
         const fs = getSetlistFolders();
         fs.forEach(f => { f.songs = (f.songs||[]).filter(s => s.id !== item.id); });
@@ -822,8 +821,6 @@ async function deleteSheetItem(id, panel) {
   await deleteSheet(id);
   setMeta(getMeta().filter(m => m.id !== id));
   loadList(panel);
-  const { isReady, removeSheet: fbRemove } = await import('./supabase-sync.js');
-  if (isReady()) fbRemove(id).catch(() => {});
 }
 
 // ===== 이미지/PDF → 단일 PDF 변환 =====
@@ -990,9 +987,6 @@ async function openSheet(panel, id) {
     setMeta(getMeta().filter(m => m.id !== id));
     viewer.innerHTML = '';
     loadList(panel);
-    // Supabase에서도 삭제
-    const { isReady, removeSheet: fbRemove } = await import('./supabase-sync.js');
-    if (isReady()) fbRemove(id).catch(() => {});
   });
 
   viewer.querySelector('#move-folder-btn')?.addEventListener('click', () => {
@@ -1189,10 +1183,47 @@ function saveLiveChart(meta, sections) {
   ensureInFolder({ id: draft.id, title: draft.title, type: 'chart' });
 }
 
+// 구글 피커로 고른 악보를 고른 순서대로 현재 폴더에 추가한다
+async function importFromDrive(panel) {
+  if (!activeFolder || activeFolder === 'trash') {
+    showToast('먼저 폴더를 선택한 뒤 가져와주세요.');
+    return;
+  }
+  const { pickFiles, downloadFile } = await import('./drive-sync.js');
+  let docs;
+  try { docs = await pickFiles(); }
+  catch (e) { showToast(`드라이브 연결 실패: ${e.message}`); return; }
+  if (!docs.length) return;
+
+  for (const doc of docs) {
+    try {
+      const blob = await downloadFile(doc.id);
+      const file = new File([blob], doc.name, { type: doc.mimeType });
+      const id = uuid();
+      const type = doc.mimeType === 'application/pdf' ? 'pdf' : 'image';
+      const thumbnail = type === 'image' ? await fileToDataURL(file) : await pdfThumbnail(file);
+      await saveSheet({ id, file, type, thumbnail, createdAt: Date.now() });
+      if (type === 'pdf') {
+        const pages = await prerenderPdfPages(file);
+        if (pages?.length) await updateSheet(id, { pages });
+      }
+      const title = doc.name.replace(/\.[^.]+$/, '');
+      const meta = getMeta();
+      meta.unshift({ id, title, artist: '', key: '', bpm: '', tags: [], type, createdAt: Date.now(), driveFileId: doc.id });
+      setMeta(meta);
+      addItemToFolder(activeFolder, { id, title, type });
+    } catch (e) { showToast(`"${doc.name}" 가져오기 실패: ${e.message}`); }
+  }
+
+  loadList(panel);
+  renderFolderChips(panel);
+  showToast('드라이브에서 악보를 가져왔습니다.');
+}
+
 // ===== 클라우드 동기화 =====
 // 원격에만 있고 로컬에는 없는 악보 파일을 내려받는다 (수동/자동 공용 핵심 로직)
 export async function pullMissingSheetFiles(onProgress) {
-  const { isReady, connect, pullAll, fetchBlob } = await import('./supabase-sync.js');
+  const { isReady, connect, listSheetFiles, pullSheetFile, downloadFile } = await import('./drive-sync.js');
   let ready = isReady();
   if (!ready) {
     const res = await connect();
@@ -1200,34 +1231,36 @@ export async function pullMissingSheetFiles(onProgress) {
     ready = true;
   }
 
-  const remoteList = await pullAll();
-  if (!remoteList) throw new Error('원격 데이터를 가져올 수 없습니다.');
-
+  // gta_sheet_meta는 drive-sync의 pullAll()이 이미 로컬에 반영해둔 상태 (app.js에서 먼저 호출)
   const localMeta = getMeta();
-  const localIds = new Set(localMeta.map(m => m.id));
-  const toDownload = remoteList.filter(r => !localIds.has(r.id));
+  const metaById = new Map(localMeta.map(m => [m.id, m]));
+  const existingIds = new Set((await getAllSheets()).map(s => s.id));
+
+  // 앱 자체 업로드분: '기타이론' 폴더 안에서 이름으로 찾는다
+  const remoteFiles = await listSheetFiles();
+  const ownToDownload = remoteFiles
+    .filter(r => metaById.has(r.id) && !existingIds.has(r.id) && !metaById.get(r.id).driveFileId)
+    .map(r => ({ id: r.id }));
+  // 피커로 가져온 파일: driveFileId로 직접 내려받는다 (앱 폴더 밖에 있을 수 있음)
+  const pickedToDownload = localMeta
+    .filter(m => m.driveFileId && !existingIds.has(m.id))
+    .map(m => ({ id: m.id, driveFileId: m.driveFileId }));
+  const toDownload = [...ownToDownload, ...pickedToDownload];
 
   let downloaded = 0;
   for (let i = 0; i < toDownload.length; i++) {
     const remote = toDownload[i];
     onProgress?.(i + 1, toDownload.length);
     try {
-      const mime = remote.type === 'pdf' ? 'application/pdf' : 'image/jpeg';
-      const fileBlob = await fetchBlob(remote.fileUrl, mime);
-
-      const pages = [];
-      for (const pUrl of (remote.pagesUrls || [])) {
-        pages.push(await fetchBlob(pUrl, 'image/jpeg'));
-      }
-
-      await saveSheet({ id: remote.id, file: fileBlob, type: remote.type, thumbnail: null, createdAt: remote.createdAt, ...(pages.length ? { pages } : {}) });
-      localMeta.unshift({ id: remote.id, title: remote.title, artist: remote.artist, key: remote.key, bpm: remote.bpm, tags: remote.tags || [], folder: remote.folder || '', type: remote.type, createdAt: remote.createdAt });
+      const fileBlob = remote.driveFileId ? await downloadFile(remote.driveFileId) : await pullSheetFile(remote.id);
+      if (!fileBlob) continue;
+      const meta = metaById.get(remote.id);
+      await saveSheet({ id: remote.id, file: fileBlob, type: meta.type, thumbnail: null, createdAt: meta.createdAt });
       downloaded++;
     } catch (e) { console.warn('download failed:', remote.id, e); }
   }
 
-  setMeta(localMeta);
-  return { downloaded, total: remoteList.length, alreadyHave: localIds.size };
+  return { downloaded, total: toDownload.length, alreadyHave: existingIds.size };
 }
 
 async function syncFromCloud(panel) {
