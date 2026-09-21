@@ -105,7 +105,7 @@ function showDriveLoginBanner() {
       await pullAll();
       refreshCurrentTab(); // 받아온 데이터로 현재 탭 다시 그리기
       import('./sheets.js').then(({ pullMissingSheetFiles }) => {
-        pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
+        pullMissingSheetFiles().catch(e => { console.warn('악보 자동 동기화 실패:', e.message); import('./chart.js').then(({ showToast }) => showToast('악보 자동 동기화 실패: ' + e.message)); });
       });
       bar.remove();
     } else {
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           await pullAll(); // 다른 기기 변경사항 가져오기
           // 다른 기기에서 올린 악보 파일 자동 다운로드 (백그라운드, 조용히)
           import('./sheets.js').then(({ pullMissingSheetFiles }) => {
-            pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
+            pullMissingSheetFiles().catch(e => { console.warn('악보 자동 동기화 실패:', e.message); import('./chart.js').then(({ showToast }) => showToast('악보 자동 동기화 실패: ' + e.message)); });
           });
         }
       } else {

@@ -1,5 +1,13 @@
 import { getSheet } from './db.js';
 import { buildChartHtml } from './chart.js';
+import { fetchSheetFromDrive } from './sheets.js';
+
+// 로컬에 없으면 드라이브에서 받아온다 (공연 중 "악보 없음" 방지)
+async function getSheetOrFetch(id) {
+  const local = await getSheet(id);
+  if (local) return local;
+  return fetchSheetFromDrive(id);
+}
 
 // ── 데이터 구조 ─────────────────────────────────────────────────────
 // gta_setlists: [{id, name, songs:[{title,type,id}]}]
@@ -279,7 +287,7 @@ async function openItem(panel, item) {
       card.innerHTML = buildChartHtml(draft, { fontSize: '1rem', showBarNumbers: true });
       viewer.innerHTML = ''; viewer.appendChild(card);
     } else {
-      const record = await getSheet(item.id);
+      const record = await getSheetOrFetch(item.id);
       if (!record) { viewer.innerHTML = '<div class="empty-state card">악보를 찾을 수 없습니다.</div>'; return; }
       viewer.innerHTML = `<div class="card" style="margin-top:12px">
         <div style="font-weight:700;margin-bottom:8px">${esc(item.title)}</div>
@@ -473,7 +481,7 @@ async function startFullscreen(songs, startIdx = 0) {
         else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
       } else {
         content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
-        const record = await getSheet(item.id);
+        const record = await getSheetOrFetch(item.id);
         if (!record) { content.innerHTML = '<div class="empty-state">악보를 찾을 수 없습니다.</div>'; return; }
         await new Promise(r => requestAnimationFrame(r));
         const result = await renderContent(content, record, currentPage, pagesPerView);
@@ -493,7 +501,7 @@ async function startFullscreen(songs, startIdx = 0) {
     currentPage = next;
     const item = songs[currentIdx];
     if (!item || item.type === 'chart') return;
-    const record = await getSheet(item.id);
+    const record = await getSheetOrFetch(item.id).catch(() => null);
     if (record) { const r = await renderContent(content, record, currentPage, pagesPerView); totalPages = r?.totalPages || totalPages; applyZoom(); }
     updatePageBtns(); content.scrollTop = 0;
   }

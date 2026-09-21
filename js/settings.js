@@ -412,6 +412,17 @@ export function render(panel) {
     }
     await pullAll();
     await pushAll();
+    status.textContent = '🔄 악보 파일 확인 중...';
+    const { pullMissingSheetFiles } = await import('./sheets.js');
+    try {
+      await pullMissingSheetFiles((done, total) => {
+        status.textContent = `🔄 악보 파일 받는 중 (${done}/${total})...`;
+      });
+    } catch (e) {
+      status.textContent = `⚠️ 악보 파일 동기화 실패: ${e.message}`;
+      refreshCurrentTab();
+      return;
+    }
     refreshCurrentTab(); // 받아온 데이터로 설정 탭 다시 그리기
   });
 

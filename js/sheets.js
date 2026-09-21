@@ -925,8 +925,19 @@ function addPdfToLive(pdfBlob, title, sourceId) {
 
 async function openSheet(panel, id) {
   const meta = getMeta().find(m => m.id === id);
-  const record = await getSheet(id);
-  if (!record) return;
+  let record = await getSheet(id);
+  if (!record) {
+    const viewer0 = panel.querySelector('#sheet-viewer');
+    viewer0.innerHTML = '<div class="empty-state card">☁️ 악보를 받아오는 중...</div>';
+    try {
+      record = await fetchSheetFromDrive(id);
+    } catch (e) {
+      viewer0.innerHTML = `<div class="empty-state card">❌ ${e.message}</div>`;
+      showToast(e.message);
+      return;
+    }
+    if (!record) { viewer0.innerHTML = '<div class="empty-state card">악보를 찾을 수 없습니다.</div>'; return; }
+  }
 
   const url = URL.createObjectURL(record.file);
 
@@ -1217,6 +1228,23 @@ async function importFromDrive(panel) {
   loadList(panel);
   renderFolderChips(panel);
   showToast('드라이브에서 악보를 가져왔습니다.');
+}
+
+// 로컬(IndexedDB)에 없는 악보 파일을 여는 시점에 드라이브에서 즉시 받아온다 (공연 중 "악보 없음" 방지)
+export async function fetchSheetFromDrive(id) {
+  const meta = getMeta().find(m => m.id === id);
+  if (!meta) return null;
+  const { isLoggedIn, isReady, connect, downloadFile, pullSheetFile } = await import('./drive-sync.js');
+  if (!isLoggedIn()) throw new Error('드라이브 로그인이 필요합니다');
+  if (!isReady()) {
+    const res = await connect();
+    if (!res.ok) throw new Error('드라이브 로그인이 필요합니다');
+  }
+  const fileBlob = meta.driveFileId ? await downloadFile(meta.driveFileId) : await pullSheetFile(id);
+  if (!fileBlob) return null;
+  const record = { id, file: fileBlob, type: meta.type, thumbnail: null, createdAt: meta.createdAt };
+  await saveSheet(record);
+  return record;
 }
 
 // ===== 클라우드 동기화 =====
