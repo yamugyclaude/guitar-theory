@@ -1,4 +1,5 @@
 import { getAllSheets, saveSheet } from './db.js';
+import { refreshCurrentTab } from './app.js';
 
 function getSettings() { return JSON.parse(localStorage.getItem('gta_settings') || '{}'); }
 function saveSettings(s) { localStorage.setItem('gta_settings', JSON.stringify(s)); }
@@ -389,7 +390,7 @@ export function render(panel) {
     const res = await connect();
     if (res.ok) {
       await pullAll();
-      status.textContent = '✅ 로그인됨';
+      refreshCurrentTab(); // 받아온 데이터로 설정 탭 다시 그리기 (로그인 상태 표시도 함께 갱신됨)
     } else {
       status.textContent = `❌ 연결 실패: ${res.error}`;
     }
@@ -411,7 +412,7 @@ export function render(panel) {
     }
     await pullAll();
     await pushAll();
-    status.textContent = '✅ 동기화 완료';
+    refreshCurrentTab(); // 받아온 데이터로 설정 탭 다시 그리기
   });
 
   // 초기화

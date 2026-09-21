@@ -48,6 +48,12 @@ export function goTo(tab, payload = null) {
   switchTab(tab);
 }
 
+// 드라이브에서 새 데이터를 받아온 뒤 현재 보고 있는 탭을 다시 그린다
+// (설정 탭 로그인/동기화 버튼, app.js 배너 로그인 버튼에서 공용으로 호출)
+export function refreshCurrentTab() {
+  renderers[activeTab](document.getElementById(`tab-${activeTab}`));
+}
+
 function switchTab(tab) {
   // 재생 중인 사운드 정지
   import('./audio.js').then(a => a.stopAll()).catch(() => {});
@@ -97,6 +103,7 @@ function showDriveLoginBanner() {
     const res = await connect();
     if (res.ok) {
       await pullAll();
+      refreshCurrentTab(); // 받아온 데이터로 현재 탭 다시 그리기
       import('./sheets.js').then(({ pullMissingSheetFiles }) => {
         pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
       });
