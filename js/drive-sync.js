@@ -2,9 +2,10 @@
 // Google Identity Services로 OAuth 토큰을 받고, Drive REST API v3를 fetch로 직접 호출한다.
 // scope: drive.file (앱이 만든 파일만 접근 — 사용자가 드라이브에서 직접 확인/백업 가능)
 
-const CLIENT_ID = '';
+const CLIENT_ID = '720647521956-qveh2b5703c7fphf9g8l5uct6mc9v454.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyA41VqbAlZ1UmmN9RjJkeqBvj5HPz9MV4o';
+const APP_ID = '720647521956';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const ROOT_FOLDER_NAME = '잭슨자료';
 const FOLDER_NAME = '기타이론';
 const DATA_FILE_NAME = 'guitar-theory-data.json';
 
@@ -16,13 +17,6 @@ let _token = null;       // 메모리 보관 (새로고침 시 소멸 → 자동
 let _tokenClient = null;
 let _folderId = null;
 let _dataFileId = null;
-
-export function getClientId() {
-  return CLIENT_ID || localStorage.getItem('gta_drive_client_id') || '';
-}
-export function saveClientId(id) {
-  localStorage.setItem('gta_drive_client_id', id);
-}
 
 export function isReady() { return !!_token; }
 export function isLoggedIn() { return localStorage.getItem('gta_drive_logged_in') === '1'; }
@@ -52,17 +46,14 @@ function requestToken(prompt) {
 
 // 로그인 (버튼 클릭 등 사용자 동작에서 호출) — prompt로 계정 선택창 표시
 export async function connect() {
-  const clientId = getClientId();
-  if (!clientId) return { ok: false, error: 'OAuth 클라이언트 ID를 먼저 입력해주세요.' };
   try {
     await loadGis();
-    if (!_tokenClient || _tokenClient.__clientId !== clientId) {
+    if (!_tokenClient) {
       _tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
+        client_id: CLIENT_ID,
         scope: SCOPE,
         callback: () => {},
       });
-      _tokenClient.__clientId = clientId;
     }
     const wasLoggedIn = isLoggedIn();
     await requestToken(wasLoggedIn ? '' : 'consent');
@@ -114,13 +105,13 @@ async function findOrCreateFolder(name, parentId) {
   return (await createRes.json()).id;
 }
 
-// 방(프로젝트)별 자료를 '잭슨자료' 아래 한곳에 모아 관리한다
+// 루트에 '기타이론' 폴더를 만든다. 사장님이 드라이브에서 원하는 위치로 옮겨도
+// 폴더 ID는 그대로라 계속 동작한다.
 async function ensureFolder() {
   const cached = localStorage.getItem('gta_drive_folder_id');
   if (cached) { _folderId = cached; return _folderId; }
 
-  const rootId = await findOrCreateFolder(ROOT_FOLDER_NAME, null);
-  _folderId = await findOrCreateFolder(FOLDER_NAME, rootId);
+  _folderId = await findOrCreateFolder(FOLDER_NAME, null);
   localStorage.setItem('gta_drive_folder_id', _folderId);
   return _folderId;
 }
@@ -229,4 +220,53 @@ export async function listSheetFiles() {
   const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
   const { files } = await res.json();
   return (files || []).map(f => ({ id: f.name.replace(/^sheet-/, ''), driveId: f.id }));
+}
+
+// ── 구글 피커 (사장님이 직접 올려둔 임의 위치의 악보를 순서대로 고르기) ──
+function loadPicker() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.picker) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://apis.google.com/js/api.js';
+    s.onload = () => window.gapi.load('picker', { callback: resolve });
+    s.onerror = () => reject(new Error('Google Picker 로드 실패'));
+    document.head.appendChild(s);
+  });
+}
+
+// 사용자가 고른 순서대로 { id, name, mimeType } 배열을 반환 (취소 시 빈 배열)
+export async function pickFiles() {
+  if (!_token) {
+    const res = await connect();
+    if (!res.ok) throw new Error(res.error);
+  }
+  await loadPicker();
+  return new Promise((resolve, reject) => {
+    try {
+      const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setMimeTypes('application/pdf,image/png,image/jpeg')
+        .setSelectFolderEnabled(false);
+      const picker = new google.picker.PickerBuilder()
+        .setAppId(APP_ID)
+        .setOAuthToken(_token)
+        .setDeveloperKey(API_KEY)
+        .addView(view)
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+        .setCallback(data => {
+          if (data.action === google.picker.Action.PICKED) {
+            resolve(data.docs.map(d => ({ id: d.id, name: d.name, mimeType: d.mimeType })));
+          } else if (data.action === google.picker.Action.CANCEL) {
+            resolve([]);
+          }
+        })
+        .build();
+      picker.setVisible(true);
+    } catch (e) { reject(e); }
+  });
+}
+
+// 피커로 고른(=drive.file 접근권 부여된) 파일을 드라이브 파일 ID로 직접 내려받는다
+export async function downloadFile(driveId) {
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveId}?alt=media`);
+  return res.blob();
 }

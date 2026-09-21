@@ -69,7 +69,6 @@ export function render(panel) {
   const curTheme = s.theme || 'dark-pro';
   const curSize = s.fontSize || 16;
   const curLeft = s.leftHanded || false;
-  const driveClientId = localStorage.getItem('gta_drive_client_id') || '';
   const driveLoggedIn = localStorage.getItem('gta_drive_logged_in') === '1';
 
   panel.innerHTML = `
@@ -201,8 +200,6 @@ export function render(panel) {
       <p style="font-size:0.82rem;color:var(--text2);margin:8px 0 4px">
         내 드라이브의 "기타이론" 폴더에 저장됩니다. 아무 기기에서나 로그인하면 불러올 수 있습니다.
       </p>
-      <div class="label">OAuth 클라이언트 ID</div>
-      <input type="text" id="drive-client-id" placeholder="xxxx.apps.googleusercontent.com" value="${driveClientId}">
       <div id="drive-status" style="font-size:0.82rem;margin:8px 0;color:var(--text2)">
         ${driveLoggedIn ? '✅ 로그인됨' : '로그인 안 됨'}
       </div>
@@ -386,11 +383,8 @@ export function render(panel) {
 
   // 구글 드라이브 로그인/로그아웃/동기화
   panel.querySelector('#drive-login-btn').addEventListener('click', async () => {
-    const clientId = panel.querySelector('#drive-client-id').value.trim();
     const status = panel.querySelector('#drive-status');
-    if (!clientId) { status.textContent = '⚠️ OAuth 클라이언트 ID를 입력해주세요.'; return; }
-    const { saveClientId, connect, pullAll } = await import('./drive-sync.js');
-    saveClientId(clientId);
+    const { connect, pullAll } = await import('./drive-sync.js');
     status.textContent = '🔄 연결 중...';
     const res = await connect();
     if (res.ok) {
