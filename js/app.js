@@ -82,6 +82,32 @@ function goHome() {
   document.body.classList.remove('mobile-tab-open');
 }
 
+// 새 기기에서 드라이브 로그인 이력이 없을 때 띄우는 배너 — 팝업 차단 때문에 자동 로그인이 안 되므로
+// 사장님이 직접 버튼을 눌러야 한다 (토스트는 금방 사라져 놓치기 쉬워서 배너로 계속 노출)
+function showDriveLoginBanner() {
+  if (document.getElementById('drive-login-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'drive-login-banner';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:center;gap:10px;padding:8px;background:var(--accent,#d9822b);color:#fff;font-size:0.85rem';
+  bar.innerHTML = `<span>이 기기는 구글 드라이브에 로그인되어 있지 않아 최신 데이터가 아닐 수 있습니다.</span>
+    <button id="drive-login-banner-btn" class="btn btn-primary" style="padding:2px 10px">로그인</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('#drive-login-banner-btn').addEventListener('click', async () => {
+    const { connect, pullAll } = await import('./drive-sync.js');
+    const res = await connect();
+    if (res.ok) {
+      await pullAll();
+      import('./sheets.js').then(({ pullMissingSheetFiles }) => {
+        pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
+      });
+      bar.remove();
+    } else {
+      const { showToast } = await import('./chart.js');
+      showToast('드라이브 로그인 실패: ' + res.error);
+    }
+  });
+}
+
 // ===== 초기화 =====
 document.addEventListener('DOMContentLoaded', async () => {
   // 탭 버튼 이벤트
@@ -147,6 +173,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             pullMissingSheetFiles().catch(e => console.warn('악보 자동 동기화 실패:', e.message));
           });
         }
+      } else {
+        // 이 기기에서 드라이브 로그인 이력이 없음 — 브라우저가 자동 팝업을 막으므로
+        // 로그인 버튼이 있는 배너를 눈에 띄게 띄워서 사장님이 직접 누르게 한다.
+        showDriveLoginBanner();
       }
     } catch (e) { console.warn('드라이브 자동 연결 실패:', e.message); }
   }

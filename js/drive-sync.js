@@ -139,6 +139,24 @@ async function findFileByName(name) {
   return files?.[0] || null;
 }
 
+// appProperties(sheetId)로 찾는다 — 파일 이름이 곡 제목으로 바뀌어도, 사장님이 이름을 바꿔도 안 깨진다.
+async function findFileBySheetId(id) {
+  const q = encodeURIComponent(`appProperties has { key='sheetId' and value='${id}' } and '${_folderId}' in parents and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const { files } = await res.json();
+  return files?.[0] || null;
+}
+
+// 파일 확장자를 원본 파일명/타입에서 뽑는다 (드라이브 미리보기가 확장자에 의존함)
+function extOf(file) {
+  const fromName = /\.[^.]+$/.exec(file?.name || '')?.[0];
+  if (fromName) return fromName;
+  if (file?.type === 'application/pdf') return '.pdf';
+  if (file?.type === 'image/png') return '.png';
+  if (file?.type === 'image/jpeg') return '.jpg';
+  return '';
+}
+
 async function uploadJson(fileId, name, data) {
   const metadata = { name, parents: fileId ? undefined : [_folderId] };
   const boundary = 'gta-boundary';
@@ -198,8 +216,8 @@ export async function pullAll() {
 }
 
 // ── 악보 원본 파일 ──
-async function uploadBinary(fileId, name, blob) {
-  const metadata = { name, parents: fileId ? undefined : [_folderId] };
+async function uploadBinary(fileId, name, blob, appProperties) {
+  const metadata = { name, parents: fileId ? undefined : [_folderId], appProperties };
   const url = fileId
     ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
     : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
@@ -217,14 +235,15 @@ async function uploadBinary(fileId, name, blob) {
 
 export async function pushSheetFile(id, file, meta) {
   await ensureFolder();
-  const name = `sheet-${id}`;
-  const existing = await findFileByName(name);
-  await uploadBinary(existing?.id || null, name, file);
+  const name = (meta?.title || `sheet-${id}`) + extOf(file);
+  // appProperties(sheetId)로 찾는게 기본, 옛 sheet-<uuid> 이름 파일은 이름으로 폴백
+  const existing = await findFileBySheetId(id) || await findFileByName(`sheet-${id}`);
+  await uploadBinary(existing?.id || null, name, file, { sheetId: id });
 }
 
 export async function pullSheetFile(id) {
   await ensureFolder();
-  const existing = await findFileByName(`sheet-${id}`);
+  const existing = await findFileBySheetId(id) || await findFileByName(`sheet-${id}`);
   if (!existing) return null;
   const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${existing.id}?alt=media`);
   return res.blob();
@@ -232,10 +251,21 @@ export async function pullSheetFile(id) {
 
 export async function listSheetFiles() {
   await ensureFolder();
-  const q = encodeURIComponent(`name contains 'sheet-' and '${_folderId}' in parents and trashed=false`);
-  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const q = encodeURIComponent(`appProperties has { key='sheetId' } and '${_folderId}' in parents and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,appProperties)`);
   const { files } = await res.json();
-  return (files || []).map(f => ({ id: f.name.replace(/^sheet-/, ''), driveId: f.id }));
+  const found = new Set();
+  const result = (files || []).map(f => { found.add(f.appProperties.sheetId); return { id: f.appProperties.sheetId, driveId: f.id }; });
+
+  // 옛 sheet-<uuid> 이름 파일 (appProperties 없음) 폴백
+  const legacyQ = encodeURIComponent(`name contains 'sheet-' and '${_folderId}' in parents and trashed=false`);
+  const legacyRes = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${legacyQ}&fields=files(id,name)`);
+  const { files: legacyFiles } = await legacyRes.json();
+  for (const f of legacyFiles || []) {
+    const id = f.name.replace(/^sheet-/, '').replace(/\.[^.]+$/, '');
+    if (!found.has(id)) result.push({ id, driveId: f.id });
+  }
+  return result;
 }
 
 // ── 구글 피커 (사장님이 직접 올려둔 임의 위치의 악보를 순서대로 고르기) ──
