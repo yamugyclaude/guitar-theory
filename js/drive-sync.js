@@ -4,6 +4,7 @@
 
 const CLIENT_ID = '';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const ROOT_FOLDER_NAME = '잭슨자료';
 const FOLDER_NAME = '기타이론';
 const DATA_FILE_NAME = 'guitar-theory-data.json';
 
@@ -96,23 +97,30 @@ async function driveFetch(url, options = {}) {
   return res;
 }
 
+async function findOrCreateFolder(name, parentId) {
+  const parentClause = parentId ? ` and '${parentId}' in parents` : '';
+  const q = encodeURIComponent(`name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parentClause}`);
+  const searchRes = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
+  const { files } = await searchRes.json();
+  if (files?.length) return files[0].id;
+
+  const body = { name, mimeType: 'application/vnd.google-apps.folder' };
+  if (parentId) body.parents = [parentId];
+  const createRes = await driveFetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return (await createRes.json()).id;
+}
+
+// 방(프로젝트)별 자료를 '잭슨자료' 아래 한곳에 모아 관리한다
 async function ensureFolder() {
   const cached = localStorage.getItem('gta_drive_folder_id');
   if (cached) { _folderId = cached; return _folderId; }
 
-  const q = encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const searchRes = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
-  const { files } = await searchRes.json();
-  if (files?.length) {
-    _folderId = files[0].id;
-  } else {
-    const createRes = await driveFetch('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
-    });
-    _folderId = (await createRes.json()).id;
-  }
+  const rootId = await findOrCreateFolder(ROOT_FOLDER_NAME, null);
+  _folderId = await findOrCreateFolder(FOLDER_NAME, rootId);
   localStorage.setItem('gta_drive_folder_id', _folderId);
   return _folderId;
 }
