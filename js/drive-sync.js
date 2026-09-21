@@ -2,6 +2,8 @@
 // Google Identity Services로 OAuth 토큰을 받고, Drive REST API v3를 fetch로 직접 호출한다.
 // scope: drive.file (앱이 만든 파일만 접근 — 사용자가 드라이브에서 직접 확인/백업 가능)
 
+import { showToast } from './chart.js';
+
 const CLIENT_ID = '720647521956-qveh2b5703c7fphf9g8l5uct6mc9v454.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyA41VqbAlZ1UmmN9RjJkeqBvj5HPz9MV4o';
 const APP_ID = '720647521956';
@@ -109,7 +111,19 @@ async function findOrCreateFolder(name, parentId) {
 // 폴더 ID는 그대로라 계속 동작한다.
 async function ensureFolder() {
   const cached = localStorage.getItem('gta_drive_folder_id');
-  if (cached) { _folderId = cached; return _folderId; }
+  if (cached) {
+    // 캐시된 폴더가 삭제/휴지통행 됐을 수 있으니 실제 존재 여부 확인
+    try {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${cached}?fields=id,trashed`);
+      const { trashed } = await res.json();
+      if (trashed) throw new Error('폴더가 휴지통에 있음');
+      _folderId = cached;
+      return _folderId;
+    } catch (e) {
+      localStorage.removeItem('gta_drive_folder_id');
+      showToast('드라이브 폴더를 찾을 수 없어 다시 만듭니다.');
+    }
+  }
 
   _folderId = await findOrCreateFolder(FOLDER_NAME, null);
   localStorage.setItem('gta_drive_folder_id', _folderId);

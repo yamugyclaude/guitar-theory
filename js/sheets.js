@@ -928,7 +928,6 @@ async function openSheet(panel, id) {
   const record = await getSheet(id);
   if (!record) return;
 
-  const folders = getFolders();
   const url = URL.createObjectURL(record.file);
 
   const viewer = panel.querySelector('#sheet-viewer');
@@ -940,7 +939,7 @@ async function openSheet(panel, id) {
           <div style="color:var(--text2);font-size:0.85rem">
             ${[meta.artist, meta.key ? '키: '+meta.key : '', meta.bpm ? meta.bpm+'BPM' : ''].filter(Boolean).join(' · ')}
           </div>
-          ${meta.folder ? `<div style="font-size:0.8rem;color:var(--accent);margin-top:2px">📁 ${meta.folder}</div>` : ''}
+          ${(() => { const f = getSetlistFolders().find(f => f.songs?.find(s => s.id === meta.id)); return f ? `<div style="font-size:0.8rem;color:var(--accent);margin-top:2px">📁 ${f.name}</div>` : ''; })()}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-primary" id="ai-analyze-btn">🤖 AI 자동 분석</button>
@@ -978,7 +977,7 @@ async function openSheet(panel, id) {
   viewer.querySelector('#to-live-btn').addEventListener('click', () => {
     ensureInFolder({ id, title: meta.title, type: meta.type || 'sheet' });
     alert(`"${meta.title}"을 셋리스트 폴더에 추가했습니다.`);
-    renderFolderTree(panel);
+    renderFolderChips(panel);
   });
 
   viewer.querySelector('#delete-btn').addEventListener('click', async () => {
@@ -1002,7 +1001,7 @@ async function openSheet(panel, id) {
       }
     }
     saveSetlistFolders(fs);
-    loadList(panel); renderFolderTree(panel);
+    loadList(panel); renderFolderChips(panel);
     const newFolder = newFolderId ? getSetlistFolders().find(f=>f.id===newFolderId) : null;
     viewer.querySelector('[style*="color:var(--accent)"]')?.remove();
     if (newFolder) {
