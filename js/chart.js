@@ -2033,7 +2033,7 @@ export function buildChartHtml(draft, opts = {}) {
   `;
 }
 
-function showToast(msg) {
+export function showToast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
   t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);

@@ -165,7 +165,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       clearTimeout(_pushTimer);
       _pushTimer = setTimeout(() => {
         import('./drive-sync.js').then(({ isReady, pushAll }) => {
-          if (isReady()) pushAll();
+          if (isReady()) pushAll().catch(async e => {
+            const { showToast } = await import('./chart.js');
+            showToast('⚠️ 드라이브 저장 실패 — 기기에만 저장됨');
+            console.error('드라이브 저장 실패:', e.message);
+          });
         });
       }, 2000);
     }
