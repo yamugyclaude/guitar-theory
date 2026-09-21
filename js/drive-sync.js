@@ -110,6 +110,8 @@ async function findOrCreateFolder(name, parentId) {
 // 루트에 '기타이론' 폴더를 만든다. 사장님이 드라이브에서 원하는 위치로 옮겨도
 // 폴더 ID는 그대로라 계속 동작한다.
 async function ensureFolder() {
+  if (_folderId) return _folderId; // 이번 세션에서 이미 확인함
+
   const cached = localStorage.getItem('gta_drive_folder_id');
   if (cached) {
     // 캐시된 폴더가 삭제/휴지통행 됐을 수 있으니 실제 존재 여부 확인
