@@ -211,4 +211,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }, 2000);
     }
   };
+
+  // 앱이 숨겨지거나 닫힐 때 대기 중인 push를 즉시 실행 (2초 디바운스 중 소실 방지)
+  const flushPendingPush = () => {
+    if (_pushTimer === null) return;
+    clearTimeout(_pushTimer);
+    _pushTimer = null;
+    import('./drive-sync.js').then(({ isReady, pushAll }) => {
+      if (isReady()) pushAll().catch(e => console.error('드라이브 저장 실패:', e.message));
+    });
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingPush();
+  });
+  window.addEventListener('pagehide', flushPendingPush);
 });

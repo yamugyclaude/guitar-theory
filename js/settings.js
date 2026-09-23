@@ -404,7 +404,7 @@ export function render(panel) {
 
   panel.querySelector('#drive-sync-btn').addEventListener('click', async () => {
     const status = panel.querySelector('#drive-status');
-    const { isReady, connect, pushAll, pullAll } = await import('./drive-sync.js');
+    const { isReady, connect, pushAll, pullAll, renameLegacySheetFiles } = await import('./drive-sync.js');
     status.textContent = '🔄 동기화 중...';
     if (!isReady()) {
       const res = await connect();
@@ -412,6 +412,10 @@ export function render(panel) {
     }
     await pullAll();
     await pushAll();
+    status.textContent = '🔄 옛 파일 이름 정리 중...';
+    await renameLegacySheetFiles((done, total) => {
+      if (total) status.textContent = `🔄 파일 이름 정리 중 (${done}/${total})...`;
+    });
     status.textContent = '🔄 악보 파일 확인 중...';
     const { pullMissingSheetFiles } = await import('./sheets.js');
     try {

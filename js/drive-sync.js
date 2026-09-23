@@ -134,7 +134,7 @@ async function ensureFolder() {
 
 async function findFileByName(name) {
   const q = encodeURIComponent(`name='${name}' and '${_folderId}' in parents and trashed=false`);
-  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)`);
   const { files } = await res.json();
   return files?.[0] || null;
 }
@@ -164,18 +164,22 @@ async function uploadJson(fileId, name, data) {
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
     `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${boundary}--`;
   const url = fileId
-    ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
-    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+    ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&fields=id,modifiedTime`
+    : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime`;
   const res = await driveFetch(url, {
     method: fileId ? 'PATCH' : 'POST',
     headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
     body,
   });
-  return (await res.json()).id;
+  return res.json(); // { id, modifiedTime }
 }
 
+// 이 기기가 마지막으로 받아간 데이터 파일의 수정 시각 (덮어쓰기 충돌 감지용)
+const LAST_MODIFIED_KEY = 'gta_drive_last_modified';
+
 // ── 앱 데이터 (localStorage 전체) ──
-export async function pushAll() {
+// force=true면 충돌 확인 없이 무조건 덮어쓴다 (사장님이 "덮어쓰기"를 선택했을 때)
+export async function pushAll({ force = false } = {}) {
   await ensureFolder();
   const data = {};
   for (const k of JSON_DATA_KEYS) {
@@ -190,7 +194,31 @@ export async function pushAll() {
     const existing = await findFileByName(DATA_FILE_NAME);
     _dataFileId = existing?.id || null;
   }
-  _dataFileId = await uploadJson(_dataFileId, DATA_FILE_NAME, data);
+
+  // 다른 기기가 이 기기 모르게 더 최신 데이터를 올려뒀는지 확인 (기존 파일이 있을 때만)
+  if (_dataFileId && !force) {
+    const lastKnown = localStorage.getItem(LAST_MODIFIED_KEY);
+    if (lastKnown) {
+      const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${_dataFileId}?fields=modifiedTime`);
+      const { modifiedTime } = await res.json();
+      if (modifiedTime && modifiedTime !== lastKnown) {
+        const pullInstead = confirm(
+          '드라이브에 이 기기가 아직 받지 않은 최신 데이터가 있습니다.\n' +
+          '확인 = 드라이브 데이터를 받아옵니다 (이 기기의 편집 내용은 버려짐)\n' +
+          '취소 = 이 기기 데이터로 드라이브를 덮어씁니다'
+        );
+        if (pullInstead) {
+          await pullAll();
+          showToast('드라이브 데이터를 받아왔습니다.');
+          return;
+        }
+      }
+    }
+  }
+
+  const uploaded = await uploadJson(_dataFileId, DATA_FILE_NAME, data);
+  _dataFileId = uploaded.id;
+  if (uploaded.modifiedTime) localStorage.setItem(LAST_MODIFIED_KEY, uploaded.modifiedTime);
 }
 
 // 원격 데이터를 로컬에 적용 — 에코 루프 방지 플래그는 app.js의 setItem 패치가 확인
@@ -207,6 +235,7 @@ export async function pullAll() {
   const existing = await findFileByName(DATA_FILE_NAME);
   if (!existing) return null;
   _dataFileId = existing.id;
+  if (existing.modifiedTime) localStorage.setItem(LAST_MODIFIED_KEY, existing.modifiedTime);
   const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${existing.id}?alt=media`);
   const data = await res.json();
   for (const [key, value] of Object.entries(data)) {
@@ -239,6 +268,32 @@ export async function pushSheetFile(id, file, meta) {
   // appProperties(sheetId)로 찾는게 기본, 옛 sheet-<uuid> 이름 파일은 이름으로 폴백
   const existing = await findFileBySheetId(id) || await findFileByName(`sheet-${id}`);
   await uploadBinary(existing?.id || null, name, file, { sheetId: id });
+}
+
+// 옛 sheet-<uuid> 이름으로 남아있는 파일을 곡 제목으로 정리 (메타데이터만 PATCH, 재업로드 없음)
+export async function renameLegacySheetFiles(onProgress) {
+  await ensureFolder();
+  const legacyQ = encodeURIComponent(`name contains 'sheet-' and '${_folderId}' in parents and trashed=false`);
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${legacyQ}&fields=files(id,name,mimeType,appProperties)`);
+  const { files } = await res.json();
+  const legacy = (files || []).filter(f => !f.appProperties?.sheetId);
+  const meta = JSON.parse(localStorage.getItem('gta_sheet_meta') || '[]');
+
+  let done = 0;
+  for (const f of legacy) {
+    onProgress?.(done, legacy.length);
+    const id = f.name.replace(/^sheet-/, '').replace(/\.[^.]+$/, '');
+    const item = meta.find(m => m.id === id);
+    if (!item?.title) { done++; continue; } // 제목 못 찾으면 건드리지 않음
+    const ext = extOf({ name: f.name }) || (f.mimeType === 'application/pdf' ? '.pdf' : f.mimeType === 'image/png' ? '.png' : f.mimeType === 'image/jpeg' ? '.jpg' : '');
+    await driveFetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: item.title + ext, appProperties: { sheetId: id } }),
+    });
+    done++;
+  }
+  onProgress?.(done, legacy.length);
 }
 
 export async function pullSheetFile(id) {
