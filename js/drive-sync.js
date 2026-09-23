@@ -179,7 +179,7 @@ const LAST_MODIFIED_KEY = 'gta_drive_last_modified';
 
 // ── 앱 데이터 (localStorage 전체) ──
 // force=true면 충돌 확인 없이 무조건 덮어쓴다 (사장님이 "덮어쓰기"를 선택했을 때)
-export async function pushAll({ force = false } = {}) {
+export async function pushAll({ force = false, skipOnConflict = false } = {}) {
   await ensureFolder();
   const data = {};
   for (const k of JSON_DATA_KEYS) {
@@ -202,6 +202,7 @@ export async function pushAll({ force = false } = {}) {
       const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${_dataFileId}?fields=modifiedTime`);
       const { modifiedTime } = await res.json();
       if (modifiedTime && modifiedTime !== lastKnown) {
+        if (skipOnConflict) { console.warn('드라이브에 더 최신 데이터가 있어 덮어쓰기를 건너뜀'); return; }
         const pullInstead = confirm(
           '드라이브에 이 기기가 아직 받지 않은 최신 데이터가 있습니다.\n' +
           '확인 = 드라이브 데이터를 받아옵니다 (이 기기의 편집 내용은 버려짐)\n' +

@@ -201,6 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (DATA_KEYS.includes(key) && !window.__gtaApplyingRemote) {
       clearTimeout(_pushTimer);
       _pushTimer = setTimeout(() => {
+        _pushTimer = null;
         import('./drive-sync.js').then(({ isReady, pushAll }) => {
           if (isReady()) pushAll().catch(async e => {
             const { showToast } = await import('./chart.js');
@@ -217,8 +218,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (_pushTimer === null) return;
     clearTimeout(_pushTimer);
     _pushTimer = null;
+    // 닫히는 중엔 브라우저가 confirm을 무시해 "덮어쓰기"로 처리되므로,
+    // 충돌이 있으면 물어보지 말고 건너뛴다 (다른 기기 데이터 보호 우선)
     import('./drive-sync.js').then(({ isReady, pushAll }) => {
-      if (isReady()) pushAll().catch(e => console.error('드라이브 저장 실패:', e.message));
+      if (isReady()) pushAll({ skipOnConflict: true }).catch(e => console.error('드라이브 저장 실패:', e.message));
     });
   };
   document.addEventListener('visibilitychange', () => {
