@@ -12,7 +12,7 @@ const FOLDER_NAME = '기타이론';
 const DATA_FILE_NAME = 'guitar-theory-data.json';
 
 const JSON_DATA_KEYS = ['gta_chart_drafts', 'gta_setlists', 'gta_sheet_meta', 'gta_settings', 'gta_custom_themes'];
-const RAW_DATA_KEYS = ['gta_gemini_key', 'gta_live_zoom', 'gta_live_chordscale', 'gta_live_chordweight'];
+const RAW_DATA_KEYS = ['gta_gemini_key', 'gta_live_zoom', 'gta_live_chordscale', 'gta_live_chordweight', 'gta_live_rotation'];
 export const DATA_KEYS = [...JSON_DATA_KEYS, ...RAW_DATA_KEYS];
 
 let _token = null;       // 메모리 보관 (새로고침 시 소멸 → 자동 재인증)

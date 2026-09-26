@@ -8,6 +8,10 @@ function getMeta() { return JSON.parse(localStorage.getItem('gta_sheet_meta') ||
 function setMeta(data) { localStorage.setItem('gta_sheet_meta', JSON.stringify(data)); }
 function getDrafts() { try { return JSON.parse(localStorage.getItem('gta_chart_drafts') || '[]'); } catch { return []; } }
 
+// 악보 회전 (라이브 모드와 같은 키를 써서 기기 간 동기화됨)
+let sheetRotation = parseInt(localStorage.getItem('gta_live_rotation') || '0', 10);
+function saveSheetRotation(r) { sheetRotation = r; localStorage.setItem('gta_live_rotation', r); }
+
 // ===== 통합 폴더 시스템 (gta_setlists) =====
 // 형식: [{id, name, songs:[{id,title,type:'chart'|'pdf'|'image'}]}]
 function getSetlistFolders() {
@@ -975,12 +979,35 @@ async function openSheet(panel, id) {
         </div>
       ` : ''}
       <hr class="divider">
-      ${record.type === 'image'
-        ? `<img src="${url}" style="max-width:100%;border-radius:var(--radius)">`
-        : `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:var(--radius)"></iframe>`
-      }
+      <div style="display:flex;justify-content:center;margin-bottom:8px">
+        <button class="btn btn-secondary" id="sheet-rotate-btn" style="padding:8px 18px;font-size:1rem">⟳ <span id="sheet-rotate-label">${sheetRotation}°</span></button>
+      </div>
+      <div id="sheet-rot-outer" style="overflow:auto;max-height:75vh">
+        <div id="sheet-rot-box" style="width:100%;transform-origin:center center">
+          ${record.type === 'image'
+            ? `<img src="${url}" style="max-width:100%;border-radius:var(--radius)">`
+            : `<iframe src="${url}" style="width:100%;height:70vh;border:none;border-radius:var(--radius)"></iframe>`
+          }
+        </div>
+      </div>
     </div>
   `;
+
+  const rotBox = viewer.querySelector('#sheet-rot-box');
+  function applySheetRotation() {
+    // top-left 기준으로 회전 + 이동해야 스크롤 영역이 음수 좌표로 밀려나 잘리지 않는다
+    if (sheetRotation === 90) { rotBox.style.transformOrigin = 'top left'; rotBox.style.transform = 'rotate(90deg) translateY(-100%)'; }
+    else if (sheetRotation === 270) { rotBox.style.transformOrigin = 'top left'; rotBox.style.transform = 'rotate(270deg) translateX(-100%)'; }
+    else if (sheetRotation === 180) { rotBox.style.transformOrigin = 'center center'; rotBox.style.transform = 'rotate(180deg)'; }
+    else { rotBox.style.transformOrigin = ''; rotBox.style.transform = ''; }
+  }
+  applySheetRotation();
+  viewer.querySelector('#sheet-rotate-btn').addEventListener('click', () => {
+    const steps = [0, 90, 180, 270];
+    saveSheetRotation(steps[(steps.indexOf(sheetRotation) + 1) % 4]);
+    viewer.querySelector('#sheet-rotate-label').textContent = sheetRotation + '°';
+    applySheetRotation();
+  });
 
   viewer.querySelector('#to-chart-btn').addEventListener('click', () =>
     goTo(7, { title: meta.title, artist: meta.artist, key: meta.key, bpm: meta.bpm }));

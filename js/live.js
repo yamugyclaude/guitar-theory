@@ -68,8 +68,17 @@ let pagesPerView = 1;
 let liveZoom = parseFloat(localStorage.getItem('gta_live_zoom') || '1.0');
 let chordScale = parseFloat(localStorage.getItem('gta_live_chordscale') || '1.0');
 let chordWeight = parseInt(localStorage.getItem('gta_live_chordweight') || '700', 10);
+let liveRotation = parseInt(localStorage.getItem('gta_live_rotation') || '0', 10);
 let _contentEl = null;
 function saveZoom(z) { liveZoom = z; localStorage.setItem('gta_live_zoom', z); }
+function saveRotation(r) { liveRotation = r; localStorage.setItem('gta_live_rotation', r); }
+// 회전(0/90/180/270)된 상태로 화면 밖으로 넘치지 않게, 실제 내용은 rot-box 안에 넣고 그것만 회전시킨다
+function makeRotBox() {
+  const box = document.createElement('div');
+  box.id = 'rot-box';
+  box.style.cssText = 'display:flex;gap:8px;';
+  return box;
+}
 function saveChordScale(v) { chordScale = v; localStorage.setItem('gta_live_chordscale', v); }
 function saveChordWeight(v) { chordWeight = v; localStorage.setItem('gta_live_chordweight', v); }
 function chartFontSize() { return (liveZoom * 16).toFixed(1) + 'px'; }
@@ -348,6 +357,7 @@ async function startFullscreen(songs, startIdx = 0) {
       <button id="zoom-out" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">−</button>
       <span id="zoom-label" style="font-size:0.78rem;color:var(--text2);min-width:44px;text-align:center"></span>
       <button id="zoom-in" class="btn btn-secondary" style="padding:7px 16px;font-size:1.1rem;line-height:1">+</button>
+      <button id="rotate-btn" class="btn btn-secondary" style="padding:7px 14px;font-size:1rem;line-height:1;margin-left:6px">⟳ <span id="rotate-label">0°</span></button>
       <span style="font-size:0.7rem;color:var(--text2);margin-left:6px">코드:</span>
       <button id="chord-out" class="btn btn-secondary" style="padding:7px 12px;font-size:0.95rem;line-height:1">−</button>
       <span id="chord-label" style="font-size:0.78rem;color:var(--text2);min-width:40px;text-align:center"></span>
@@ -383,9 +393,40 @@ async function startFullscreen(songs, startIdx = 0) {
     const item = songs[currentIdx];
     if (item?.type === 'chart') {
       const draft = getDrafts().find(d => d.id === item.id);
-      if (draft) renderChart(content, draft);
+      const box = content.querySelector('#rot-box');
+      if (draft && box) renderChart(box, draft);
     } else applyZoom();
   }
+
+  // 회전: rot-box에만 transform을 걸어 스크롤 컨테이너(content)는 그대로 두고,
+  // 90/270도일 때도 overflow:auto로 스크롤해서 전체를 볼 수 있게 한다
+  const ROTATE_STEPS = [0, 90, 180, 270];
+  function applyRotation() {
+    const box = content.querySelector('#rot-box');
+    if (!box) return;
+    // top-left 기준으로 회전 + 이동해야 스크롤 영역이 음수 좌표로 밀려나 잘리지 않는다
+    if (liveRotation === 90) {
+      box.style.transformOrigin = 'top left';
+      box.style.transform = 'rotate(90deg) translateY(-100%)';
+    } else if (liveRotation === 270) {
+      box.style.transformOrigin = 'top left';
+      box.style.transform = 'rotate(270deg) translateX(-100%)';
+    } else if (liveRotation === 180) {
+      box.style.transformOrigin = 'center center';
+      box.style.transform = 'rotate(180deg)';
+    } else {
+      box.style.transformOrigin = '';
+      box.style.transform = '';
+    }
+  }
+  function updateRotateLabel() { nav.querySelector('#rotate-label').textContent = liveRotation + '°'; }
+  updateRotateLabel();
+  nav.querySelector('#rotate-btn').addEventListener('click', () => {
+    const i = ROTATE_STEPS.indexOf(liveRotation);
+    saveRotation(ROTATE_STEPS[(i + 1) % ROTATE_STEPS.length]);
+    updateRotateLabel();
+    applyRotation();
+  });
 
   // 코드 글자 크기
   const CHORD_STEPS = [0.7,0.8,0.9,1.0,1.1,1.2,1.35,1.5,1.7];
@@ -477,16 +518,23 @@ async function startFullscreen(songs, startIdx = 0) {
         content.style.cssText = 'flex:1;overflow-y:auto;display:block;min-height:0;';
         totalPages = 1;
         const draft = getDrafts().find(d => d.id === item.id);
-        if (draft) renderChart(content, draft);
-        else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
+        if (draft) {
+          const box = makeRotBox();
+          content.innerHTML = ''; content.appendChild(box);
+          renderChart(box, draft);
+          applyRotation();
+        } else content.innerHTML = '<div class="empty-state">차트를 찾을 수 없습니다.</div>';
       } else {
         content.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:8px;gap:8px;min-height:0;';
         const record = await getSheetOrFetch(item.id);
         if (!record) { content.innerHTML = '<div class="empty-state">악보를 찾을 수 없습니다.</div>'; return; }
         await new Promise(r => requestAnimationFrame(r));
-        const result = await renderContent(content, record, currentPage, pagesPerView);
+        const box = makeRotBox();
+        content.innerHTML = ''; content.appendChild(box);
+        const result = await renderContent(box, record, currentPage, pagesPerView);
         totalPages = result?.totalPages || 1;
         applyZoom();
+        applyRotation();
       }
     } catch(e) {
       content.innerHTML = `<div class="empty-state">오류: ${e.message}</div>`;
@@ -502,7 +550,12 @@ async function startFullscreen(songs, startIdx = 0) {
     const item = songs[currentIdx];
     if (!item || item.type === 'chart') return;
     const record = await getSheetOrFetch(item.id).catch(() => null);
-    if (record) { const r = await renderContent(content, record, currentPage, pagesPerView); totalPages = r?.totalPages || totalPages; applyZoom(); }
+    if (record) {
+      const box = content.querySelector('#rot-box') || makeRotBox();
+      if (!box.isConnected) content.appendChild(box);
+      const r = await renderContent(box, record, currentPage, pagesPerView);
+      totalPages = r?.totalPages || totalPages; applyZoom();
+    }
     updatePageBtns(); content.scrollTop = 0;
   }
 
