@@ -98,6 +98,13 @@ function showDriveLoginBanner() {
   bar.innerHTML = `<span>이 기기는 구글 드라이브에 로그인되어 있지 않아 최신 데이터가 아닐 수 있습니다.</span>
     <button id="drive-login-banner-btn" class="btn btn-primary" style="padding:2px 10px">로그인</button>`;
   document.body.appendChild(bar);
+  // 배너가 고정 위치라 본문을 안 밀어내므로, 배너 높이만큼 body에 padding-top을 줘서 내용이 가려지지 않게 함
+  // (줄바꿈으로 높이가 바뀔 수 있어 ResizeObserver로 계속 갱신)
+  const syncPadding = () => { document.body.style.paddingTop = bar.offsetHeight + 'px'; };
+  syncPadding();
+  const ro = new ResizeObserver(syncPadding);
+  ro.observe(bar);
+  bar._cleanup = () => { ro.disconnect(); document.body.style.paddingTop = ''; };
   bar.querySelector('#drive-login-banner-btn').addEventListener('click', async () => {
     const { connect, pullAll } = await import('./drive-sync.js');
     const res = await connect();
@@ -107,6 +114,7 @@ function showDriveLoginBanner() {
       import('./sheets.js').then(({ pullMissingSheetFiles }) => {
         pullMissingSheetFiles().catch(e => { console.warn('악보 자동 동기화 실패:', e.message); import('./chart.js').then(({ showToast }) => showToast('악보 자동 동기화 실패: ' + e.message)); });
       });
+      bar._cleanup();
       bar.remove();
     } else {
       const { showToast } = await import('./chart.js');
