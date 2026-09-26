@@ -297,9 +297,16 @@ export async function renameLegacySheetFiles(onProgress) {
   onProgress?.(done, legacy.length);
 }
 
-export async function pullSheetFile(id) {
+// title은 드라이브에서 이름이 곡 제목으로 바뀐 파일을 찾기 위한 마지막 수단
+export async function pullSheetFile(id, title) {
   await ensureFolder();
-  const existing = await findFileBySheetId(id) || await findFileByName(`sheet-${id}`);
+  let existing = await findFileBySheetId(id) || await findFileByName(`sheet-${id}`);
+  if (!existing && title) {
+    for (const ext of ['.pdf', '.png', '.jpg', '']) {
+      existing = await findFileByName(title + ext);
+      if (existing) break;
+    }
+  }
   if (!existing) return null;
   const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${existing.id}?alt=media`);
   return res.blob();

@@ -1240,7 +1240,7 @@ export async function fetchSheetFromDrive(id) {
     const res = await connect();
     if (!res.ok) throw new Error('드라이브 로그인이 필요합니다');
   }
-  const fileBlob = meta.driveFileId ? await downloadFile(meta.driveFileId) : await pullSheetFile(id);
+  const fileBlob = meta.driveFileId ? await downloadFile(meta.driveFileId) : await pullSheetFile(id, meta.title);
   if (!fileBlob) return null;
   const record = { id, file: fileBlob, type: meta.type, thumbnail: null, createdAt: meta.createdAt };
   await saveSheet(record);
@@ -1250,7 +1250,7 @@ export async function fetchSheetFromDrive(id) {
 // ===== 클라우드 동기화 =====
 // 원격에만 있고 로컬에는 없는 악보 파일을 내려받는다 (수동/자동 공용 핵심 로직)
 export async function pullMissingSheetFiles(onProgress) {
-  const { isReady, connect, listSheetFiles, pullSheetFile, downloadFile } = await import('./drive-sync.js');
+  const { isReady, connect, pullSheetFile, downloadFile } = await import('./drive-sync.js');
   let ready = isReady();
   if (!ready) {
     const res = await connect();
@@ -1263,11 +1263,11 @@ export async function pullMissingSheetFiles(onProgress) {
   const metaById = new Map(localMeta.map(m => [m.id, m]));
   const existingIds = new Set((await getAllSheets()).map(s => s.id));
 
-  // 앱 자체 업로드분: '기타이론' 폴더 안에서 이름으로 찾는다
-  const remoteFiles = await listSheetFiles();
-  const ownToDownload = remoteFiles
-    .filter(r => metaById.has(r.id) && !existingIds.has(r.id) && !metaById.get(r.id).driveFileId)
-    .map(r => ({ id: r.id }));
+  // 앱 자체 업로드분: 로컬 메타 기준으로 빠진 것을 찾는다
+  // (원격 목록 기준으로 하면 드라이브에서 파일 이름이 바뀐 악보가 목록에서 누락된다)
+  const ownToDownload = localMeta
+    .filter(m => !m.driveFileId && !existingIds.has(m.id))
+    .map(m => ({ id: m.id, title: m.title }));
   // 피커로 가져온 파일: driveFileId로 직접 내려받는다 (앱 폴더 밖에 있을 수 있음)
   const pickedToDownload = localMeta
     .filter(m => m.driveFileId && !existingIds.has(m.id))
@@ -1279,7 +1279,7 @@ export async function pullMissingSheetFiles(onProgress) {
     const remote = toDownload[i];
     onProgress?.(i + 1, toDownload.length);
     try {
-      const fileBlob = remote.driveFileId ? await downloadFile(remote.driveFileId) : await pullSheetFile(remote.id);
+      const fileBlob = remote.driveFileId ? await downloadFile(remote.driveFileId) : await pullSheetFile(remote.id, remote.title);
       if (!fileBlob) continue;
       const meta = metaById.get(remote.id);
       await saveSheet({ id: remote.id, file: fileBlob, type: meta.type, thumbnail: null, createdAt: meta.createdAt });
